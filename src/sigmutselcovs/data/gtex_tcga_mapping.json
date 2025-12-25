@@ -1,0 +1,96 @@
+{
+  "COAD": [
+    "Colon_Sigmoid",
+    "Colon_Transverse",
+    "Colon_Transverse_Mucosa",
+    "Colon_Transverse_Muscularis",
+    "Colon_Transverse_Mixed_Cell"
+  ],
+  "READ": [
+    "Colon_Sigmoid",
+    "Colon_Transverse",
+    "Colon_Transverse_Mucosa",
+    "Colon_Transverse_Muscularis",
+    "Colon_Transverse_Mixed_Cell"
+  ],
+  "STAD": [
+    "Stomach",
+    "Stomach_Mucosa",
+    "Stomach_Muscularis",
+    "Stomach_Mixed_Cell"
+  ],
+  "ESCA": [
+    "Esophagus_Mucosa",
+    "Esophagus_Muscularis",
+    "Esophagus_Gastroesophageal_Junction"
+  ],
+  "LIHC": [
+    "Liver",
+    "Liver_Hepatocyte",
+    "Liver_Portal_Tract",
+    "Liver_Mixed_Cell"
+  ],
+  "LUAD": ["Lung"],
+  "LUSC": ["Lung"],
+  "KIRC": ["Kidney_Cortex", "Kidney_Medulla"],
+  "KIRP": ["Kidney_Cortex", "Kidney_Medulla"],
+  "KICH": ["Kidney_Cortex", "Kidney_Medulla"],
+  "BRCA": ["Breast_Mammary_Tissue"],
+  "PRAD": ["Prostate"],
+  "OV": ["Ovary"],
+  "UCEC": ["Uterus"],
+  "UCS": ["Uterus"],
+  "CESC": ["Cervix_Ectocervix", "Cervix_Endocervix"],
+  "BLCA": ["Bladder"],
+  "THCA": ["Thyroid"],
+  "TGCT": ["Testis"],
+  "THYM": ["Spleen", "Whole_Blood"],
+  "SKCM": [
+    "Skin_Sun_Exposed_Lower_leg",
+    "Skin_Not_Sun_Exposed_Suprapubic"
+  ],
+  "SARC": ["Muscle_Skeletal"],
+  "ACC": ["Adrenal_Gland"],
+  "CHOL": ["Liver", "Liver_Portal_Tract"],
+  "PCPG": ["Adrenal_Gland", "Nerve_Tibial"],
+  "DLBC": ["Whole_Blood", "Spleen"],
+  "LAML": ["Whole_Blood"],
+  "HNSC": ["Minor_Salivary_Gland", "Esophagus_Mucosa"],
+  "PAAD": [
+    "Pancreas",
+    "Pancreas_Islets",
+    "Pancreas_Acini",
+    "Pancreas_Mixed_Cell"
+  ],
+  "GBM": [
+    "Brain_Cortex",
+    "Brain_Frontal_Cortex_BA9",
+    "Brain_Cerebellum",
+    "Brain_Cerebellar_Hemisphere",
+    "Brain_Hippocampus",
+    "Brain_Amygdala",
+    "Brain_Putamen_basal_ganglia",
+    "Brain_Caudate_basal_ganglia",
+    "Brain_Nucleus_accumbens_basal_ganglia",
+    "Brain_Substantia_nigra",
+    "Brain_Anterior_cingulate_cortex_BA24",
+    "Brain_Spinal_cord_cervical_c-1",
+    "Brain_Hypothalamus"
+  ],
+  "LGG": [
+    "Brain_Cortex",
+    "Brain_Frontal_Cortex_BA9",
+    "Brain_Cerebellum",
+    "Brain_Cerebellar_Hemisphere",
+    "Brain_Hippocampus",
+    "Brain_Amygdala",
+    "Brain_Putamen_basal_ganglia",
+    "Brain_Caudate_basal_ganglia",
+    "Brain_Nucleus_accumbens_basal_ganglia",
+    "Brain_Substantia_nigra",
+    "Brain_Anterior_cingulate_cortex_BA24",
+    "Brain_Spinal_cord_cervical_c-1",
+    "Brain_Hypothalamus"
+  ]
+}
+
