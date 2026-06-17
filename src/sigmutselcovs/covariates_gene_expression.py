@@ -9,7 +9,7 @@ import pandas as pd
 import logging
 from pathlib import Path
 
-from covariates_utilities import annotate_with_gene_features
+from .covariates_utilities import annotate_with_gene_features
 
 
 logger = logging.getLogger(__name__)

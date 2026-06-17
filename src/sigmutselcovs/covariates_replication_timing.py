@@ -13,12 +13,12 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from covariates_utilities import read_bed_file
+from .covariates_utilities import read_bed_file
 
-from covariates_utilities import annotate_indicator_in_region
-from covariates_utilities import annotate_with_binned_features
+from .covariates_utilities import annotate_indicator_in_region
+from .covariates_utilities import annotate_with_binned_features
 
-from covariates_utilities import load_gene_bodies_from_gtf
+from .covariates_utilities import load_gene_bodies_from_gtf
 
 import logging
 

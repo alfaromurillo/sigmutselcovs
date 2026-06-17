@@ -9,9 +9,9 @@ import pyBigWig
 
 import pandas as pd
 
-from covariates_utilities import load_gene_bodies_from_gtf
-from covariates_utilities import normalize_chromosome_name
-from covariates_utilities import sanitize_feature_label
+from .covariates_utilities import load_gene_bodies_from_gtf
+from .covariates_utilities import normalize_chromosome_name
+from .covariates_utilities import sanitize_feature_label
 
 
 logger = logging.getLogger(__name__)
