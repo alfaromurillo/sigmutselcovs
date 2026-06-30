@@ -255,14 +255,13 @@ def print_info_about_izs(variants_df):
     return genes_with_multi_iz
 
 
-def load_repliseq_mrt_bins(path: str) -> pd.DataFrame:
-    """Load multi-fraction Repli-seq and compute per-bin MRT.
+def load_repliseq_fractions_bins(path: str) -> pd.DataFrame:
+    """Load multi-fraction Repli-seq and return per-bin normalized fractions.
 
-    This reads a *wide, transposed* Repli-seq table, column-normalizes
-    each bin so its S-phase fractions sum to 100 (Zhao et al., 2020),
-    then computes the mean replication time (MRT) as the weighted
-    average over fraction midpoints. Output MRT is on [0, 1] where 0
-    represents the earliest, and the 1 latest.
+    Reads a *wide, transposed* Repli-seq table and column-normalizes
+    each bin so its S-phase fractions sum to 100 (Zhao et al., 2020).
+    Each fraction column is then expressed on a [0, 1] scale (dividing
+    by 100).
 
     Parameters
     ----------
@@ -271,8 +270,63 @@ def load_repliseq_mrt_bins(path: str) -> pd.DataFrame:
         parsing:
 
         - 'Chromosome', 'region_start', 'region_end'
-        - fraction columns (any count ≥1), named here as
-          'fraction_signal_s1'..'fraction_signal_sN'.
+        - fraction columns (any count ≥ 1).
+
+    Returns
+    -------
+    pandas.DataFrame
+        Columns:
+        - 'Chromosome' (str)
+        - 'region_start' (int, 0-based)
+        - 'region_end'   (int, exclusive)
+        - 'rt_s1'..'rt_sN' (float in 0..1; NaN if bin has no signal)
+
+    Notes
+    -----
+    - Each bin's fraction vector F is scaled so sum(F) = 100 before
+      dividing by 100 (per Zhao et al., Genome Biology 2020).
+    - Bins with zero or missing total signal are returned as NaN.
+    - 'rt_s1' is the earliest S-phase fraction; 'rt_sN' is the latest.
+
+    """
+    repli_seq = read_bed_file(path,
+                              feature_name=None,
+                              has_index_col=False,
+                              has_header=False,
+                              file_is_transposed=True)
+
+    n_phases = len(repli_seq.columns) - 3
+    frac_cols = [f"fraction_signal_s{x}" for x in range(1, n_phases + 1)]
+    out_cols = [f"rt_s{x}" for x in range(1, n_phases + 1)]
+    repli_seq.columns = list(repli_seq.columns[:3]) + frac_cols
+
+    num_cols = ["region_start", "region_end"] + frac_cols
+    repli_seq[num_cols] = repli_seq[num_cols].apply(pd.to_numeric,
+                                                    errors="coerce")
+
+    row_sum = repli_seq[frac_cols].sum(axis=1, min_count=1)
+    scale = (100.0 / row_sum).where(row_sum > 0)
+    scaled = repli_seq[frac_cols].mul(scale, axis=0)
+
+    out = repli_seq[["Chromosome", "region_start", "region_end"]].copy()
+    for src, dst in zip(frac_cols, out_cols):
+        out[dst] = scaled[src].where(row_sum > 0).astype(float) / 100
+    return out
+
+
+def load_repliseq_mrt_bins(path: str) -> pd.DataFrame:
+    """Load multi-fraction Repli-seq and compute per-bin MRT.
+
+    Calls :func:`load_repliseq_fractions_bins`, then collapses the
+    normalized fractions into a single mean replication time (MRT) via
+    a weighted average over S-phase midpoints.  Output MRT is on
+    [0, 1] where 0 is earliest and 1 is latest replication.
+
+    Parameters
+    ----------
+    path : str
+        Path to the transposed Repli-seq file (same format as
+        :func:`load_repliseq_fractions_bins`).
 
     Returns
     -------
@@ -285,48 +339,114 @@ def load_repliseq_mrt_bins(path: str) -> pd.DataFrame:
 
     Notes
     -----
-    - Each bin's fraction vector F is scaled so sum(F) = 100 (per Zhao
-      et al., Genome Biology 2020).
     - MRT is computed as sum(F * t) / sum(F), where t are S-phase
       midpoints ( (i+0.5)/N , i=0..N-1 ).
-    - Bins with zero or missing total signal are returned as NaN for
-      'mrt'.
-    - Orientation: larger 'rt_mrt' means *later* replication. If you
-      need "earliness", use 1 - rt_mrt.
+    - Bins with zero or missing total signal are returned as NaN.
+    - For the individual per-fraction columns see
+      :func:`load_repliseq_fractions_bins`.
 
     """
-    repli_seq = read_bed_file(path,
-                              feature_name=None,
-                              has_index_col=False,
-                              has_header=False,
-                              file_is_transposed=True)
-
-    n_phases = len(repli_seq.columns) - 3
-    frac_cols = [f"fraction_signal_s{x}" for x in range(1, n_phases + 1)]
-    repli_seq.columns = list(repli_seq.columns[:3]) + frac_cols
-
-    # Ensure numeric types
-    num_cols = ["region_start", "region_end"] + frac_cols
-    repli_seq[num_cols] = repli_seq[num_cols].apply(pd.to_numeric,
-                                                    errors="coerce")
-
-    # Column-normalize each bin to sum 100 (Zhao et al., 2020)
-    row_sum = repli_seq[frac_cols].sum(axis=1, min_count=1)
-    scale = (100.0 / row_sum).where(row_sum > 0)
-    repli_seq_scaled = repli_seq.copy()
-    repli_seq_scaled[frac_cols] = repli_seq[frac_cols].mul(scale, axis=0)
-
-    # MRT as weighted mean over S-phase midpoints; return on 0..1 scale
+    fracs = load_repliseq_fractions_bins(path)
+    rt_cols = [c for c in fracs.columns if c.startswith("rt_s")]
+    n_phases = len(rt_cols)
     t = (np.arange(n_phases, dtype=float) + 0.5) / n_phases
-    F = repli_seq_scaled[frac_cols].to_numpy(dtype=float)
-    mrt_0_1 = np.nansum(F * t, axis=1)
-    mrt_0_1 = pd.Series(mrt_0_1, index=repli_seq.index).where(row_sum > 0)
+    F = fracs[rt_cols].to_numpy(dtype=float)
+    has_signal = np.isfinite(F).any(axis=1)
+    mrt = np.nansum(F * t, axis=1)
 
-    out = (repli_seq_scaled
-           .loc[:, ["Chromosome", "region_start", "region_end"]]
-           .copy())
-    out["mrt"] = mrt_0_1.astype(float)/100
+    out = fracs[["Chromosome", "region_start", "region_end"]].copy()
+    out["mrt"] = pd.Series(mrt, index=fracs.index).where(has_signal)
     return out
+
+
+def generate_rt_fractions_per_gene(
+        repli_seq_hct: str | Path,
+        gencode_annotation: str | Path) -> pd.DataFrame:
+    """Compute gene-level Repli-seq fractions from multi-fraction data.
+
+    Returns one column per S-phase fraction (``rt_s1``…``rt_sN``),
+    each being a length-weighted average of the normalized bin values
+    over the gene body.  Use this to add individual replication-timing
+    fractions as separate covariates in a model.
+
+    For a scalar summary see :func:`generate_mrt_per_gene`.
+
+    Parameters
+    ----------
+    repli_seq_hct : str | Path
+        Path to the transposed Repli-seq file for the cell line
+        (e.g., HCT116), compatible with
+        :func:`load_repliseq_fractions_bins`.
+    gencode_annotation : str | Path
+        Path to a GENCODE/Ensembl GTF (GRCh38 to match hg38 bins).
+
+    Returns
+    -------
+    pd.DataFrame
+        Gene-level fraction values on 0..1 scale, indexed by
+        ``ensembl_gene_id``.  Columns are ``rt_s1``…``rt_sN``.
+        Genes with insufficient bin coverage yield NaN rows.
+
+    """
+    fracs = load_repliseq_fractions_bins(repli_seq_hct)
+    gene_bodies = load_gene_bodies_from_gtf(gencode_annotation)
+    rt_cols = [c for c in fracs.columns if c.startswith("rt_s")]
+    annotated = annotate_with_binned_features(
+        gene_bodies, fracs, feature_cols=rt_cols)
+    return annotated[rt_cols]
+
+
+def load_or_generate_rt_fractions(
+        location_csv: str | Path,
+        repli_seq_hct: str | Path,
+        gencode_annotation: str | Path,
+        *,
+        force_generation: bool = False,
+        float_format: str = "%.6g"
+        ) -> pd.DataFrame:
+    """Load or generate gene-level Repli-seq fractions.
+
+    If the CSV exists at ``location_csv`` and ``force_generation`` is
+    False, load it; otherwise call
+    :func:`generate_rt_fractions_per_gene` and cache the result.
+
+    Parameters
+    ----------
+    location_csv : str | Path
+        Path to the CSV to read/write.  Append ``.gz`` for transparent
+        compression.
+    repli_seq_hct : str | Path
+        Path to the transposed multi-fraction Repli-seq file.
+    gencode_annotation : str | Path
+        Path to a GENCODE/Ensembl GTF (hg38/GRCh38).
+    force_generation : bool
+        Regenerate even if the CSV already exists.
+    float_format : str
+        Format for writing floats, default ``'%.6g'``.
+
+    Returns
+    -------
+    pd.DataFrame
+        Index: ``ensembl_gene_id``; columns: ``rt_s1``…``rt_sN``
+        (normalized S-phase fractions on 0..1 scale).
+
+    """
+    location_csv = Path(location_csv)
+
+    if location_csv.exists() and not force_generation:
+        logger.info("Loading RT fractions per gene from %s", location_csv)
+        df = pd.read_csv(location_csv, index_col=0)
+        df.index.name = "ensembl_gene_id"
+        logger.info("... done loading RT fractions per gene.")
+        return df.astype(float)
+
+    logger.info("Generating RT fractions per gene from %s and %s",
+                repli_seq_hct, gencode_annotation)
+    df = generate_rt_fractions_per_gene(repli_seq_hct, gencode_annotation)
+    df.to_csv(location_csv, float_format=float_format)
+    logger.info("Saved RT fractions per gene to %s", location_csv)
+    logger.info("... done generating RT fractions per gene.")
+    return df
 
 
 def generate_mrt_per_gene(repli_seq_hct,
