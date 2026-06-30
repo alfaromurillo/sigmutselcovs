@@ -352,6 +352,53 @@ def load_gene_bodies_from_gtf(
     return df
 
 
+def clr_transform(df: pd.DataFrame,
+                  pseudocount: float | None = None) -> pd.DataFrame:
+    """Apply the centered log-ratio (CLR) transform to compositional data.
+
+    Multi-fraction Repli-seq columns sum to 1 per gene (compositional
+    data lying on a simplex).  Applying PCA or Riemannian methods
+    directly induces spurious negative correlations and a rank-deficient
+    covariance matrix (Aitchison, 1986).  The CLR transform maps the
+    simplex isometrically to a Euclidean subspace, removing the sum
+    constraint so that standard linear and manifold methods apply.
+
+    For a row x = (x₁,…,xN):
+
+        clr(x)ᵢ = log(xᵢ) − (1/N) Σⱼ log(xⱼ)
+                = log(xᵢ / geometric_mean(x))
+
+    The result satisfies Σᵢ clr(x)ᵢ = 0 per row.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Rows are observations (genes), columns are compositional parts.
+        All values must be non-negative.
+    pseudocount : float | None
+        Added to all values before log. If None and zeros are present,
+        uses half the minimum positive value in the DataFrame (the
+        half-minimum rule). If None and no zeros are present, uses 0.
+
+    Returns
+    -------
+    pd.DataFrame
+        Same shape, index, and column names as df; values are
+        CLR-transformed.
+
+    """
+    X = df.copy().astype(float)
+    if pseudocount is None:
+        pos_vals = X.values[X.values > 0]
+        pseudocount = (pos_vals.min() / 2
+                       if pos_vals.size < X.size
+                       else 0.0)
+    if pseudocount:
+        X = X + pseudocount
+    log_X = np.log(X)
+    return log_X.sub(log_X.mean(axis=1), axis=0)
+
+
 def annotate_with_binned_features(df: pd.DataFrame,
                                   binned_df: pd.DataFrame,
                                   feature_cols=None,
