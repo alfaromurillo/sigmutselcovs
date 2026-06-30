@@ -48,6 +48,25 @@ mrt = load_or_generate_mrt(
 
 See `coad_analysis/code/covariates.py` for a full worked example.
 
+## New loaders (added 2026-06)
+
+- `load_or_generate_rt_fractions` — per-fraction Repli-seq; apply
+  `clr_transform(...).add_prefix('clr_')` before use (CLR removes
+  compositional constraint; prefix makes transform explicit downstream)
+- `load_or_generate_tcga_gexp_per_sample` — wide gene×(barcode_metric)
+  DataFrame; cached as Parquet (not CSV) due to ~3,084 columns
+- `import_tcga_gene_expression` takes `tissue_type` kwarg; default None
+  (all samples); `load_or_generate_mean_tcga_gexp` defaults to
+  `tissue_type="Tumor"` — cached CSVs generated before this change need
+  `force_generation=True`
+- `clr_transform` is in `covariates_utilities.py`
+
+## TCGA ATAC-seq is already per-sample
+
+`load_or_generate_chromatin_covariates` with `average_by_assay=False`
+(the default) produces one column per BigWig file. TCGA ATAC has 81
+files × 2 regions = 162 columns — do NOT add per-sample code for it.
+
 ## Notes
 
 - `run_pca_on_covariates` lives in `sigmutsel.utils`, not here —
