@@ -337,3 +337,109 @@ def load_or_generate_mean_tcga_gexp(
     logger.info("Saved mean TCGA expression to %s", location_csv)
     logger.info("... done generating mean TCGA expression.")
     return mean_ser
+
+
+_NUMERIC_STAR_COLS = [
+    "unstranded",
+    "stranded_first",
+    "stranded_second",
+    "tpm_unstranded",
+    "fpkm_unstranded",
+    "fpkm_uq_unstranded",
+]
+
+
+def load_or_generate_tcga_gexp_per_sample(
+        location_parquet: str | Path,
+        tcga_dir: str | Path,
+        *,
+        metrics: list[str] | None = None,
+        strip_gene_id_version: bool = True,
+        force_generation: bool = False,
+        ) -> pd.DataFrame:
+    """Load or generate a gene × (sample_metric) TCGA expression matrix.
+
+    Each STAR count file contributes one column per requested metric,
+    named ``{barcode}_{metric}`` (e.g.
+    ``TCGA-AA-3511-01A_tpm_unstranded``).  The result mirrors the
+    layout of the ATAC-seq covariate matrix: genes as index, one
+    column per sample (per metric).
+
+    Parameters
+    ----------
+    location_parquet : str | Path
+        Path to cache the result as a Parquet file (fast I/O for wide
+        DataFrames; use a ``.parquet`` or ``.parquet.gz`` suffix).
+    tcga_dir : str | Path
+        Directory containing UUID subfolders and a
+        ``gdc_sample_sheet*.tsv``.
+    metrics : list[str] | None
+        Which numeric STAR columns to include per sample.  Defaults to
+        all six: ``unstranded``, ``stranded_first``, ``stranded_second``,
+        ``tpm_unstranded``, ``fpkm_unstranded``, ``fpkm_uq_unstranded``.
+        Pass e.g. ``['tpm_unstranded']`` to keep only TPM.
+    strip_gene_id_version : bool
+        Strip ``.version`` suffixes from Ensembl IDs (default True).
+    force_generation : bool
+        Rebuild the cache even if it already exists.
+
+    Returns
+    -------
+    pd.DataFrame
+        Index: ``ensembl_gene_id``; columns: ``{barcode}_{metric}``
+        for every sample × metric combination.
+
+    Notes
+    -----
+    - Raw count columns (``unstranded``, ``stranded_first``,
+      ``stranded_second``) are library-size–dependent.  They are
+      included when requested but are typically dominated by sequencing
+      depth variation; TPM and FPKM-UQ are the normalized alternatives.
+    - The Parquet format is strongly preferred over CSV for this matrix
+      because of its width (samples × metrics columns).
+    """
+    location_parquet = Path(location_parquet)
+
+    if location_parquet.exists() and not force_generation:
+        logger.info("Loading per-sample TCGA expression from %s",
+                    location_parquet)
+        df = pd.read_parquet(location_parquet)
+        df.index.name = "ensembl_gene_id"
+        logger.info("... done loading per-sample TCGA expression.")
+        return df
+
+    if metrics is None:
+        metrics = list(_NUMERIC_STAR_COLS)
+
+    logger.info("Generating per-sample TCGA expression from %s", tcga_dir)
+
+    cols_to_load = ["ensembl_gene_id", "Tumor_Sample_Barcode"] + [
+        m for m in metrics if m != "Tumor_Sample_Barcode"
+    ]
+    long_df = import_tcga_gene_expression(
+        tcga_dir,
+        cols=["ensembl_gene_id"] + metrics,
+        strip_gene_id_version=strip_gene_id_version)
+
+    # Pivot: rows = genes, columns = barcode_metric
+    frames = []
+    for metric in metrics:
+        if metric not in long_df.columns:
+            logger.warning("Metric %s not found in STAR files; skipping.",
+                           metric)
+            continue
+        wide = (long_df[["ensembl_gene_id", "Tumor_Sample_Barcode", metric]]
+                .pivot_table(index="ensembl_gene_id",
+                             columns="Tumor_Sample_Barcode",
+                             values=metric,
+                             aggfunc="mean"))
+        wide.columns = [f"{col}_{metric}" for col in wide.columns]
+        frames.append(wide)
+
+    result = pd.concat(frames, axis=1).sort_index()
+    result.index.name = "ensembl_gene_id"
+
+    result.to_parquet(location_parquet)
+    logger.info("Saved per-sample TCGA expression to %s", location_parquet)
+    logger.info("... done generating per-sample TCGA expression.")
+    return result
