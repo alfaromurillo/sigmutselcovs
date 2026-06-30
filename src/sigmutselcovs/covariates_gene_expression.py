@@ -155,7 +155,8 @@ def import_gtex(
 def import_tcga_gene_expression(
         loc_dir: str | Path,
         cols: list[str] | None = None,
-        strip_gene_id_version: bool = True) -> pd.DataFrame:
+        strip_gene_id_version: bool = True,
+        tissue_type: str | None = None) -> pd.DataFrame:
     """Load TCGA STAR-count files and add Tumor_Sample_Barcode.
 
     Read all GDC STAR gene-count TSVs under *loc_dir*, map each file
@@ -170,10 +171,16 @@ def import_tcga_gene_expression(
         Root directory with UUID subfolders and gdc_sample_sheet*.tsv.
     cols
         Columns to keep. Defaults to:
-        'ensembl_gene_id', 'gene_name', 'tpm_unstranded'
+        'ensembl_gene_id', 'gene_name', 'tpm_unstranded'.
+        Pass ``'full'`` to get all six numeric STAR columns.
     strip_gene_id_version
         If True (default) drop the '.version' suffix from
         'ensembl_gene_id'.
+    tissue_type : str | None
+        If given, restrict to files whose 'Tissue Type' column in the
+        sample sheet matches this value (case-insensitive).
+        Common values: ``'Tumor'``, ``'Normal'``.
+        If None (default), all files are included.
 
     Returns
     -------
@@ -204,6 +211,18 @@ def import_tcga_gene_expression(
     file_id_col = 'File ID' if 'File ID' in ss.columns else 'FileID'
     if 'Sample ID' not in ss.columns:
         raise KeyError("Sample sheet missing 'Sample ID' column.")
+
+    if tissue_type is not None:
+        tissue_col = next((c for c in ss.columns
+                           if c.lower() == 'tissue type'), None)
+        if tissue_col is None:
+            logger.warning("No 'Tissue Type' column in sample sheet; "
+                           "tissue_type filter ignored.")
+        else:
+            ss = ss[ss[tissue_col].str.lower() == tissue_type.lower()]
+            logger.info("tissue_type=%r: kept %d of %d sample-sheet rows.",
+                        tissue_type, len(ss),
+                        pd.read_csv(ss_paths[-1], sep='\t').shape[0])
 
     id_to_bar = (ss[[file_id_col, 'Sample ID']]
                  .dropna()
@@ -268,26 +287,33 @@ def load_or_generate_mean_tcga_gexp(
         tcga_dir: str | Path,
         *,
         cols: list[str] | None = None,
+        tissue_type: str | None = "Tumor",
         strip_gene_id_version: bool = True,
         force_generation: bool = False,
         float_format: str = "%.6g"
         ) -> pd.Series:
     """Load or generate the mean TCGA gene expression (TPM) per Ensembl gene.
 
-    If the CSV exists at `location_db` and `force_generation` is
-    False, load it. Otherwise, parse the GDC download at `tcga_dir`
-    using `import_tcga_gene_expression`, compute the mean TPM across
-    all samples, save to CSV, and return the result.
+    If the CSV exists at ``location_csv`` and ``force_generation`` is
+    False, load it.  Otherwise parse the GDC download at ``tcga_dir``,
+    compute the mean TPM across samples of the requested tissue type,
+    save to CSV, and return the result.
 
     Parameters
     ----------
-    location_db : str | Path
+    location_csv : str | Path
         Path to the CSV file to read/write (e.g., 'tcga_mean_tpm.csv').
     tcga_dir : str | Path
-        Directory containing UUID subfolders and a `gdc_sample_sheet*.tsv`.
+        Directory containing UUID subfolders and a
+        ``gdc_sample_sheet*.tsv``.
     cols : list[str] | None
         Columns to request from STAR TSVs during generation. If None,
-        defaults used by `import_tcga_gene_expression` are applied.
+        defaults used by ``import_tcga_gene_expression`` are applied.
+    tissue_type : str | None, default ``'Tumor'``
+        Filter samples by the 'Tissue Type' column in the GDC sample
+        sheet before computing the mean.  Pass None to average over all
+        tissue types.  The default ``'Tumor'`` excludes matched-normal
+        RNA-seq files so that the mean reflects tumour expression only.
     strip_gene_id_version : bool
         Strip '.version' from Ensembl IDs during generation.
     force_generation : bool
@@ -298,7 +324,8 @@ def load_or_generate_mean_tcga_gexp(
     Returns
     -------
     pd.Series
-        Index: `ensembl_gene_id`; values: mean TPM (`tpm_unstranded`).
+        Index: ``ensembl_gene_id``; values: mean TPM
+        (``tpm_unstranded``).
     """
     location_csv = Path(location_csv)
 
@@ -308,8 +335,6 @@ def load_or_generate_mean_tcga_gexp(
         if tbl.shape[1] == 1:
             ser = tbl.iloc[:, 0]
         else:
-            # if someone saved with an unexpected schema, try to pick
-            # the TPM column
             col = ("tpm_unstranded"
                    if "tpm_unstranded" in tbl.columns
                    else tbl.columns[0])
@@ -320,10 +345,12 @@ def load_or_generate_mean_tcga_gexp(
         logger.info("... done loading mean TCGA expression.")
         return ser
 
-    logger.info("Generating mean TCGA expression from %s", tcga_dir)
+    logger.info("Generating mean TCGA expression from %s "
+                "(tissue_type=%r)", tcga_dir, tissue_type)
     df = import_tcga_gene_expression(
         tcga_dir,
         cols=cols,
+        tissue_type=tissue_type,
         strip_gene_id_version=strip_gene_id_version)
 
     mean_ser = (
@@ -354,6 +381,7 @@ def load_or_generate_tcga_gexp_per_sample(
         tcga_dir: str | Path,
         *,
         metrics: list[str] | None = None,
+        tissue_type: str | None = None,
         strip_gene_id_version: bool = True,
         force_generation: bool = False,
         ) -> pd.DataFrame:
