@@ -130,21 +130,21 @@ Key design decisions (2026-08-12):
 
 ## Phase 5 — CLI, update checks, OSF fetch
 
-- [ ] cli.py console entry: download / build / fetch / validate /
+- [x] cli.py console entry: download / build / fetch / validate /
       check-updates / download-gtex / projects
-- [ ] data/sources.json + check_updates() (GTEx GCT etag/length;
+- [x] data/sources.json + check_updates() (GTEx GCT etag/length;
       GDC STAR file counts COAD=524 BRCA=1231; ATAC file meta via
       GET /files/<uuid> — HEAD on /data 400s; Roadmap head; ENCODE
       file status/md5; GEO mat head); update_file=True rewrites
       known blocks
-- [ ] fetch.py + data/osf.json: fetch_covariate_matrix(project,
+- [x] fetch.py + data/osf.json: fetch_covariate_matrix(project,
       which="pca") default = PCA matrix; full/intermediates
       opt-in; CovariateArtifactsUnavailable(FileNotFoundError)
       with actionable message; plain requests
-- [ ] ensure_gtex_gct resolution order (explicit → packaged →
+- [x] ensure_gtex_gct resolution order (explicit → packaged →
       XDG cache → download); stop writing into site-packages;
       setup.sh → thin wrapper
-- [ ] DEVELOPMENT.md: generalized workflow; fix stale
+- [x] DEVELOPMENT.md: generalized workflow; fix stale
       run_pca_on_covariates location claim
 
 ## Phase 6 — coad_analysis migration (regression on gauss)

@@ -1,68 +1,120 @@
 # Developing sigmutselcovs
 
 Internals reference for anyone modifying this codebase.
+Task tracking for the generalization effort: `covs_TODO.md`.
 
 ## Setup
 
 ```bash
-pip install -e .
-pip install -e ../sigmutsel   # sigmutsel.locations is a dependency
+pip install -e ".[dev]"
+pip install -e ../sigmutsel   # until sigmutsel is on PyPI
+pytest                        # network-marked tests are skipped
 ```
 
-External data files (not bundled; paths set per-project):
-- GTEx GCT file (v10): `GTEx_Analysis_v10_RNASeQCv2.4.2_gene_median_tpm.gct`
-- TCGA STAR count TSVs: downloaded from GDC
-- Repli-seq `.mat` file (HCT116): from GEO GSE137764
-- BigWig files: Roadmap Epigenomics or TCGA ATAC-seq
+## The generalized workflow
 
-## Key modules
+Everything is keyed on a TCGA study code registered in
+`src/sigmutselcovs/data/projects.json` (currently COAD and BRCA):
+
+```bash
+sigmutselcovs projects
+sigmutselcovs download BRCA --data-dir brca_data
+sigmutselcovs build    BRCA --data-dir brca_data
+sigmutselcovs validate BRCA --data-dir brca_data
+sigmutselcovs fetch    BRCA          # pre-built from OSF (once published)
+sigmutselcovs check-updates          # run every ~6 months
+sigmutselcovs download-gtex
+```
+
+or from Python:
+
+```python
+from sigmutselcovs import download_covariates, build_covariate_matrix
+download_covariates("BRCA", "brca_data")
+full, simple, tcga = build_covariate_matrix("BRCA", "brca_data",
+                                            cache_matrices=True)
+```
+
+`build_covariate_matrix` reproduces the historical COAD pipeline
+exactly (same loaders, caches, and concatenation order), so running
+it over an existing `coad_data/` tree is bit-for-bit identical to
+the old `coad_analysis/code/covariates.py` `build()`.
+
+## Module map
 
 | Module | Role |
 |--------|------|
+| `registry.py` + `data/projects.json` | Per-cancer-type data sources |
+| `paths.py` | `ProjectPaths`: data-dir layout (mirrors `coad_data/`) |
+| `download.py` | Idempotent per-source downloaders + orchestrator |
+| `gdc.py` | GDC files API: query, manifest/sample-sheet writers |
+| `encode.py` | ENCODE accession → S3 URL resolution |
+| `builder.py` | `build_covariate_matrix` + column dictionary |
+| `validate.py` | Data-sanity + biological-plausibility checks |
+| `fetch.py` + `data/osf.json` | Pre-built matrices from OSF |
+| `updates.py` + `data/sources.json` | Source update checks |
+| `cli.py` | The `sigmutselcovs` console command |
 | `covariates_gene_expression.py` | GTEx and TCGA expression loaders |
-| `covariates_replication_timing.py` | Repli-seq MRT per gene |
+| `covariates_replication_timing.py` | Repli-seq: mat / fraction bigWigs / wavelet |
 | `covariates_chromatin.py` | BigWig signal over gene bodies/promoters |
-| `covariates_utilities.py` | GTF parsing, BED reading, genomic annotation, PCA |
-| `covariates_locations.py` | Default paths for GTEx GCT and mapping JSON |
+| `covariates_utilities.py` | GTF parsing, BED reading, annotation, PCA |
+| `covariates_checks.py` | fix_all / fix_variance / fix_skewness |
+| `covariates_locations.py` | Packaged-data paths (mapping JSON, GCT) |
 
-## Usage pattern
+## Adding a new cancer type
 
-Each covariate module has a `load_or_generate_*` wrapper that reads
-from a cached CSV on subsequent calls:
+1. Add a row to `data/projects.json`: GTEx mapping key (must exist
+   in `gtex_tcga_mapping.json`), the TCGA project id, the ATAC
+   tarball UUID from
+   https://gdc.cancer.gov/about-data/publications/ATACseq-AWG,
+   Roadmap EIDs, and a repliseq spec.
+2. Replication timing source types:
+   - `mat` — 16-fraction transposed table (GEO GSE137764: HCT116,
+     H1, H9 only)
+   - `fraction_bigwigs` — N per-fraction ENCODE bigWigs early→late
+     (UW 6-fraction series: MCF-7, HeLa-S3, K562, GM12878, IMR-90,
+     HepG2, keratinocyte, SK-N-SH, BJ, HUVEC, BG02)
+   - `wavelet` — single smoothed early/late track (Gilbert series:
+     LNCaP, Caki2, A549, NCI-H460, G401, SK-N-MC, T47D)
+3. `pytest tests/test_registry.py` validates the row; then
+   download, build, and `validate`.
 
-```python
-from sigmutselcovs.covariates_replication_timing import load_or_generate_mrt
-from sigmutsel.locations import location_gencode38_annotation
+## External data notes
 
-mrt = load_or_generate_mrt(
-    location_mrt_csv,       # cache path
-    location_repli_seq_hct, # raw data path
-    location_gencode38_annotation,
-    force_generation=False)
-```
-
-See `coad_analysis/code/covariates.py` (a downstream project) for a
-full worked example.
+- GTEx GCT (v10) resolves explicit → packaged → user cache and is
+  fetched by `download-gtex`; a new GTEx major version renames
+  tissue columns, so update `gtex_tcga_mapping.json` together with
+  the GCT (and `sources.json`).
+- GDC sample sheets and manifests are generated from the API — no
+  more checked-in copies. A changed `check-updates` file count
+  means a GDC data release touched the project: regenerate and
+  rebuild the expression caches with `force_generation`.
+- MCF-7 Repli-seq (and Roadmap) are hg19 → those blocks use the
+  GENCODE v19 GTF; TCGA ATAC and the HCT116 MAT are hg38 → v38.
+  `build_covariate_matrix` picks the GTF per source by the
+  registry's `assembly`.
 
 ## Loader-specific gotchas
 
-- `load_or_generate_rt_fractions` — per-fraction Repli-seq; apply
-  `clr_transform(...).add_prefix('clr_')` before use (CLR removes
-  the compositional constraint; the prefix makes the transform
-  explicit downstream).
-- `load_or_generate_tcga_gexp_per_sample` — wide gene×(barcode_metric)
-  DataFrame; cached as Parquet (not CSV) due to ~3,084 columns.
-- `import_tcga_gene_expression` takes a `tissue_type` kwarg; default
-  `None` (all samples). `load_or_generate_mean_tcga_gexp` defaults to
+- `load_or_generate_rt_fractions` — per-fraction Repli-seq; the
+  builder applies `clr_transform(...).add_prefix('clr_')` (CLR
+  removes the compositional constraint) and gates CLR off below
+  three fractions.
+- `load_or_generate_tcga_gexp_per_sample` — wide
+  gene×(barcode_metric) DataFrame; cached as Parquet due to
+  thousands of columns (COAD: 3,084; BRCA: ~7,386).
+- `load_or_generate_mean_tcga_gexp` defaults to
   `tissue_type="Tumor"` — cached CSVs generated before this default
   changed need `force_generation=True` to pick it up.
-- `clr_transform` lives in `covariates_utilities.py`.
 - **TCGA ATAC-seq is already per-sample**:
   `load_or_generate_chromatin_covariates` with
   `average_by_assay=False` (the default) produces one column per
-  BigWig file. TCGA ATAC has 81 files × 2 regions = 162 columns — do
-  not add separate per-sample handling for it.
-- `run_pca_on_covariates` lives in `sigmutsel.utils`, not here —
-  import from there to avoid duplication.
-- Chromatin loading requires `pyBigWig` (Linux/Mac only).
+  BigWig file (body + promoter each) — do not add separate
+  per-sample handling for it.
+- `run_pca_on_covariates` currently exists in BOTH
+  `sigmutsel.utils` and `covariates_utilities.py` — a known
+  duplication to be resolved (covs_TODO.md Phase 8); until then
+  change both or neither.
+- Chromatin loading requires `pyBigWig` (Linux/Mac only). Never
+  open bigWigs from URLs — download first (`download.py` does).
 - GTF loading handles both gzip and plain text automatically.
