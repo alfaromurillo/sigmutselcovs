@@ -34,6 +34,7 @@ from .covariates_locations import (
 from .covariates_replication_timing import (
     load_or_generate_mrt,
     load_or_generate_rt_fractions,
+    load_or_generate_rt_wavelet,
 )
 from .covariates_utilities import clr_transform
 from .paths import ProjectPaths, project_paths
@@ -87,14 +88,31 @@ def _load_repliseq(spec, paths: ProjectPaths, gtf: str | Path,
     """
     if spec.type == "mat":
         source = paths.rt_dir / spec.filename
+        source_type = "mat"
         if not source.exists() and not paths.mrt_csv.exists():
             _skip("repliseq", f"neither {source} nor cache "
                   f"{paths.mrt_csv} exists")
             return []
     elif spec.type in ("fraction_bigwigs", "wavelet"):
-        raise NotImplementedError(
-            f"repliseq source type {spec.type!r} lands with the "
-            "bigWig ingestion (Phase 3 of covs_TODO.md)")
+        tracks = [paths.rt_encode_dir / f"{t.accession}.bigWig"
+                  for t in spec.tracks]
+        missing = [p for p in tracks if not p.exists()]
+        cache = (paths.rt_wavelet_csv if spec.type == "wavelet"
+                 else paths.mrt_csv)
+        if missing and not cache.exists():
+            _skip("repliseq", f"missing bigWigs {missing} and no "
+                  f"cache at {cache}")
+            return []
+        if spec.type == "wavelet":
+            rt_wavelet = load_or_generate_rt_wavelet(
+                paths.rt_wavelet_csv,
+                tracks[0],
+                gtf,
+                bin_size=spec.bin_size,
+                force_generation=force_generation)
+            return [rt_wavelet.to_frame()]
+        source = tracks
+        source_type = "fraction_bigwigs"
     else:
         raise ValueError(f"Unknown repliseq type {spec.type!r}")
 
@@ -102,12 +120,19 @@ def _load_repliseq(spec, paths: ProjectPaths, gtf: str | Path,
         paths.mrt_csv,
         source,
         gtf,
+        source_type=source_type,
+        bin_size=spec.bin_size,
+        mrt_fraction_cols=(list(spec.mrt_fraction_cols)
+                           if spec.mrt_fraction_cols is not None
+                           else None),
         force_generation=force_generation)
 
     rt_fractions = load_or_generate_rt_fractions(
         paths.rt_fractions_csv,
         source,
         gtf,
+        source_type=source_type,
+        bin_size=spec.bin_size,
         force_generation=force_generation)
 
     frames = [mrt_per_gene.to_frame()]

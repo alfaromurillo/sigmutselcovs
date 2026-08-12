@@ -212,10 +212,38 @@ def test_named_tuple_type(stubbed):
     assert isinstance(matrices, CovariateMatrices)
 
 
-def test_fraction_bigwigs_not_yet_implemented(stubbed):
+def test_fraction_bigwigs_skips_when_missing(stubbed, caplog):
+    from sigmutselcovs.registry import TrackRef
+
     spec = RepliseqSpec(
         type="fraction_bigwigs", assembly="hg19", cell_line="MCF-7",
-        tracks=())
-    with pytest.raises(NotImplementedError, match="Phase 3"):
-        builder._load_repliseq(
+        tracks=(TrackRef(label="s1", accession="ENCFF000AAA"),
+                TrackRef(label="s2", accession="ENCFF000BBB")))
+    with caplog.at_level(logging.WARNING):
+        frames = builder._load_repliseq(
             spec, project_paths(stubbed), "gencode19.gtf", False)
+    assert frames == []
+    assert any("missing bigWigs" in m for m in caplog.messages)
+
+
+def test_wavelet_uses_cached_csv(stubbed, monkeypatch):
+    from sigmutselcovs.registry import TrackRef
+
+    called = {}
+
+    def fake_wavelet(location_csv, bigwig, gtf, **kw):
+        called["args"] = (location_csv, bigwig)
+        return _series("rt_wavelet")
+
+    monkeypatch.setattr(builder, "load_or_generate_rt_wavelet",
+                        fake_wavelet)
+    paths = project_paths(stubbed)
+    paths.rt_wavelet_csv.parent.mkdir(parents=True, exist_ok=True)
+    paths.rt_wavelet_csv.touch()  # cache present, bigWig absent
+    spec = RepliseqSpec(
+        type="wavelet", assembly="hg19", cell_line="LNCaP",
+        tracks=(TrackRef(label="el", accession="ENCFF000CCC"),))
+    frames = builder._load_repliseq(spec, paths, "gencode19.gtf", False)
+    assert len(frames) == 1
+    assert list(frames[0].columns) == ["rt_wavelet"]
+    assert called["args"][0] == paths.rt_wavelet_csv

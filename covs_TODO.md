@@ -73,21 +73,22 @@ Key design decisions (2026-08-12):
 
 ## Phase 3 — replication timing source types
 
-- [ ] Extract _normalize_fraction_bins (behavior-preserving,
+- [x] Extract _normalize_fraction_bins (behavior-preserving,
       unit-pinned)
-- [ ] load_repliseq_fractions_bins_from_bigwigs (N tracks
+- [x] load_repliseq_fractions_bins_from_bigwigs (N tracks
       early→late, 50 kb bins, autosomes; move _fetch_stat to
-      covariates_utilities)
-- [ ] Wavelet type: single bigWig → per-gene rt_wavelet column
+      covariates_utilities as fetch_bigwig_stat)
+- [x] Wavelet type: single bigWig → per-gene rt_wavelet column
       (no mrt/clr)
-- [ ] source_type dispatch ("auto"|"mat"|"fraction_bigwigs"|
+- [x] source_type dispatch ("auto"|"mat"|"fraction_bigwigs"|
       "wavelet") through the load/generate functions;
       mrt_fraction_cols optional (default all)
-- [ ] Rename repli_seq_hct → repliseq_source (+ DeprecationWarning
+- [x] Rename repli_seq_hct → repliseq_source (+ DeprecationWarning
       shim for one release)
-- [ ] Tests: N=2 closed form mrt = 0.25 + 0.5·f2; N=6 midpoints
+- [x] Wire fraction_bigwigs + wavelet into builder._load_repliseq
+- [x] Tests: N=2 closed form mrt = 0.25 + 0.5·f2; N=6 midpoints
       [1,3,5,7,9,11]/12; synthetic bigWigs in tmp_path;
-      normalization refactor pin
+      normalization refactor pin; subset renormalization
 
 ## Phase 4 — download layer
 
