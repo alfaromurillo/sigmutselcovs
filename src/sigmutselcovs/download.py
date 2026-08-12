@@ -7,12 +7,18 @@ All downloads are idempotent: present files are skipped, partial
 files are resumed or replaced atomically.
 """
 
+import gzip
 import hashlib
 import logging
 import os
+import shutil
 from pathlib import Path
 
 import requests
+
+from .encode import resolve_encode_file
+from .paths import ProjectPaths
+from .registry import RepliseqSpec, RoadmapSpec
 
 logger = logging.getLogger(__name__)
 
@@ -92,3 +98,99 @@ def download_file(url: str,
     logger.info("Downloaded %s (%d bytes)", dest.name,
                 dest.stat().st_size)
     return dest
+
+
+def download_repliseq(spec: RepliseqSpec,
+                      paths: ProjectPaths,
+                      *,
+                      force: bool = False,
+                      session: requests.Session | None = None
+                      ) -> list[Path]:
+    """Download the replication-timing source files for a project.
+
+    - ``mat``: fetch the gzipped GEO table and gunzip it next to the
+      cache files (skipped when the .mat is already present).
+    - ``fraction_bigwigs`` / ``wavelet``: resolve each ENCODE track
+      accession and download the bigWig to
+      ``replication_timing/encode/<ACCESSION>.bigWig``, verifying
+      the portal's md5.
+    """
+    session = session or requests.Session()
+    if spec.type == "mat":
+        target = paths.rt_dir / spec.filename
+        if target.exists() and not force:
+            logger.info("Repli-seq MAT already present: %s", target.name)
+            return [target]
+        if spec.url is None:
+            raise ValueError("Registry gives no URL for the "
+                             f"{spec.cell_line} MAT file")
+        gz = target.with_suffix(target.suffix + ".gz")
+        download_file(spec.url, gz, force=force, session=session)
+        with gzip.open(gz, "rb") as src, open(target, "wb") as out:
+            shutil.copyfileobj(src, out)
+        gz.unlink()
+        logger.info("Decompressed %s", target.name)
+        return [target]
+
+    if spec.type in ("fraction_bigwigs", "wavelet"):
+        out: list[Path] = []
+        for track in spec.tracks:
+            dest = paths.rt_encode_dir / f"{track.accession}.bigWig"
+            if dest.exists() and not force:
+                logger.info("Track already present: %s", dest.name)
+                out.append(dest)
+                continue
+            if track.url is not None:
+                url, md5, size = track.url, None, None
+            else:
+                meta = resolve_encode_file(track.accession,
+                                           session=session)
+                url = meta["url"]
+                md5 = meta["md5sum"]
+                size = meta["file_size"]
+                if meta.get("assembly") not in (None, spec.assembly):
+                    logger.warning(
+                        "ENCODE %s assembly %s != registry %s",
+                        track.accession, meta["assembly"],
+                        spec.assembly)
+            out.append(download_file(url, dest,
+                                     expected_md5=md5,
+                                     expected_size=size,
+                                     force=force,
+                                     session=session))
+        return out
+
+    raise ValueError(f"Unknown repliseq type {spec.type!r}")
+
+
+def download_roadmap_tracks(spec: RoadmapSpec,
+                            paths: ProjectPaths,
+                            *,
+                            force: bool = False,
+                            session: requests.Session | None = None
+                            ) -> list[Path]:
+    """Download Roadmap fold-change signal bigWigs (eids x marks).
+
+    Missing marks are common (e.g. E027 has no H3K27ac) — a 404 is
+    logged and skipped unless the mark is listed in
+    ``required_marks``.
+    """
+    session = session or requests.Session()
+    out: list[Path] = []
+    for eid in spec.eids:
+        for mark in spec.marks:
+            name = f"{eid}-{mark}.fc.signal.bigwig"
+            dest = paths.roadmap_dir / name
+            if dest.exists() and not force:
+                logger.info("Track already present: %s", name)
+                out.append(dest)
+                continue
+            url = spec.url_template.format(eid=eid, mark=mark)
+            try:
+                out.append(download_file(url, dest, force=force,
+                                         session=session))
+            except Exception as exc:
+                if mark in spec.required_marks:
+                    raise
+                logger.warning("Skipping %s: %s", name, exc)
+    return out

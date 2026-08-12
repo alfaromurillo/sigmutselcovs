@@ -114,6 +114,93 @@ def test_md5_mismatch_raises_and_removes_part(tmp_path):
     assert not (tmp_path / "file.bin.part").exists()
 
 
+class _URLSession:
+    """Serves a url -> bytes mapping; unknown urls raise."""
+
+    def __init__(self, mapping):
+        self.mapping = mapping
+        self.fetched: list[str] = []
+
+    def get(self, url, stream=True, headers=None, timeout=None):
+        self.fetched.append(url)
+        if url not in self.mapping:
+            return _FakeResponse(b"", status_code=404)
+        return _FakeResponse(self.mapping[url])
+
+
+def test_download_repliseq_mat_gunzips(tmp_path):
+    import gzip as _gzip
+
+    import sigmutselcovs.download as dl
+    from sigmutselcovs.paths import project_paths
+    from sigmutselcovs.registry import RepliseqSpec
+
+    table = b"chr1\t0\t50000\n"
+    spec = RepliseqSpec(type="mat", assembly="hg38", cell_line="HCT116",
+                        filename="rt.mat", url="http://geo/rt.mat.gz")
+    paths = project_paths(tmp_path)
+    session = _URLSession({"http://geo/rt.mat.gz":
+                           _gzip.compress(table)})
+    got = dl.download_repliseq(spec, paths, session=session)
+    assert got == [paths.rt_dir / "rt.mat"]
+    assert got[0].read_bytes() == table
+    assert not (paths.rt_dir / "rt.mat.gz").exists()
+    # idempotent: second call fetches nothing
+    dl.download_repliseq(spec, paths, session=session)
+    assert len(session.fetched) == 1
+
+
+def test_download_repliseq_bigwigs(tmp_path, monkeypatch):
+    import sigmutselcovs.download as dl
+    from sigmutselcovs.paths import project_paths
+    from sigmutselcovs.registry import RepliseqSpec, TrackRef
+
+    payload = b"bigwigbytes"
+    monkeypatch.setattr(
+        dl, "resolve_encode_file",
+        lambda acc, session=None: {
+            "accession": acc,
+            "url": f"http://s3/{acc}",
+            "md5sum": hashlib.md5(payload).hexdigest(),
+            "file_size": len(payload),
+            "assembly": "hg19",
+        })
+    spec = RepliseqSpec(
+        type="fraction_bigwigs", assembly="hg19", cell_line="MCF-7",
+        tracks=(TrackRef(label="s1", accession="ENCFF000AAA"),
+                TrackRef(label="s2", accession="ENCFF000BBB")))
+    paths = project_paths(tmp_path)
+    session = _URLSession({"http://s3/ENCFF000AAA": payload,
+                           "http://s3/ENCFF000BBB": payload})
+    got = dl.download_repliseq(spec, paths, session=session)
+    assert [p.name for p in got] == ["ENCFF000AAA.bigWig",
+                                     "ENCFF000BBB.bigWig"]
+    assert all(p.read_bytes() == payload for p in got)
+
+
+def test_download_roadmap_tolerates_missing_marks(tmp_path):
+    import sigmutselcovs.download as dl
+    from sigmutselcovs.paths import project_paths
+    from sigmutselcovs.registry import RoadmapSpec
+
+    template = "http://roadmap/{eid}-{mark}.fc.signal.bigwig"
+    spec = RoadmapSpec(eids=("E027",),
+                       marks=("H3K4me1", "H3K27ac"),
+                       url_template=template)
+    paths = project_paths(tmp_path)
+    session = _URLSession(
+        {template.format(eid="E027", mark="H3K4me1"): b"data"})
+    got = dl.download_roadmap_tracks(spec, paths, session=session)
+    assert [p.name for p in got] == ["E027-H3K4me1.fc.signal.bigwig"]
+
+    required = RoadmapSpec(eids=("E027",),
+                           marks=("H3K27ac",),
+                           required_marks=("H3K27ac",),
+                           url_template=template)
+    with pytest.raises(Exception):
+        dl.download_roadmap_tracks(required, paths, session=session)
+
+
 def test_short_download_keeps_part_for_resume(tmp_path):
     dest = tmp_path / "file.bin"
     session = _FakeSession(PAYLOAD, fail_after=80)
