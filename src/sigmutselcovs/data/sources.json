@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "checked": null,
+  "sources": {
+    "gtex_gene_median_tpm": {
+      "description": "GTEx gene median TPM (GCT)",
+      "version": "v10",
+      "url": "https://storage.googleapis.com/adult-gtex/bulk-gex/v10/rna-seq/GTEx_Analysis_v10_RNASeQCv2.4.2_gene_median_tpm.gct.gz",
+      "check": {"method": "http_head",
+                "compare": ["content-length", "etag"]},
+      "known": {},
+      "notes": "A new major GTEx version renames tissue columns; update gtex_tcga_mapping.json together with the GCT."
+    },
+    "gdc_star_counts": {
+      "description": "GDC STAR - Counts gene expression inventories",
+      "version": "STAR - Counts",
+      "check": {"method": "gdc_file_count",
+                "projects": ["TCGA-COAD", "TCGA-BRCA"]},
+      "known": {"TCGA-COAD": 524, "TCGA-BRCA": 1231},
+      "notes": "A changed count means a GDC data release touched the project; regenerate manifests and force_generation the expression caches."
+    },
+    "tcga_atac_bigwigs": {
+      "description": "TCGA ATAC-seq (Corces 2018) bigWig tarballs",
+      "check": {"method": "gdc_file_meta",
+                "uuids": {
+                  "COAD": "26b96cd9-dce0-4340-b15f-9e0afbb6312c",
+                  "BRCA": "f1c06cd3-cf35-41cc-bc75-6db273c94273"},
+                "compare": ["file_size", "md5sum"]},
+      "known": {},
+      "notes": "GET /files/<uuid>; HEAD on /data/<uuid> returns 400."
+    },
+    "roadmap_fc_signal": {
+      "description": "Roadmap consolidated macs2 fold-change signal",
+      "version": "Roadmap release 9 (frozen)",
+      "url": "https://egg2.wustl.edu/roadmap/data/byFileType/signal/consolidated/macs2signal/foldChange/E075-H3K4me3.fc.signal.bigwig",
+      "check": {"method": "http_head",
+                "compare": ["content-length"]},
+      "known": {}
+    },
+    "encode_repliseq_mcf7": {
+      "description": "ENCODE MCF-7 UW 6-fraction Repli-seq bigWigs",
+      "check": {"method": "encode_files",
+                "accessions": ["ENCFF001GSV", "ENCFF001GTD",
+                               "ENCFF001GTF", "ENCFF001GTH",
+                               "ENCFF001GTK", "ENCFF001GSX"],
+                "compare": ["md5sum", "file_size"]},
+      "known": {}
+    },
+    "geo_gse137764_hct116": {
+      "description": "16-fraction Repli-seq MAT (HCT116, GEO)",
+      "url": "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE137nnn/GSE137764/suppl/GSE137764%5FHCT%5FGaussiansGSE137764%5Fmooth%5Fscaled%5Fautosome%2Emat%2Egz",
+      "check": {"method": "http_head",
+                "compare": ["content-length"]},
+      "known": {}
+    }
+  }
+}
