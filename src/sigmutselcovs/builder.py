@@ -326,6 +326,8 @@ def build_covariate_matrix(
         apply_fixes: bool = True,
         cache_matrices: bool = False,
         return_reports: bool = False,
+        validate_output: bool = True,
+        strict_validation: bool = False,
 ) -> CovariateMatrices | tuple[CovariateMatrices, dict]:
     """Build the covariate matrices for a registered project.
 
@@ -360,6 +362,11 @@ def build_covariate_matrix(
         ``<data_dir>/covariate_matrices/``.
     return_reports : bool
         Also return the `fix_all` reports dict.
+    validate_output : bool
+        Run `sigmutselcovs.validate.validate_covariates` on the raw
+        matrix at the end of the build (results are logged).
+    strict_validation : bool
+        Raise when a validation check fails.
 
     Returns
     -------
@@ -571,6 +578,13 @@ def build_covariate_matrix(
                                  reports.get("skewness"))
         logger.info("Cached covariate matrices under %s",
                     paths.matrices_dir)
+
+    if validate_output:
+        from .validate import validate_covariates
+        validate_covariates(spec.code,
+                            cov_matrix_raw=cov_matrix_full_raw,
+                            registry_path=registry_path,
+                            strict=strict_validation)
 
     if return_reports:
         return matrices, reports

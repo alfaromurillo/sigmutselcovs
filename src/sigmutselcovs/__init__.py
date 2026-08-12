@@ -32,6 +32,8 @@ _LAZY = {
     "bigwig_files": "paths",
     "download_covariates": "download",
     "DownloadReport": "download",
+    "validate_covariates": "validate",
+    "print_validation_report": "validate",
 }
 
 __all__ = [

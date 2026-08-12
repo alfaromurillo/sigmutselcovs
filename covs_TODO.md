@@ -111,21 +111,21 @@ Key design decisions (2026-08-12):
 
 ## Phase 4b — validation and column dictionary
 
-- [ ] cov_matrix_columns.csv writer in builder: one row per
+- [x] cov_matrix_columns.csv writer in builder: one row per
       column — source, description, sample/detail, cell line or
       epigenome, assembly/GTF, units, fix_all transform (with
       pseudo-count); correct for partial builds
-- [ ] validate.py data-sanity tier: NaN fraction thresholds,
+- [x] validate.py data-sanity tier: NaN fraction thresholds,
       no constant columns, value ranges (mrt/fractions in [0,1],
       sums≈1, TPM ≥ 0), expected column counts vs registry,
       unique version-stripped ENSG index
-- [ ] Biological-plausibility tier (Spearman, direction not
+- [x] Biological-plausibility tier (Spearman, direction not
       magnitude): expression↔mrt negative; active marks
       (h3k4me3/h3k27ac/h3k9ac) + ATAC ↔ expression positive;
       repressive (h3k9me3/h3k27me3) negative; same mark across
       EIDs positive; housekeeping panel (GAPDH, ACTB, RPL13A,
       B2M) expressed + early + accessible
-- [ ] Auto-run at end of build (log report; strict=True raises);
+- [x] Auto-run at end of build (log report; strict=True raises);
       tests with planted violations
 
 ## Phase 5 — CLI, update checks, OSF fetch
