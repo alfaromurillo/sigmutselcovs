@@ -12,13 +12,16 @@ import hashlib
 import logging
 import os
 import shutil
+import tarfile
 from pathlib import Path
 
 import requests
 
 from .encode import resolve_encode_file
-from .paths import ProjectPaths
-from .registry import RepliseqSpec, RoadmapSpec
+from .paths import ProjectPaths, bigwig_files
+from .registry import AtacSpec, RepliseqSpec, RoadmapSpec
+
+GDC_DATA_URL = "https://api.gdc.cancer.gov/data"
 
 logger = logging.getLogger(__name__)
 
@@ -161,6 +164,58 @@ def download_repliseq(spec: RepliseqSpec,
         return out
 
     raise ValueError(f"Unknown repliseq type {spec.type!r}")
+
+
+def download_tcga_atac(spec: AtacSpec,
+                       paths: ProjectPaths,
+                       *,
+                       force: bool = False,
+                       session: requests.Session | None = None
+                       ) -> list[Path]:
+    """Download and unpack the TCGA ATAC-seq bigWig tarball.
+
+    The Corces et al. archives nest the bigWigs under a deep
+    Stanford path; members are extracted flattened into the ATAC
+    directory, keeping only ``*.bw``/``*.bigWig`` basenames and
+    refusing absolute or parent-traversing names.  The tarball is
+    removed on success.  Skipped entirely when bigWigs are already
+    present.
+    """
+    existing = bigwig_files(paths.atac_dir)
+    if existing and not force:
+        logger.info("ATAC bigWigs already present (%d files); skipping",
+                    len(existing))
+        return existing
+
+    tarball = paths.atac_dir / f"{spec.column_prefix.upper()}_bigWigs.tgz"
+    download_file(f"{GDC_DATA_URL}/{spec.gdc_uuid}", tarball,
+                  force=force, session=session)
+
+    extracted: list[Path] = []
+    with tarfile.open(tarball, "r:gz") as tar:
+        for member in tar:
+            if not member.isfile():
+                continue
+            name = Path(member.name)
+            if name.is_absolute() or ".." in name.parts:
+                logger.warning("Refusing suspicious tar member: %s",
+                               member.name)
+                continue
+            if name.suffix.lower() not in (".bw", ".bigwig"):
+                continue
+            target = paths.atac_dir / name.name
+            source = tar.extractfile(member)
+            if source is None:
+                continue
+            with source, open(target, "wb") as out:
+                shutil.copyfileobj(source, out)
+            extracted.append(target)
+    tarball.unlink()
+    if not extracted:
+        raise OSError("No bigWig members found in the ATAC tarball "
+                      f"for {spec.gdc_uuid}")
+    logger.info("Extracted %d ATAC bigWigs", len(extracted))
+    return sorted(extracted)
 
 
 def download_roadmap_tracks(spec: RoadmapSpec,

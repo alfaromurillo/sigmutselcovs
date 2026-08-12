@@ -201,6 +201,61 @@ def test_download_roadmap_tolerates_missing_marks(tmp_path):
         dl.download_roadmap_tracks(required, paths, session=session)
 
 
+def _make_atac_tarball(payloads: dict[str, bytes]) -> bytes:
+    import io
+    import tarfile
+
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode="w:gz") as tar:
+        for name, data in payloads.items():
+            import time
+            info = tarfile.TarInfo(name)
+            info.size = len(data)
+            info.mtime = int(time.time())
+            tar.addfile(info, io.BytesIO(data))
+    return buffer.getvalue()
+
+
+def test_download_tcga_atac_flattens(tmp_path):
+    import sigmutselcovs.download as dl
+    from sigmutselcovs.paths import project_paths
+    from sigmutselcovs.registry import AtacSpec
+
+    tar_bytes = _make_atac_tarball({
+        "oak/stanford/deep/path/COAD_A_T1.insertions.bw": b"aaa",
+        "oak/stanford/deep/path/COAD_B_T1.insertions.bw": b"bbb",
+        "oak/stanford/deep/path/README.txt": b"skip me",
+        "../evil.bw": b"nope",
+    })
+    spec = AtacSpec(gdc_uuid="uuid-1234", column_prefix="coad")
+    paths = project_paths(tmp_path)
+    session = _URLSession({f"{dl.GDC_DATA_URL}/uuid-1234": tar_bytes})
+    got = dl.download_tcga_atac(spec, paths, session=session)
+    assert [p.name for p in got] == ["COAD_A_T1.insertions.bw",
+                                     "COAD_B_T1.insertions.bw"]
+    assert (paths.atac_dir / "COAD_A_T1.insertions.bw"
+            ).read_bytes() == b"aaa"
+    assert not (paths.atac_dir / "README.txt").exists()
+    assert not (tmp_path / "evil.bw").exists()
+    assert not list(paths.atac_dir.glob("*.tgz"))
+    # idempotent once bigWigs exist
+    dl.download_tcga_atac(spec, paths, session=session)
+    assert len(session.fetched) == 1
+
+
+def test_download_tcga_atac_empty_tarball_raises(tmp_path):
+    import sigmutselcovs.download as dl
+    from sigmutselcovs.paths import project_paths
+    from sigmutselcovs.registry import AtacSpec
+
+    tar_bytes = _make_atac_tarball({"just/a/README.txt": b"x"})
+    spec = AtacSpec(gdc_uuid="uuid-9", column_prefix="coad")
+    paths = project_paths(tmp_path)
+    session = _URLSession({f"{dl.GDC_DATA_URL}/uuid-9": tar_bytes})
+    with pytest.raises(OSError, match="No bigWig members"):
+        dl.download_tcga_atac(spec, paths, session=session)
+
+
 def test_short_download_keeps_part_for_resume(tmp_path):
     dest = tmp_path / "file.bin"
     session = _FakeSession(PAYLOAD, fail_after=80)
