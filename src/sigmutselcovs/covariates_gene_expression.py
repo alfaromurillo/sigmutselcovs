@@ -407,6 +407,9 @@ def load_or_generate_tcga_gexp_per_sample(
         all six: ``unstranded``, ``stranded_first``, ``stranded_second``,
         ``tpm_unstranded``, ``fpkm_unstranded``, ``fpkm_uq_unstranded``.
         Pass e.g. ``['tpm_unstranded']`` to keep only TPM.
+    tissue_type : str | None
+        Filter samples by the sample sheet's 'Tissue Type' column
+        (e.g. 'Tumor' or 'Normal').  None (default) keeps all samples.
     strip_gene_id_version : bool
         Strip ``.version`` suffixes from Ensembl IDs (default True).
     force_generation : bool
@@ -442,13 +445,11 @@ def load_or_generate_tcga_gexp_per_sample(
 
     logger.info("Generating per-sample TCGA expression from %s", tcga_dir)
 
-    cols_to_load = ["ensembl_gene_id", "Tumor_Sample_Barcode"] + [
-        m for m in metrics if m != "Tumor_Sample_Barcode"
-    ]
     long_df = import_tcga_gene_expression(
         tcga_dir,
         cols=["ensembl_gene_id"] + metrics,
-        strip_gene_id_version=strip_gene_id_version)
+        strip_gene_id_version=strip_gene_id_version,
+        tissue_type=tissue_type)
 
     # Pivot: rows = genes, columns = barcode_metric
     frames = []

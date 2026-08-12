@@ -33,7 +33,7 @@ Key design decisions (2026-08-12):
 - [x] import_gtex: default mapping_path to packaged
       gtex_tcga_mapping.json; fix docstring (`tcga_study_code`
       param does not exist)
-- [ ] load_or_generate_tcga_gexp_per_sample: fix dead cols_to_load
+- [x] load_or_generate_tcga_gexp_per_sample: fix dead cols_to_load
       and dropped tissue_type pass-through
 - [ ] annotate_rt_twidth: honor bin_size kwarg (literal 50000 bug)
 - [ ] pyproject.toml: add pyarrow + requests; pytest config
