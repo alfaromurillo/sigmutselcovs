@@ -284,12 +284,16 @@ def fix_skewness(
         Copy of *df* with recommended transforms applied.
         Non-flagged and non-numeric columns are unchanged.
     report : pd.DataFrame
-        Output of :func:`check_skewness` from the final pass.
+        Output of :func:`check_skewness` from the final pass.  Its
+        ``.attrs["applied"]`` maps each transformed column to the
+        list of pseudo-counts used, one per ``log(c + x)`` pass
+        (columns transformed twice have two entries).
     """
     import warnings
 
     fixed = df.copy()
     report = None
+    applied: dict[str, list[float]] = {}
     for i in range(max_iter if iterative else 1):
         report = check_skewness(
             fixed, columns=columns,
@@ -306,6 +310,8 @@ def fix_skewness(
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore", RuntimeWarning)
                     fixed[col] = np.log(row["pseudo_count"] + fixed[col])
+                applied.setdefault(col, []).append(
+                    float(row["pseudo_count"]))
 
         logger.info(
             "fix_skewness pass %d: transformed %d / %d columns",
@@ -315,6 +321,8 @@ def fix_skewness(
             "fix_skewness: reached max_iter=%d without full convergence",
             max_iter)
 
+    if report is not None:
+        report.attrs["applied"] = applied
     return fixed, report
 
 

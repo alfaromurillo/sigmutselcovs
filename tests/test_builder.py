@@ -206,6 +206,64 @@ def test_cache_matrices_and_manifest(stubbed):
         "gtex", "gexp", "repliseq", "atac", "roadmap"}
 
 
+def test_column_dictionary(stubbed):
+    matrices = build_covariate_matrix(
+        "COAD", stubbed, gencode_gtfs=GTFS, apply_fixes=False,
+        cache_matrices=True)
+    paths = project_paths(stubbed)
+    dictionary = pd.read_csv(paths.column_dictionary_csv)
+    # one row per column of the built matrix, same order
+    assert dictionary["column"].tolist() == list(matrices.full.columns)
+    by_col = dictionary.set_index("column")
+    assert by_col.loc["gtex_colon_sigmoid", "source"] == "gtex"
+    assert by_col.loc["tpm_unstranded", "source"] == "gexp_mean"
+    assert by_col.loc["TCGA-AA-0001-01A_tpm_unstranded",
+                      "source"] == "gexp_per_sample"
+    assert by_col.loc["mrt", "source"] == "mrt"
+    assert by_col.loc["clr_rt_s1", "source"] == "clr"
+    assert by_col.loc["clr_rt_s7", "detail"] == "S-phase fraction 7"
+    atac_row = by_col.loc["coad_abc_t1_insertions_body"]
+    assert atac_row["source"] == "atac"
+    assert atac_row["detail"] == "gene body [TSS+200, TES]"
+    assert atac_row["assembly"] == "hg38"
+    roadmap_row = by_col.loc["e075_h3k9me3_fc_signal_promoter"]
+    assert roadmap_row["source"] == "roadmap"
+    assert roadmap_row["detail"] == "promoter [TSS-2000, TSS+200]"
+    assert roadmap_row["assembly"] == "hg19"
+    assert by_col.loc["mrt", "cell_line_or_epigenome"] == "HCT116"
+    # no fixes applied -> every transform is none
+    assert (dictionary["transform"] == "none").all()
+
+
+def test_column_dictionary_partial_build(stubbed):
+    build_covariate_matrix(
+        "COAD", stubbed, gencode_gtfs=GTFS, apply_fixes=False,
+        cache_matrices=True, include=("gtex", "repliseq"))
+    dictionary = pd.read_csv(
+        project_paths(stubbed).column_dictionary_csv)
+    assert set(dictionary["source"]) == {"gtex", "mrt", "clr"}
+
+
+def test_column_dictionary_records_transforms(stubbed, monkeypatch):
+    # a strongly right-skewed gtex column triggers fix_skewness
+    import numpy as np
+
+    skewed = pd.DataFrame(
+        {"gtex_colon_sigmoid": [0.0, 0.1, 0.2, 0.1, 1000.0],
+         "gtex_colon_transverse_mucosa": np.linspace(1, 2, 5)},
+        index=pd.Index(GENES, name="ensembl_gene_id"))
+    monkeypatch.setattr(builder, "import_gtex",
+                        lambda *a, **k: skewed.copy())
+    build_covariate_matrix(
+        "COAD", stubbed, gencode_gtfs=GTFS, apply_fixes=True,
+        cache_matrices=True, include=("gtex",))
+    dictionary = pd.read_csv(
+        project_paths(stubbed).column_dictionary_csv)
+    by_col = dictionary.set_index("column")
+    assert by_col.loc["gtex_colon_sigmoid",
+                      "transform"].startswith("log(")
+
+
 def test_named_tuple_type(stubbed):
     matrices = build_covariate_matrix(
         "COAD", stubbed, gencode_gtfs=GTFS, apply_fixes=False)

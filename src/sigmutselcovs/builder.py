@@ -186,6 +186,105 @@ def _atac_prefix(spec, atac_covs: pd.DataFrame) -> str:
     return fallback
 
 
+def _describe_block(source: str, spec: ProjectSpec,
+                    frame: pd.DataFrame) -> dict:
+    """Block-level constants for the column dictionary."""
+    if source == "gtex":
+        return {"description": "GTEx median gene expression",
+                "cell_line_or_epigenome": "",
+                "assembly": "", "units": "median TPM"}
+    if source == "gexp_mean":
+        return {"description": "Mean TCGA gene expression over "
+                "samples of one tissue type",
+                "cell_line_or_epigenome": "",
+                "assembly": "", "units": "TPM"}
+    if source == "gexp_per_sample":
+        return {"description": "Per-sample TCGA STAR expression "
+                "metric ({barcode}_{metric})",
+                "cell_line_or_epigenome": "",
+                "assembly": "", "units": "STAR metric"}
+    if source in ("mrt", "clr", "wavelet"):
+        rt = spec.repliseq
+        desc = {
+            "mrt": "Mean replication time over gene body "
+                   "(0 = early, 1 = late)",
+            "clr": "CLR-transformed S-phase fraction over gene body",
+            "wavelet": "Wavelet-smoothed early/late replication "
+                       "signal over gene body",
+        }[source]
+        return {"description": desc,
+                "cell_line_or_epigenome": rt.cell_line if rt else "",
+                "assembly": rt.assembly if rt else "",
+                "units": {"mrt": "MRT (0..1)",
+                          "clr": "CLR(fraction)",
+                          "wavelet": "signal"}[source]}
+    if source == "atac":
+        return {"description": "TCGA ATAC-seq insertions, mean over "
+                "gene body or promoter window",
+                "cell_line_or_epigenome": "TCGA tumor samples",
+                "assembly": spec.atac.assembly if spec.atac else "",
+                "units": "normalized insertions"}
+    if source == "roadmap":
+        return {"description": "Roadmap histone-mark ChIP fold-change "
+                "signal, mean over gene body or promoter window",
+                "cell_line_or_epigenome": "Roadmap epigenomes "
+                + (", ".join(spec.roadmap.eids) if spec.roadmap else ""),
+                "assembly": spec.roadmap.assembly if spec.roadmap else "",
+                "units": "fold-change signal"}
+    return {"description": source, "cell_line_or_epigenome": "",
+            "assembly": "", "units": ""}
+
+
+def _column_detail(source: str, column: str) -> str:
+    if source in ("atac", "roadmap"):
+        if column.endswith("_body"):
+            return "gene body [TSS+200, TES]"
+        if column.endswith("_promoter"):
+            return "promoter [TSS-2000, TSS+200]"
+    if source == "clr":
+        return f"S-phase fraction {column.removeprefix('clr_rt_s')}"
+    return ""
+
+
+def _write_column_dictionary(
+        paths: ProjectPaths,
+        spec: ProjectSpec,
+        blocks: list[tuple[str, list[str]]],
+        final_columns: pd.Index,
+        skew_report: pd.DataFrame | None) -> None:
+    """One row per column of the built matrix (partial builds get a
+    correct partial dictionary; fix-dropped columns are omitted)."""
+    applied = {}
+    if skew_report is not None:
+        applied = skew_report.attrs.get("applied", {})
+    final = set(final_columns)
+    rows = []
+    for source, columns in blocks:
+        meta = _describe_block(source, spec, None)
+        for column in columns:
+            if column not in final:
+                continue  # dropped by fix_variance
+            transforms = applied.get(column)
+            transform = ("; ".join(f"log({c:.6g} + x)"
+                                   for c in transforms)
+                         if transforms else "none")
+            rows.append({
+                "column": column,
+                "source": source,
+                "description": meta["description"],
+                "detail": _column_detail(source, column),
+                "cell_line_or_epigenome":
+                    meta["cell_line_or_epigenome"],
+                "assembly": meta["assembly"],
+                "units": meta["units"],
+                "transform": transform,
+            })
+    frame = pd.DataFrame(rows)
+    frame.to_csv(paths.column_dictionary_csv, index=False)
+    logger.info("Wrote column dictionary (%d rows) to %s",
+                len(frame), paths.column_dictionary_csv)
+
+
 def _registry_hash(registry_path: str | Path | None) -> str:
     path = (Path(registry_path) if registry_path is not None
             else location_projects_registry)
@@ -287,6 +386,7 @@ def build_covariate_matrix(
     # clr fractions, ATAC, Roadmap.
     frames: list[pd.DataFrame] = []
     included: set[str] = set()
+    blocks: list[tuple[str, list[str]]] = []
 
     if "gtex" in selected:
         gtex = import_gtex(
@@ -295,6 +395,7 @@ def build_covariate_matrix(
             mapping_path=location_gtex_tcga_mapping,
             columns=spec.gtex.mapping_key)
         frames.append(gtex)
+        blocks.append(("gtex", list(gtex.columns)))
         included.add("gtex")
 
     if "gexp" in selected:
@@ -317,12 +418,15 @@ def build_covariate_matrix(
                     mean_gexp = mean_gexp.rename(
                         f"{mean_gexp.name}_{tissue_type.lower()}")
                 frames.append(mean_gexp.to_frame())
+                blocks.append(("gexp_mean", [mean_gexp.name]))
             per_sample = load_or_generate_tcga_gexp_per_sample(
                 location_parquet=paths.gexp_per_sample_parquet,
                 tcga_dir=paths.gexp_tcga_dir,
                 metrics=metrics,
                 force_generation=force_generation)
             frames.append(per_sample)
+            blocks.append(("gexp_per_sample",
+                           list(per_sample.columns)))
             included.add("gexp")
 
     if "repliseq" in selected:
@@ -336,6 +440,12 @@ def build_covariate_matrix(
                 force_generation)
             if rt_frames:
                 frames.extend(rt_frames)
+                for frame in rt_frames:
+                    first = frame.columns[0]
+                    kind = ("clr" if first.startswith("clr_")
+                            else "wavelet" if first == "rt_wavelet"
+                            else "mrt")
+                    blocks.append((kind, list(frame.columns)))
                 included.add("repliseq")
 
     atac_covs = None
@@ -348,6 +458,7 @@ def build_covariate_matrix(
                 gtf_for(spec.atac.assembly), force_generation)
             if atac_covs is not None:
                 frames.append(atac_covs)
+                blocks.append(("atac", list(atac_covs.columns)))
                 included.add("atac")
 
     if "roadmap" in selected:
@@ -361,6 +472,8 @@ def build_covariate_matrix(
                 gtf_for(spec.roadmap.assembly), force_generation)
             if roadmap_covs is not None:
                 frames.append(roadmap_covs)
+                blocks.append(("roadmap",
+                               list(roadmap_covs.columns)))
                 included.add("roadmap")
 
     if not frames:
@@ -453,6 +566,9 @@ def build_covariate_matrix(
         matrices.simple.to_csv(paths.matrix_simple_csv)
         matrices.tcga.to_csv(paths.matrix_tcga_csv)
         _write_manifest(paths, spec, included, matrices, registry_path)
+        _write_column_dictionary(paths, spec, blocks,
+                                 cov_matrix_full.columns,
+                                 reports.get("skewness"))
         logger.info("Cached covariate matrices under %s",
                     paths.matrices_dir)
 
