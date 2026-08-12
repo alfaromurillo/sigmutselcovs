@@ -113,3 +113,39 @@ def test_bigwig_adapter_rejects_single_track(tmp_path):
     a = _write_bigwig(tmp_path / "a.bigWig", [1])
     with pytest.raises(ValueError, match="at least two"):
         load_repliseq_fractions_bins_from_bigwigs([a])
+
+
+def _write_gtf(path, genes):
+    """genes: list of (gene_id, chrom, start1, end1) 1-based incl."""
+    lines = []
+    for gid, chrom, start, end in genes:
+        attrs = f'gene_id "{gid}"; gene_type "protein_coding";'
+        lines.append("\t".join([chrom, "TEST", "gene", str(start),
+                                str(end), ".", "+", ".", attrs]))
+    path.write_text("\n".join(lines) + "\n")
+    return path
+
+
+def test_wavelet_per_gene(tmp_path):
+    from sigmutselcovs.covariates_replication_timing import (
+        generate_rt_wavelet_per_gene,
+        load_or_generate_rt_wavelet,
+    )
+
+    track = _write_bigwig(tmp_path / "wavelet.bigWig", [2, 4, 6])
+    gtf = _write_gtf(tmp_path / "genes.gtf", [
+        # spans bins 1-2 fully -> mean(2, 4) = 3
+        ("ENSG00000000001", "chr1", 1, 2 * BIN),
+        # inside bin 3 only -> 6
+        ("ENSG00000000002", "chr1", 2 * BIN + 1, 2 * BIN + 1000),
+    ])
+    ser = generate_rt_wavelet_per_gene(track, gtf)
+    assert ser.name == "rt_wavelet"
+    assert ser.loc["ENSG00000000001"] == pytest.approx(3.0)
+    assert ser.loc["ENSG00000000002"] == pytest.approx(6.0)
+
+    cache = tmp_path / "rt_wavelet_per_gene.csv"
+    first = load_or_generate_rt_wavelet(cache, track, gtf)
+    assert cache.exists()
+    again = load_or_generate_rt_wavelet(cache, "nonexistent.bigWig", gtf)
+    pd.testing.assert_series_equal(first, again)

@@ -590,6 +590,73 @@ def load_or_generate_rt_fractions(
     return df
 
 
+def generate_rt_wavelet_per_gene(
+        bigwig_path: str | Path,
+        gencode_annotation: str | Path,
+        *,
+        bin_size: int = 50_000,
+        chromosomes: Sequence[str] | None = None,
+        statistic: str = "mean") -> pd.Series:
+    """Compute a per-gene RT value from a single smoothed signal track.
+
+    For cell lines whose only processed replication-timing output is
+    one wavelet-smoothed early/late signal bigWig (the Gilbert-lab
+    ENCODE series: LNCaP, Caki2, A549, NCI-H460, G401, SK-N-MC,
+    T47D), there are no fractions to normalize — the track itself is
+    the covariate.  The signal is binned and length-weight averaged
+    over gene bodies, like MRT.
+
+    Note the orientation is the track's own (for log2(early/late)
+    signal, larger = **earlier** replication — opposite of ``mrt``).
+    As a model covariate the sign is absorbed by the coefficient.
+
+    Returns
+    -------
+    pd.Series
+        Indexed by 'ensembl_gene_id'; name 'rt_wavelet'.
+    """
+    bins = _bin_bigwigs([bigwig_path],
+                        bin_size=bin_size,
+                        chromosomes=chromosomes,
+                        statistic=statistic)
+    bins = bins.rename(columns={"track_1": "rt_wavelet"})
+    gene_bodies = load_gene_bodies_from_gtf(gencode_annotation)
+    annotated = annotate_with_binned_features(
+        gene_bodies, bins, feature_cols="rt_wavelet")
+    return annotated["rt_wavelet"].astype(float).rename("rt_wavelet")
+
+
+def load_or_generate_rt_wavelet(
+        location_csv: str | Path,
+        bigwig_path: str | Path,
+        gencode_annotation: str | Path,
+        *,
+        bin_size: int = 50_000,
+        force_generation: bool = False,
+        float_format: str = "%.6g") -> pd.Series:
+    """Load or generate the per-gene wavelet RT covariate.
+
+    Same caching contract as :func:`load_or_generate_mrt`.
+    """
+    location_csv = Path(location_csv)
+
+    if location_csv.exists() and not force_generation:
+        logger.info("Loading wavelet RT per gene from %s", location_csv)
+        tbl = pd.read_csv(location_csv, index_col=0)
+        ser = tbl.iloc[:, 0].astype(float).rename("rt_wavelet")
+        logger.info("... done loading wavelet RT per gene.")
+        return ser
+
+    logger.info("Generating wavelet RT per gene from %s and %s",
+                bigwig_path, gencode_annotation)
+    ser = generate_rt_wavelet_per_gene(
+        bigwig_path, gencode_annotation, bin_size=bin_size)
+    ser.to_frame().to_csv(location_csv, float_format=float_format)
+    logger.info("Saved wavelet RT per gene to %s", location_csv)
+    logger.info("... done generating wavelet RT per gene.")
+    return ser
+
+
 def generate_mrt_per_gene(repli_seq_hct,
                           gencode_annotation):
     """Compute gene-level MRT from multi-fraction Repli-seq.
