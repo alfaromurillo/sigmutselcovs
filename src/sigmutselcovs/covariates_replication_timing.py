@@ -404,22 +404,49 @@ def _normalize_fraction_bins(bins: pd.DataFrame,
     return out
 
 
-def load_repliseq_fractions_bins(path: str) -> pd.DataFrame:
+def _resolve_source_type(source, source_type: str) -> str:
+    """Resolve 'auto' to a concrete repliseq source type."""
+    if source_type != "auto":
+        if source_type not in ("mat", "fraction_bigwigs", "wavelet"):
+            raise ValueError(
+                f"Unknown repliseq source_type {source_type!r}")
+        return source_type
+    if isinstance(source, (list, tuple)):
+        return "fraction_bigwigs"
+    return "mat"
+
+
+def load_repliseq_fractions_bins(
+        source,
+        *,
+        source_type: str = "auto",
+        bin_size: int = 50_000) -> pd.DataFrame:
     """Load multi-fraction Repli-seq and return per-bin normalized fractions.
 
-    Reads a *wide, transposed* Repli-seq table and column-normalizes
-    each bin so its S-phase fractions sum to 100 (Zhao et al., 2020).
-    Each fraction column is then expressed on a [0, 1] scale (dividing
-    by 100).
+    Two source types are supported (``source_type='auto'`` infers
+    from the argument):
+
+    - ``mat``: a single *wide, transposed* Repli-seq table (Zhao et
+      al., 2020); ``source`` is its path.
+    - ``fraction_bigwigs``: N per-fraction bigWig tracks in
+      early-to-late order; ``source`` is a list/tuple of paths (see
+      :func:`load_repliseq_fractions_bins_from_bigwigs`).
+
+    Each bin is column-normalized so its S-phase fractions sum to 100
+    and expressed on a [0, 1] scale (dividing by 100).
 
     Parameters
     ----------
-    path : str
-        Path to the transposed Repli-seq file. Expected columns after
-        parsing:
+    source : str | Path | Sequence[str | Path]
+        Path to the transposed Repli-seq file, or the fraction bigWig
+        paths. For the ``mat`` type, expected columns after parsing:
 
         - 'Chromosome', 'region_start', 'region_end'
         - fraction columns (any count ≥ 1).
+    source_type : str
+        'auto' (default), 'mat', or 'fraction_bigwigs'.
+    bin_size : int
+        Genomic window size for the bigWig path (default 50 kb).
 
     Returns
     -------
@@ -438,7 +465,16 @@ def load_repliseq_fractions_bins(path: str) -> pd.DataFrame:
     - 'rt_s1' is the earliest S-phase fraction; 'rt_sN' is the latest.
 
     """
-    repli_seq = read_bed_file(path,
+    resolved = _resolve_source_type(source, source_type)
+    if resolved == "fraction_bigwigs":
+        return load_repliseq_fractions_bins_from_bigwigs(
+            source, bin_size=bin_size)
+    if resolved == "wavelet":
+        raise ValueError(
+            "Fractions are undefined for a wavelet track; use "
+            "generate_rt_wavelet_per_gene instead")
+
+    repli_seq = read_bed_file(source,
                               feature_name=None,
                               has_index_col=False,
                               has_header=False,
@@ -455,7 +491,12 @@ def load_repliseq_fractions_bins(path: str) -> pd.DataFrame:
     return _normalize_fraction_bins(repli_seq, frac_cols)
 
 
-def load_repliseq_mrt_bins(path: str) -> pd.DataFrame:
+def load_repliseq_mrt_bins(
+        source,
+        *,
+        source_type: str = "auto",
+        bin_size: int = 50_000,
+        mrt_fraction_cols: Sequence[str] | None = None) -> pd.DataFrame:
     """Load multi-fraction Repli-seq and compute per-bin MRT.
 
     Calls :func:`load_repliseq_fractions_bins`, then collapses the
@@ -465,9 +506,18 @@ def load_repliseq_mrt_bins(path: str) -> pd.DataFrame:
 
     Parameters
     ----------
-    path : str
-        Path to the transposed Repli-seq file (same format as
+    source : str | Path | Sequence[str | Path]
+        Transposed Repli-seq file, or fraction bigWig paths (see
         :func:`load_repliseq_fractions_bins`).
+    source_type : str
+        'auto' (default), 'mat', or 'fraction_bigwigs'.
+    bin_size : int
+        Genomic window size for the bigWig path (default 50 kb).
+    mrt_fraction_cols : Sequence[str] | None
+        Restrict the weighted average to these ``rt_s*`` columns
+        (renormalizing over the subset).  None (default) uses all
+        fractions — for the UW 6-fraction data that reproduces the
+        canonical weighted average of Hansen et al. (2010).
 
     Returns
     -------
@@ -487,13 +537,29 @@ def load_repliseq_mrt_bins(path: str) -> pd.DataFrame:
       :func:`load_repliseq_fractions_bins`.
 
     """
-    fracs = load_repliseq_fractions_bins(path)
+    fracs = load_repliseq_fractions_bins(
+        source, source_type=source_type, bin_size=bin_size)
     rt_cols = [c for c in fracs.columns if c.startswith("rt_s")]
+    if mrt_fraction_cols is not None:
+        missing = [c for c in mrt_fraction_cols if c not in rt_cols]
+        if missing:
+            raise ValueError(
+                f"mrt_fraction_cols not in the fractions: {missing}; "
+                f"available: {rt_cols}")
+        rt_cols = list(mrt_fraction_cols)
     n_phases = len(rt_cols)
     t = (np.arange(n_phases, dtype=float) + 0.5) / n_phases
     F = fracs[rt_cols].to_numpy(dtype=float)
     has_signal = np.isfinite(F).any(axis=1)
-    mrt = np.nansum(F * t, axis=1)
+    if mrt_fraction_cols is None:
+        # full set: fractions already sum to 1 per bin
+        mrt = np.nansum(F * t, axis=1)
+    else:
+        # subset: renormalize over the selected fractions
+        denom = np.nansum(F, axis=1)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            mrt = np.nansum(F * t, axis=1) / denom
+        has_signal &= denom > 0
 
     out = fracs[["Chromosome", "region_start", "region_end"]].copy()
     out["mrt"] = pd.Series(mrt, index=fracs.index).where(has_signal)
@@ -501,8 +567,11 @@ def load_repliseq_mrt_bins(path: str) -> pd.DataFrame:
 
 
 def generate_rt_fractions_per_gene(
-        repli_seq_hct: str | Path,
-        gencode_annotation: str | Path) -> pd.DataFrame:
+        repli_seq_hct,
+        gencode_annotation: str | Path,
+        *,
+        source_type: str = "auto",
+        bin_size: int = 50_000) -> pd.DataFrame:
     """Compute gene-level Repli-seq fractions from multi-fraction data.
 
     Returns one column per S-phase fraction (``rt_s1``…``rt_sN``),
@@ -529,7 +598,8 @@ def generate_rt_fractions_per_gene(
         Genes with insufficient bin coverage yield NaN rows.
 
     """
-    fracs = load_repliseq_fractions_bins(repli_seq_hct)
+    fracs = load_repliseq_fractions_bins(
+        repli_seq_hct, source_type=source_type, bin_size=bin_size)
     gene_bodies = load_gene_bodies_from_gtf(gencode_annotation)
     rt_cols = [c for c in fracs.columns if c.startswith("rt_s")]
     annotated = annotate_with_binned_features(
@@ -539,9 +609,11 @@ def generate_rt_fractions_per_gene(
 
 def load_or_generate_rt_fractions(
         location_csv: str | Path,
-        repli_seq_hct: str | Path,
+        repli_seq_hct,
         gencode_annotation: str | Path,
         *,
+        source_type: str = "auto",
+        bin_size: int = 50_000,
         force_generation: bool = False,
         float_format: str = "%.6g"
         ) -> pd.DataFrame:
@@ -583,7 +655,9 @@ def load_or_generate_rt_fractions(
 
     logger.info("Generating RT fractions per gene from %s and %s",
                 repli_seq_hct, gencode_annotation)
-    df = generate_rt_fractions_per_gene(repli_seq_hct, gencode_annotation)
+    df = generate_rt_fractions_per_gene(
+        repli_seq_hct, gencode_annotation,
+        source_type=source_type, bin_size=bin_size)
     df.to_csv(location_csv, float_format=float_format)
     logger.info("Saved RT fractions per gene to %s", location_csv)
     logger.info("... done generating RT fractions per gene.")
@@ -658,7 +732,11 @@ def load_or_generate_rt_wavelet(
 
 
 def generate_mrt_per_gene(repli_seq_hct,
-                          gencode_annotation):
+                          gencode_annotation,
+                          *,
+                          source_type: str = "auto",
+                          bin_size: int = 50_000,
+                          mrt_fraction_cols: Sequence[str] | None = None):
     """Compute gene-level MRT from multi-fraction Repli-seq.
 
     This function aggregates per-bin mean replication timing (MRT)
@@ -690,7 +768,9 @@ def generate_mrt_per_gene(repli_seq_hct,
     - Genes with insufficient or missing bin coverage yield NaN.
 
     """
-    cov_mrt = load_repliseq_mrt_bins(repli_seq_hct)
+    cov_mrt = load_repliseq_mrt_bins(
+        repli_seq_hct, source_type=source_type, bin_size=bin_size,
+        mrt_fraction_cols=mrt_fraction_cols)
 
     gene_bodies = load_gene_bodies_from_gtf(gencode_annotation)
 
@@ -701,9 +781,12 @@ def generate_mrt_per_gene(repli_seq_hct,
 
 def load_or_generate_mrt(
         location_csv: str | Path,
-        repli_seq_hct: str | Path,
+        repli_seq_hct,
         gencode_annotation: str | Path,
         *,
+        source_type: str = "auto",
+        bin_size: int = 50_000,
+        mrt_fraction_cols: Sequence[str] | None = None,
         force_generation: bool = False,
         float_format: str = "%.6g"
         ) -> pd.Series:
@@ -758,7 +841,9 @@ def load_or_generate_mrt(
     logger.info(f"Generating MRT per gene from {repli_seq_hct} "
                 f"and {gencode_annotation}")
 
-    cov_mrt = load_repliseq_mrt_bins(repli_seq_hct)
+    cov_mrt = load_repliseq_mrt_bins(
+        repli_seq_hct, source_type=source_type, bin_size=bin_size,
+        mrt_fraction_cols=mrt_fraction_cols)
     gene_bodies = load_gene_bodies_from_gtf(gencode_annotation)
     annotated = annotate_with_binned_features(
         gene_bodies,

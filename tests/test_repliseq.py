@@ -115,6 +115,52 @@ def test_bigwig_adapter_rejects_single_track(tmp_path):
         load_repliseq_fractions_bins_from_bigwigs([a])
 
 
+def test_mrt_two_fractions_closed_form(tmp_path):
+    """N=2: mrt = 0.25 + 0.5 * f2 (midpoints 0.25 and 0.75)."""
+    early = _write_bigwig(tmp_path / "e.bigWig", [1, 3, 0])
+    late = _write_bigwig(tmp_path / "l.bigWig", [1, 1, 2])
+    out = load_repliseq_mrt_bins([early, late])
+    f2 = np.array([0.5, 0.25, 1.0])
+    np.testing.assert_allclose(out["mrt"].to_numpy(), 0.25 + 0.5 * f2)
+
+
+def test_mrt_six_fractions_midpoints(tmp_path):
+    """N=6 midpoints [1,3,5,7,9,11]/12 (UW weighted average)."""
+    paths = [
+        _write_bigwig(tmp_path / f"f{i}.bigWig", [1 if i == 2 else 0, 1])
+        for i in range(6)]
+    out = load_repliseq_mrt_bins(paths)
+    # all signal in fraction 3 -> its midpoint 5/12
+    assert out["mrt"].iloc[0] == pytest.approx(5 / 12)
+    # uniform -> 0.5
+    assert out["mrt"].iloc[1] == pytest.approx(0.5)
+
+
+def test_mrt_fraction_subset_renormalizes(tmp_path):
+    paths = [
+        _write_bigwig(tmp_path / f"f{i}.bigWig", [v])
+        for i, v in enumerate([5.0, 1.0, 3.0, 2.0])]
+    out = load_repliseq_mrt_bins(
+        paths, mrt_fraction_cols=["rt_s2", "rt_s3"])
+    # subset renormalized: f = [1,3]/4; midpoints [0.25, 0.75]
+    expected = (0.25 * 1 + 0.75 * 3) / 4
+    assert out["mrt"].iloc[0] == pytest.approx(expected)
+
+
+def test_mrt_fraction_subset_unknown_column(mat_file):
+    with pytest.raises(ValueError, match="mrt_fraction_cols"):
+        load_repliseq_mrt_bins(mat_file, mrt_fraction_cols=["rt_s99"])
+
+
+def test_explicit_source_type_overrides(tmp_path, mat_file):
+    out = load_repliseq_fractions_bins(mat_file, source_type="mat")
+    assert len(out) == 3
+    with pytest.raises(ValueError, match="wavelet"):
+        load_repliseq_fractions_bins(mat_file, source_type="wavelet")
+    with pytest.raises(ValueError, match="source_type"):
+        load_repliseq_fractions_bins(mat_file, source_type="bogus")
+
+
 def _write_gtf(path, genes):
     """genes: list of (gene_id, chrom, start1, end1) 1-based incl."""
     lines = []
