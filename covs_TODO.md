@@ -36,8 +36,9 @@ Key design decisions (2026-08-12):
 - [x] load_or_generate_tcga_gexp_per_sample: fix dead cols_to_load
       and dropped tissue_type pass-through
 - [x] annotate_rt_twidth: honor bin_size kwarg (literal 50000 bug)
-- [ ] pyproject.toml: add pyarrow + requests; pytest config
+- [x] pyproject.toml: add pyarrow + requests; pytest config
       (markers: network, slow); requires-python >=3.12
+      (console entry point added later with cli.py in Phase 5)
 
 ## Phase 1 — project registry
 
