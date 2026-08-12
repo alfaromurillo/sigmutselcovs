@@ -56,19 +56,20 @@ Key design decisions (2026-08-12):
 
 ## Phase 2 — paths and builder
 
-- [ ] paths.py: ProjectPaths mirroring coad_data/ layout
+- [x] paths.py: ProjectPaths mirroring coad_data/ layout
       byte-for-byte + covariate_matrices/ outputs;
       bigwig_files() ported identical (pattern list + per-pattern
       sort — column order depends on it)
-- [ ] builder.py: build_covariate_matrix(project, data_dir, ...)
+- [x] builder.py: build_covariate_matrix(project, data_dir, ...)
       → CovariateMatrices(full, simple, tcga) NamedTuple; concat
       order identical to coad covariates.py:134-144; per-source
       skip-with-warning; CLR gating N<3; ATAC prefix from registry
       with fallback; simple/tcga from spec (degrade KeyError to
       warning); build_manifest.json
-- [ ] builder tests with stubbed loaders (assembly, skip paths,
+      (fraction_bigwigs/wavelet dispatch raises until Phase 3)
+- [x] builder tests with stubbed loaders (assembly, skip paths,
       CLR gate, prefix, 3-tuple unpack, duplicate-column warning)
-- [ ] __init__.py lazy (PEP 562) exports of the new public API
+- [x] __init__.py lazy (PEP 562) exports of the new public API
 
 ## Phase 3 — replication timing source types
 
