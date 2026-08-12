@@ -5,10 +5,13 @@ data from GTEx (Genotype-Tissue Expression) and TCGA (The Cancer
 Genome Atlas) for use as covariates in mutation rate modeling.
 """
 
-import pandas as pd
+import json
 import logging
 from pathlib import Path
 
+import pandas as pd
+
+from .covariates_locations import location_gtex_tcga_mapping
 from .covariates_utilities import annotate_with_gene_features
 
 
@@ -47,16 +50,17 @@ def import_gtex(
           - None (default): include all GTEx tissue columns available in
             the file (excluding 'Description').
           - list[str]: explicit GTEx column names to select.
-          - str: a TCGA study code; requires `mapping_path` to be provided
-            and point to a JSON mapping from codes to GTEx columns.
+          - str: a TCGA study code (e.g. 'COAD', 'BRCA'), looked up
+            in the JSON mapping at `mapping_path`.
     mapping_path : str | pathlib.Path | None
         Optional path to a JSON mapping file that maps TCGA study
         codes (keys) to lists of GTEx column names (values). The
         mapping is inherently dependent on the specific GTEx summary
         file used (columns present), so when you update to a new GTEx
         file you should also update this mapping accordingly. If
-        ``None`` and ``tcga_study_code`` is a string, a built-in
-        default mapping is used for common studies.
+        ``None`` and ``columns`` is a study code, the mapping bundled
+        with the package (`data/gene_expression/gtex_tcga_mapping.json`)
+        is used.
     strip_gene_id_version : bool
         If True, strip the `.version` suffix from Ensembl IDs in the
         GTEx table (e.g., `ENSG00000123456.17 →
@@ -94,11 +98,8 @@ def import_gtex(
     else:
         code = columns.upper()
         if mapping_path is None:
-            raise ValueError(
-                "columns is a TCGA study code but "
-                "mapping_path was not provided.")
+            mapping_path = location_gtex_tcga_mapping
         try:
-            import json
             with open(mapping_path, 'r') as fh:
                 mapping = json.load(fh)
             mapping = {str(k).upper(): v for k, v in mapping.items()}

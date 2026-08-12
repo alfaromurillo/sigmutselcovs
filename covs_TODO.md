@@ -30,7 +30,7 @@ Key design decisions (2026-08-12):
 
 - [x] Add covs_TODO.md checklist (this file); pointer in
       mutation_rates/TODO.md Objective 3
-- [ ] import_gtex: default mapping_path to packaged
+- [x] import_gtex: default mapping_path to packaged
       gtex_tcga_mapping.json; fix docstring (`tcga_study_code`
       param does not exist)
 - [ ] load_or_generate_tcga_gexp_per_sample: fix dead cols_to_load
