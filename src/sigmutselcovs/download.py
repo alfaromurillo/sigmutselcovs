@@ -17,9 +17,23 @@ from pathlib import Path
 
 import requests
 
+from dataclasses import dataclass, field
+
 from .encode import resolve_encode_file
-from .paths import ProjectPaths, bigwig_files
-from .registry import AtacSpec, RepliseqSpec, RoadmapSpec
+from .gdc import (
+    download_gdc_files,
+    query_gdc_files,
+    write_gdc_manifest,
+    write_gdc_sample_sheet,
+)
+from .paths import ProjectPaths, bigwig_files, project_paths
+from .registry import (
+    AtacSpec,
+    GexpSpec,
+    RepliseqSpec,
+    RoadmapSpec,
+    get_project,
+)
 
 GDC_DATA_URL = "https://api.gdc.cancer.gov/data"
 
@@ -101,6 +115,40 @@ def download_file(url: str,
     logger.info("Downloaded %s (%d bytes)", dest.name,
                 dest.stat().st_size)
     return dest
+
+
+def download_gdc_gene_expression(spec: GexpSpec,
+                                 paths: ProjectPaths,
+                                 *,
+                                 force: bool = False,
+                                 use_gdc_client: bool | None = None,
+                                 session: requests.Session | None = None
+                                 ) -> int:
+    """Query GDC and download a project's STAR count files.
+
+    Writes a fresh manifest and sample sheet into the gene
+    expression directory (replacing the need for checked-in ones)
+    and downloads into ``star_gene_counts/<file_id>/<file_name>``.
+    Returns the number of files in the inventory.
+    """
+    paths.gexp_tcga_dir.mkdir(parents=True, exist_ok=True)
+    hits = query_gdc_files(spec.tcga_project_id,
+                           data_type=spec.data_type,
+                           workflow_type=spec.workflow_type,
+                           session=session)
+    if not hits:
+        raise ValueError("GDC returned no files for "
+                         f"{spec.tcga_project_id}")
+    from datetime import date
+    manifest = (paths.gexp_tcga_dir
+                / f"gdc_manifest.{date.today().isoformat()}.txt")
+    write_gdc_manifest(hits, manifest)
+    write_gdc_sample_sheet(hits, directory=paths.gexp_tcga_dir)
+    # download_gdc_files writes its own pending-only manifest for
+    # gdc-client, so already-present files are never refetched.
+    download_gdc_files(hits, paths.gexp_star_dir,
+                       use_gdc_client=use_gdc_client)
+    return len(hits)
 
 
 def download_repliseq(spec: RepliseqSpec,
@@ -216,6 +264,105 @@ def download_tcga_atac(spec: AtacSpec,
                       f"for {spec.gdc_uuid}")
     logger.info("Extracted %d ATAC bigWigs", len(extracted))
     return sorted(extracted)
+
+
+@dataclass
+class DownloadReport:
+    """Per-source outcome of a download_covariates run."""
+
+    project: str
+    sources: dict[str, dict] = field(default_factory=dict)
+
+    def add(self, source: str, status: str, **info) -> None:
+        self.sources[source] = {"status": status, **info}
+
+    def summary(self) -> str:
+        lines = [f"Download report for {self.project}:"]
+        for source, info in self.sources.items():
+            extra = ", ".join(f"{k}={v}" for k, v in info.items()
+                              if k != "status")
+            lines.append(f"  {source:10s} {info['status']}"
+                         + (f" ({extra})" if extra else ""))
+        return "\n".join(lines)
+
+
+_WHICH = ("gexp", "repliseq", "roadmap", "atac")
+
+
+def download_covariates(project: str,
+                        data_dir: str | Path,
+                        *,
+                        which: tuple[str, ...] = _WHICH,
+                        registry_path: str | Path | None = None,
+                        force: bool = False,
+                        dry_run: bool = False,
+                        use_gdc_client: bool | None = None,
+                        session: requests.Session | None = None
+                        ) -> DownloadReport:
+    """Download all covariate source data for a registered project.
+
+    Parameters
+    ----------
+    project : str
+        TCGA study code from the registry (e.g. 'COAD', 'BRCA').
+    data_dir : str | Path
+        Project data directory (created as needed) laid out per
+        `ProjectPaths`.
+    which : tuple[str, ...]
+        Sources to fetch, any of gexp, repliseq, roadmap, atac.
+    dry_run : bool
+        Only report what would be fetched.
+
+    Notes
+    -----
+    MAF files are not covariates and stay with
+    ``sigmutsel.download_tcga_data``.
+    """
+    unknown = set(which) - set(_WHICH)
+    if unknown:
+        raise ValueError(f"Unknown sources: {sorted(unknown)}; "
+                         f"valid: {_WHICH}")
+    spec = get_project(project, registry_path)
+    paths = project_paths(data_dir)
+    report = DownloadReport(project=spec.code)
+
+    for source in _WHICH:
+        if source not in which:
+            continue
+        source_spec = getattr(spec, source)
+        if source_spec is None:
+            report.add(source, "not-in-registry")
+            continue
+        if dry_run:
+            report.add(source, "would-download")
+            continue
+        try:
+            if source == "gexp":
+                n = download_gdc_gene_expression(
+                    source_spec, paths, force=force,
+                    use_gdc_client=use_gdc_client, session=session)
+                report.add(source, "ok", n_files=n)
+            elif source == "repliseq":
+                files = download_repliseq(source_spec, paths,
+                                          force=force, session=session)
+                report.add(source, "ok", n_files=len(files))
+            elif source == "roadmap":
+                files = download_roadmap_tracks(
+                    source_spec, paths, force=force, session=session)
+                expected = (len(source_spec.eids)
+                            * len(source_spec.marks))
+                report.add(source, "ok", n_files=len(files),
+                           expected=expected)
+            elif source == "atac":
+                files = download_tcga_atac(source_spec, paths,
+                                           force=force, session=session)
+                report.add(source, "ok", n_files=len(files))
+        except Exception as exc:  # noqa: BLE001 - keep other sources going
+            logger.error("Download failed for %s: %s", source, exc)
+            report.add(source, "failed", error=str(exc))
+
+    logger.info("%s", report.summary())
+    return report
 
 
 def download_roadmap_tracks(spec: RoadmapSpec,

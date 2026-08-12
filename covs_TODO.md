@@ -92,21 +92,21 @@ Key design decisions (2026-08-12):
 
 ## Phase 4 — download layer
 
-- [ ] gdc.py: query_gdc_files (paginated, sorted), filters
+- [x] gdc.py: query_gdc_files (paginated, sorted), filters
       matching the checked-in COAD manifest (524 files; BRCA 1231)
-- [ ] write_gdc_manifest (gdc-client 5-col format) +
+- [x] write_gdc_manifest (gdc-client 5-col format) +
       write_gdc_sample_sheet (11 GDC columns, date-suffixed name);
       golden-row tests against real COAD sheet rows
-- [ ] _download_file: skip-if-present, .part + atomic replace,
+- [x] download_file: skip-if-present, .part + atomic replace,
       HTTP Range resume, md5 verify
-- [ ] encode.py: resolve_encode_file → S3 URL (never stream
+- [x] encode.py: resolve_encode_file → S3 URL (never stream
       bigWigs remotely); repliseq downloader (mat | fraction
       bigwigs | wavelet)
-- [ ] Roadmap downloader (eids × marks, tolerate 404 unless in
+- [x] Roadmap downloader (eids × marks, tolerate 404 unless in
       required_marks)
-- [ ] ATAC tarball downloader (stream, extract only *.bw/*.bigWig
+- [x] ATAC tarball downloader (stream, extract only *.bw/*.bigWig
       flattened, guard traversal, delete tarball)
-- [ ] download_covariates orchestrator → DownloadReport; mocked
+- [x] download_covariates orchestrator → DownloadReport; mocked
       tests
 
 ## Phase 4b — validation and column dictionary

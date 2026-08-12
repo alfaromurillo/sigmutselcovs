@@ -30,6 +30,8 @@ _LAZY = {
     "project_paths": "paths",
     "ProjectPaths": "paths",
     "bigwig_files": "paths",
+    "download_covariates": "download",
+    "DownloadReport": "download",
 }
 
 __all__ = [

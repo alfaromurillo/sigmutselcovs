@@ -256,6 +256,43 @@ def test_download_tcga_atac_empty_tarball_raises(tmp_path):
         dl.download_tcga_atac(spec, paths, session=session)
 
 
+def test_download_covariates_orchestration(tmp_path, monkeypatch):
+    import sigmutselcovs.download as dl
+
+    monkeypatch.setattr(dl, "download_gdc_gene_expression",
+                        lambda spec, paths, **kw: 524)
+    monkeypatch.setattr(dl, "download_repliseq",
+                        lambda spec, paths, **kw: ["a"])
+    monkeypatch.setattr(dl, "download_roadmap_tracks",
+                        lambda spec, paths, **kw: ["a"] * 27)
+
+    def boom(spec, paths, **kw):
+        raise OSError("tarball exploded")
+
+    monkeypatch.setattr(dl, "download_tcga_atac", boom)
+
+    report = dl.download_covariates("COAD", tmp_path)
+    assert report.sources["gexp"] == {"status": "ok", "n_files": 524}
+    assert report.sources["repliseq"]["status"] == "ok"
+    assert report.sources["roadmap"]["n_files"] == 27
+    assert report.sources["roadmap"]["expected"] == 28  # 4 eids x 7
+    # one source failing does not abort the others
+    assert report.sources["atac"]["status"] == "failed"
+    assert "tarball exploded" in report.sources["atac"]["error"]
+    assert "COAD" in report.summary()
+
+
+def test_download_covariates_dry_run_and_subset(tmp_path):
+    import sigmutselcovs.download as dl
+
+    report = dl.download_covariates("BRCA", tmp_path, dry_run=True,
+                                    which=("repliseq",))
+    assert report.sources == {"repliseq":
+                              {"status": "would-download"}}
+    with pytest.raises(ValueError, match="Unknown sources"):
+        dl.download_covariates("BRCA", tmp_path, which=("bogus",))
+
+
 def test_short_download_keeps_part_for_resume(tmp_path):
     dest = tmp_path / "file.bin"
     session = _FakeSession(PAYLOAD, fail_after=80)
