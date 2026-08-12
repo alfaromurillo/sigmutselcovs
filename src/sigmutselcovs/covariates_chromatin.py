@@ -9,6 +9,7 @@ import pyBigWig
 
 import pandas as pd
 
+from .covariates_utilities import fetch_bigwig_stat
 from .covariates_utilities import load_gene_bodies_from_gtf
 from .covariates_utilities import normalize_chromosome_name
 from .covariates_utilities import sanitize_feature_label
@@ -26,49 +27,8 @@ class TrackSpec:
     statistic: str = "mean"
 
 
-def _fetch_stat(
-        bw: pyBigWig.pyBigWig,
-        chrom: str,
-        start: int,
-        end: int,
-        stat: str) -> float:
-    """Return a summary statistic for a genomic interval.
-
-    Parameters
-    ----------
-    bw : pyBigWig.pyBigWig
-        Open bigWig handle.
-    chrom : str
-        Chromosome name recognised by the bigWig header.
-    start : int
-        Zero-based inclusive start coordinate.
-    end : int
-        Zero-based exclusive end coordinate.
-    stat : str
-        Summary statistic accepted by ``pyBigWig.stats``
-        (e.g., ``mean``).
-
-    Returns
-    -------
-    float
-        Requested statistic, or ``nan`` when the query cannot be
-        satisfied.
-    """
-    if end <= start:
-        return float("nan")
-    try:
-        val = bw.stats(
-            chrom,
-            int(start),
-            int(end),
-            type=stat,
-            exact=True)
-    except RuntimeError:
-        return float("nan")
-    if not val:
-        return float("nan")
-    item = val[0]
-    return float("nan") if item is None else float(item)
+# Shared with the replication-timing bigWig ingestion.
+_fetch_stat = fetch_bigwig_stat
 
 
 def summarize_bigwig_over_genes(

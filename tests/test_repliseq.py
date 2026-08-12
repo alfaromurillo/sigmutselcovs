@@ -6,8 +6,26 @@ import pytest
 
 from sigmutselcovs.covariates_replication_timing import (
     load_repliseq_fractions_bins,
+    load_repliseq_fractions_bins_from_bigwigs,
     load_repliseq_mrt_bins,
 )
+
+BIN = 50_000
+
+
+def _write_bigwig(path, values, *, chrom="chr1", bin_size=BIN):
+    """One constant value per bin on a single chromosome."""
+    import pyBigWig
+
+    length = bin_size * len(values)
+    bw = pyBigWig.open(str(path), "w")
+    bw.addHeader([(chrom, length)])
+    starts = list(range(0, length, bin_size))
+    ends = [s + bin_size for s in starts]
+    bw.addEntries([chrom] * len(starts), starts, ends=ends,
+                  values=[float(v) for v in values])
+    bw.close()
+    return path
 
 
 def _write_mat(path, chroms, starts, ends, fractions):
@@ -56,3 +74,42 @@ def test_mrt_bins_midpoints(mat_file):
     assert pd.isna(out["mrt"].iloc[1])
     # all-early bin: first midpoint 0.125
     assert out["mrt"].iloc[2] == pytest.approx(0.125)
+
+
+def test_bigwig_adapter_two_fractions(tmp_path):
+    early = _write_bigwig(tmp_path / "early.bigWig", [1, 0, 3, 0])
+    late = _write_bigwig(tmp_path / "late.bigWig", [1, 2, 1, 0])
+    out = load_repliseq_fractions_bins_from_bigwigs([early, late])
+    assert list(out.columns) == ["Chromosome", "region_start",
+                                 "region_end", "rt_s1", "rt_s2"]
+    assert len(out) == 4
+    assert out["region_start"].tolist() == [0, BIN, 2 * BIN, 3 * BIN]
+    np.testing.assert_allclose(out["rt_s1"].to_numpy()[:3],
+                               [0.5, 0.0, 0.75])
+    np.testing.assert_allclose(out["rt_s2"].to_numpy()[:3],
+                               [0.5, 1.0, 0.25])
+    assert pd.isna(out["rt_s1"].iloc[3])  # all-zero bin
+
+
+def test_bigwig_adapter_six_fractions_sum_to_one(tmp_path):
+    paths = [
+        _write_bigwig(tmp_path / f"f{i}.bigWig", [i + 1, 2 * i + 1])
+        for i in range(6)]
+    out = load_repliseq_fractions_bins_from_bigwigs(paths)
+    rt = out[[f"rt_s{i}" for i in range(1, 7)]].to_numpy()
+    np.testing.assert_allclose(rt.sum(axis=1), [1.0, 1.0])
+
+
+def test_bigwig_adapter_chrom_name_reconciliation(tmp_path):
+    # one track uses '1', the other 'chr1'
+    a = _write_bigwig(tmp_path / "a.bigWig", [2, 2], chrom="1")
+    b = _write_bigwig(tmp_path / "b.bigWig", [2, 6], chrom="chr1")
+    out = load_repliseq_fractions_bins_from_bigwigs([a, b])
+    assert out["Chromosome"].unique().tolist() == ["chr1"]
+    np.testing.assert_allclose(out["rt_s1"].to_numpy(), [0.5, 0.25])
+
+
+def test_bigwig_adapter_rejects_single_track(tmp_path):
+    a = _write_bigwig(tmp_path / "a.bigWig", [1])
+    with pytest.raises(ValueError, match="at least two"):
+        load_repliseq_fractions_bins_from_bigwigs([a])

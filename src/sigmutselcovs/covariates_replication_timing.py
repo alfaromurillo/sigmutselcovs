@@ -13,12 +13,16 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from collections.abc import Sequence
+
 from .covariates_utilities import read_bed_file
 
 from .covariates_utilities import annotate_indicator_in_region
 from .covariates_utilities import annotate_with_binned_features
+from .covariates_utilities import fetch_bigwig_stat
 
 from .covariates_utilities import load_gene_bodies_from_gtf
+from .covariates_utilities import normalize_chromosome_name
 
 import logging
 
@@ -253,6 +257,116 @@ def print_info_about_izs(variants_df):
     genes_with_multi_iz = n_iz_per_gene[n_iz_per_gene >= 2]
     print("\nReturning genes in multiple IZs:")
     return genes_with_multi_iz
+
+
+_AUTOSOMES = tuple(f"chr{i}" for i in range(1, 23))
+
+
+def _bin_bigwigs(bigwig_paths: Sequence[str | Path],
+                 *,
+                 bin_size: int = 50_000,
+                 chromosomes: Sequence[str] | None = None,
+                 statistic: str = "mean") -> pd.DataFrame:
+    """Bin one or more bigWig tracks into fixed genomic windows.
+
+    Bins are 0-based half-open windows of `bin_size` starting at 0 on
+    each chromosome (the convention of the Repli-seq MAT tables and
+    of `annotate_with_binned_features`).  The value of track *i* goes
+    into column ``track_i`` (1-based, in input order).
+
+    Chromosome naming ('chr1' vs '1') is reconciled per track via
+    `normalize_chromosome_name`; output names are the requested ones
+    (default 'chr1'..'chr22').  When tracks disagree on a chromosome
+    length, the minimum is used and a warning is logged.
+    """
+    import pyBigWig
+
+    handles = [pyBigWig.open(str(p)) for p in bigwig_paths]
+    try:
+        wanted = (list(chromosomes) if chromosomes is not None
+                  else list(_AUTOSOMES))
+        chrom_col: list[str] = []
+        start_col: list[int] = []
+        end_col: list[int] = []
+        values: list[list[float]] = [[] for _ in handles]
+
+        for chrom in wanted:
+            names = [normalize_chromosome_name(chrom, bw.chroms())
+                     for bw in handles]
+            lengths = [bw.chroms()[name]
+                       for bw, name in zip(handles, names)
+                       if name is not None]
+            if not lengths:
+                logger.warning("Chromosome %s not found in any track; "
+                               "skipping", chrom)
+                continue
+            if len(set(lengths)) > 1:
+                logger.warning(
+                    "Chromosome %s length differs across tracks "
+                    "(%s); using the minimum", chrom, sorted(set(lengths)))
+            length = min(lengths)
+            for start in range(0, length, bin_size):
+                end = min(start + bin_size, length)
+                chrom_col.append(chrom)
+                start_col.append(start)
+                end_col.append(end)
+                for i, (bw, name) in enumerate(zip(handles, names)):
+                    values[i].append(
+                        fetch_bigwig_stat(bw, name, start, end, statistic)
+                        if name is not None else float("nan"))
+    finally:
+        for bw in handles:
+            bw.close()
+
+    out = pd.DataFrame({"Chromosome": chrom_col,
+                        "region_start": start_col,
+                        "region_end": end_col})
+    for i, vals in enumerate(values, start=1):
+        out[f"track_{i}"] = vals
+    return out
+
+
+def load_repliseq_fractions_bins_from_bigwigs(
+        bigwig_paths: Sequence[str | Path],
+        *,
+        bin_size: int = 50_000,
+        chromosomes: Sequence[str] | None = None,
+        statistic: str = "mean") -> pd.DataFrame:
+    """Bin N Repli-seq fraction bigWigs into the fractions table.
+
+    The tracks must be given in **early-to-late** order (e.g. the UW
+    6-fraction Repli-seq: G1b, S1, S2, S3, S4, G2).  Returns the same
+    schema as :func:`load_repliseq_fractions_bins`:
+
+    - 'Chromosome', 'region_start', 'region_end'
+    - 'rt_s1'..'rt_sN' (float in 0..1; NaN if a bin has no signal)
+
+    Each bin's fraction vector is normalized to sum to 1, so tracks
+    that are already percentage-normalized (like the UW ones) and raw
+    signal tracks are both handled.
+
+    Parameters
+    ----------
+    bigwig_paths : sequence of paths
+        One bigWig per S-phase fraction, earliest first.
+    bin_size : int
+        Genomic window size (default 50 kb, matching the MAT tables).
+    chromosomes : sequence of str | None
+        Chromosomes to bin; default autosomes chr1..chr22 (matching
+        `load_gene_bodies_from_gtf(autosomes_only=True)` downstream).
+    statistic : str
+        Per-bin summary statistic (``pyBigWig.stats`` type).
+    """
+    if len(bigwig_paths) < 2:
+        raise ValueError("Need at least two fraction bigWigs; got "
+                         f"{len(bigwig_paths)} (for a single wavelet "
+                         "track see generate_rt_wavelet_per_gene)")
+    bins = _bin_bigwigs(bigwig_paths,
+                        bin_size=bin_size,
+                        chromosomes=chromosomes,
+                        statistic=statistic)
+    frac_cols = [f"track_{i}" for i in range(1, len(bigwig_paths) + 1)]
+    return _normalize_fraction_bins(bins, frac_cols)
 
 
 def _normalize_fraction_bins(bins: pd.DataFrame,

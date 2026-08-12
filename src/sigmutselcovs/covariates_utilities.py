@@ -69,6 +69,50 @@ def normalize_chromosome_name(
     return None
 
 
+def fetch_bigwig_stat(bw,
+                      chrom: str,
+                      start: int,
+                      end: int,
+                      stat: str) -> float:
+    """Return a summary statistic for a genomic interval.
+
+    Parameters
+    ----------
+    bw : pyBigWig.pyBigWig
+        Open bigWig handle.
+    chrom : str
+        Chromosome name recognised by the bigWig header.
+    start : int
+        Zero-based inclusive start coordinate.
+    end : int
+        Zero-based exclusive end coordinate.
+    stat : str
+        Summary statistic accepted by ``pyBigWig.stats``
+        (e.g., ``mean``).
+
+    Returns
+    -------
+    float
+        Requested statistic, or ``nan`` when the query cannot be
+        satisfied.
+    """
+    if end <= start:
+        return float("nan")
+    try:
+        val = bw.stats(
+            chrom,
+            int(start),
+            int(end),
+            type=stat,
+            exact=True)
+    except RuntimeError:
+        return float("nan")
+    if not val:
+        return float("nan")
+    item = val[0]
+    return float("nan") if item is None else float(item)
+
+
 def run_pca_on_covariates(
         cov_df: pd.DataFrame,
         columns: list[str] | None = None,
