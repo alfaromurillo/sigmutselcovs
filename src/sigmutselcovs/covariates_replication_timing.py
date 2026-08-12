@@ -24,10 +24,30 @@ from .covariates_utilities import fetch_bigwig_stat
 from .covariates_utilities import load_gene_bodies_from_gtf
 from .covariates_utilities import normalize_chromosome_name
 
+import functools
 import logging
+import warnings
 
 
 logger = logging.getLogger(__name__)
+
+
+def _legacy_kwarg(old: str, new: str):
+    """Map a renamed keyword argument with a DeprecationWarning."""
+    def deco(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            if old in kwargs:
+                if new in kwargs:
+                    raise TypeError(
+                        f"{func.__name__}() got both {old!r} and {new!r}")
+                warnings.warn(
+                    f"{old!r} is deprecated; use {new!r}",
+                    DeprecationWarning, stacklevel=2)
+                kwargs[new] = kwargs.pop(old)
+            return func(*args, **kwargs)
+        return wrapper
+    return deco
 
 
 def annotate_rt_izs(variants_df: pd.DataFrame,
@@ -566,8 +586,9 @@ def load_repliseq_mrt_bins(
     return out
 
 
+@_legacy_kwarg("repli_seq_hct", "repliseq_source")
 def generate_rt_fractions_per_gene(
-        repli_seq_hct,
+        repliseq_source,
         gencode_annotation: str | Path,
         *,
         source_type: str = "auto",
@@ -583,7 +604,7 @@ def generate_rt_fractions_per_gene(
 
     Parameters
     ----------
-    repli_seq_hct : str | Path
+    repliseq_source : str | Path
         Path to the transposed Repli-seq file for the cell line
         (e.g., HCT116), compatible with
         :func:`load_repliseq_fractions_bins`.
@@ -599,7 +620,7 @@ def generate_rt_fractions_per_gene(
 
     """
     fracs = load_repliseq_fractions_bins(
-        repli_seq_hct, source_type=source_type, bin_size=bin_size)
+        repliseq_source, source_type=source_type, bin_size=bin_size)
     gene_bodies = load_gene_bodies_from_gtf(gencode_annotation)
     rt_cols = [c for c in fracs.columns if c.startswith("rt_s")]
     annotated = annotate_with_binned_features(
@@ -607,9 +628,10 @@ def generate_rt_fractions_per_gene(
     return annotated[rt_cols]
 
 
+@_legacy_kwarg("repli_seq_hct", "repliseq_source")
 def load_or_generate_rt_fractions(
         location_csv: str | Path,
-        repli_seq_hct,
+        repliseq_source,
         gencode_annotation: str | Path,
         *,
         source_type: str = "auto",
@@ -628,7 +650,7 @@ def load_or_generate_rt_fractions(
     location_csv : str | Path
         Path to the CSV to read/write.  Append ``.gz`` for transparent
         compression.
-    repli_seq_hct : str | Path
+    repliseq_source : str | Path
         Path to the transposed multi-fraction Repli-seq file.
     gencode_annotation : str | Path
         Path to a GENCODE/Ensembl GTF (hg38/GRCh38).
@@ -654,9 +676,9 @@ def load_or_generate_rt_fractions(
         return df.astype(float)
 
     logger.info("Generating RT fractions per gene from %s and %s",
-                repli_seq_hct, gencode_annotation)
+                repliseq_source, gencode_annotation)
     df = generate_rt_fractions_per_gene(
-        repli_seq_hct, gencode_annotation,
+        repliseq_source, gencode_annotation,
         source_type=source_type, bin_size=bin_size)
     df.to_csv(location_csv, float_format=float_format)
     logger.info("Saved RT fractions per gene to %s", location_csv)
@@ -731,7 +753,8 @@ def load_or_generate_rt_wavelet(
     return ser
 
 
-def generate_mrt_per_gene(repli_seq_hct,
+@_legacy_kwarg("repli_seq_hct", "repliseq_source")
+def generate_mrt_per_gene(repliseq_source,
                           gencode_annotation,
                           *,
                           source_type: str = "auto",
@@ -745,7 +768,7 @@ def generate_mrt_per_gene(repli_seq_hct,
 
     Parameters
     ----------
-    repli_seq_hct : str | Path
+    repliseq_source : str | Path
         Path to the transposed Repli-seq file for the cell line (e.g., HCT116),
         compatible with `load_repliseq_mrt_bins`.
     gencode_annotation : str | Path
@@ -769,7 +792,7 @@ def generate_mrt_per_gene(repli_seq_hct,
 
     """
     cov_mrt = load_repliseq_mrt_bins(
-        repli_seq_hct, source_type=source_type, bin_size=bin_size,
+        repliseq_source, source_type=source_type, bin_size=bin_size,
         mrt_fraction_cols=mrt_fraction_cols)
 
     gene_bodies = load_gene_bodies_from_gtf(gencode_annotation)
@@ -779,9 +802,10 @@ def generate_mrt_per_gene(repli_seq_hct,
     return mrt_per_gene
 
 
+@_legacy_kwarg("repli_seq_hct", "repliseq_source")
 def load_or_generate_mrt(
         location_csv: str | Path,
-        repli_seq_hct,
+        repliseq_source,
         gencode_annotation: str | Path,
         *,
         source_type: str = "auto",
@@ -800,7 +824,7 @@ def load_or_generate_mrt(
     location_csv : str | Path
         Path to the CSV to read/write (e.g., 'mrt_per_gene.csv').
         If the filename ends with '.gz', pandas will transparently compress.
-    repli_seq_hct : str | Path
+    repliseq_source : str | Path
         Path to the transposed multi-fraction Repli-seq file for the cell line.
     gencode_annotation : str | Path
         Path to a GENCODE/Ensembl GTF (hg38/GRCh38 to match the
@@ -838,11 +862,11 @@ def load_or_generate_mrt(
         logger.info("... done loading MRT per gene.")
         return ser
 
-    logger.info(f"Generating MRT per gene from {repli_seq_hct} "
+    logger.info(f"Generating MRT per gene from {repliseq_source} "
                 f"and {gencode_annotation}")
 
     cov_mrt = load_repliseq_mrt_bins(
-        repli_seq_hct, source_type=source_type, bin_size=bin_size,
+        repliseq_source, source_type=source_type, bin_size=bin_size,
         mrt_fraction_cols=mrt_fraction_cols)
     gene_bodies = load_gene_bodies_from_gtf(gencode_annotation)
     annotated = annotate_with_binned_features(
