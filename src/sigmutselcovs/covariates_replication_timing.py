@@ -255,6 +255,41 @@ def print_info_about_izs(variants_df):
     return genes_with_multi_iz
 
 
+def _normalize_fraction_bins(bins: pd.DataFrame,
+                             frac_cols: list[str]) -> pd.DataFrame:
+    """Normalize per-bin fraction signal to rt_s1..rt_sN on [0, 1].
+
+    Each bin's fraction vector is scaled so it sums to 100 (per Zhao
+    et al., Genome Biology 2020) and then divided by 100.  Bins with
+    zero or missing total signal are returned as NaN.
+
+    Parameters
+    ----------
+    bins : pd.DataFrame
+        Must contain 'Chromosome', 'region_start', 'region_end' and
+        the columns listed in `frac_cols` (raw fraction signal,
+        earliest S-phase fraction first).
+    frac_cols : list[str]
+        The fraction columns, in early-to-late order.
+
+    Returns
+    -------
+    pd.DataFrame
+        'Chromosome', 'region_start', 'region_end',
+        'rt_s1'..'rt_sN' (float in 0..1; NaN if bin has no signal).
+    """
+    out_cols = [f"rt_s{x}" for x in range(1, len(frac_cols) + 1)]
+
+    row_sum = bins[frac_cols].sum(axis=1, min_count=1)
+    scale = (100.0 / row_sum).where(row_sum > 0)
+    scaled = bins[frac_cols].mul(scale, axis=0)
+
+    out = bins[["Chromosome", "region_start", "region_end"]].copy()
+    for src, dst in zip(frac_cols, out_cols):
+        out[dst] = scaled[src].where(row_sum > 0).astype(float) / 100
+    return out
+
+
 def load_repliseq_fractions_bins(path: str) -> pd.DataFrame:
     """Load multi-fraction Repli-seq and return per-bin normalized fractions.
 
@@ -297,21 +332,13 @@ def load_repliseq_fractions_bins(path: str) -> pd.DataFrame:
 
     n_phases = len(repli_seq.columns) - 3
     frac_cols = [f"fraction_signal_s{x}" for x in range(1, n_phases + 1)]
-    out_cols = [f"rt_s{x}" for x in range(1, n_phases + 1)]
     repli_seq.columns = list(repli_seq.columns[:3]) + frac_cols
 
     num_cols = ["region_start", "region_end"] + frac_cols
     repli_seq[num_cols] = repli_seq[num_cols].apply(pd.to_numeric,
                                                     errors="coerce")
 
-    row_sum = repli_seq[frac_cols].sum(axis=1, min_count=1)
-    scale = (100.0 / row_sum).where(row_sum > 0)
-    scaled = repli_seq[frac_cols].mul(scale, axis=0)
-
-    out = repli_seq[["Chromosome", "region_start", "region_end"]].copy()
-    for src, dst in zip(frac_cols, out_cols):
-        out[dst] = scaled[src].where(row_sum > 0).astype(float) / 100
-    return out
+    return _normalize_fraction_bins(repli_seq, frac_cols)
 
 
 def load_repliseq_mrt_bins(path: str) -> pd.DataFrame:
