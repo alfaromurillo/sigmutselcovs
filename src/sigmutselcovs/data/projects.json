@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "defaults": {
+    "gexp": {
+      "data_type": "Gene Expression Quantification",
+      "workflow_type": "STAR - Counts",
+      "metrics": null,
+      "tissue_types": ["Tumor", "Normal"]
+    },
+    "roadmap": {
+      "marks": ["H3K4me1", "H3K4me3", "H3K9ac", "H3K9me3",
+                "H3K27ac", "H3K27me3", "H3K36me3"],
+      "required_marks": [],
+      "assembly": "hg19",
+      "url_template": "https://egg2.wustl.edu/roadmap/data/byFileType/signal/consolidated/macs2signal/foldChange/{eid}-{mark}.fc.signal.bigwig"
+    },
+    "atac": {
+      "assembly": "hg38"
+    },
+    "simple_matrix": {
+      "body_pattern": "h3k4me3_fc_signal_body",
+      "promoter_pattern": "h3k9me3_fc_signal_promoter",
+      "include_mrt": true
+    }
+  },
+  "projects": {
+    "COAD": {
+      "description": "Colon adenocarcinoma",
+      "gtex": {
+        "mapping_key": "COAD",
+        "representative_column": "gtex_colon_transverse_mucosa"
+      },
+      "gexp": {
+        "tcga_project_id": "TCGA-COAD"
+      },
+      "atac": {
+        "gdc_uuid": "26b96cd9-dce0-4340-b15f-9e0afbb6312c",
+        "column_prefix": "coad"
+      },
+      "roadmap": {
+        "eids": ["E075", "E106", "E101", "E102"]
+      },
+      "repliseq": {
+        "type": "mat",
+        "assembly": "hg38",
+        "cell_line": "HCT116",
+        "filename": "GSE137764_HCT_GaussiansGSE137764_mooth_scaled_autosome.mat",
+        "url": "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE137nnn/GSE137764/suppl/GSE137764%5FHCT%5FGaussiansGSE137764%5Fmooth%5Fscaled%5Fautosome%2Emat%2Egz",
+        "n_fractions": 16,
+        "include_clr_fractions": true
+      }
+    },
+    "BRCA": {
+      "description": "Breast invasive carcinoma",
+      "gtex": {
+        "mapping_key": "BRCA",
+        "representative_column": "gtex_breast_mammary_tissue"
+      },
+      "gexp": {
+        "tcga_project_id": "TCGA-BRCA"
+      },
+      "atac": {
+        "gdc_uuid": "f1c06cd3-cf35-41cc-bc75-6db273c94273",
+        "column_prefix": "brca"
+      },
+      "roadmap": {
+        "eids": ["E027", "E028", "E119"]
+      },
+      "repliseq": {
+        "type": "fraction_bigwigs",
+        "assembly": "hg19",
+        "cell_line": "MCF-7",
+        "tracks": [
+          {"label": "g1b", "accession": "ENCFF001GSV"},
+          {"label": "s1", "accession": "ENCFF001GTD"},
+          {"label": "s2", "accession": "ENCFF001GTF"},
+          {"label": "s3", "accession": "ENCFF001GTH"},
+          {"label": "s4", "accession": "ENCFF001GTK"},
+          {"label": "g2", "accession": "ENCFF001GSX"}
+        ],
+        "n_fractions": 6,
+        "include_clr_fractions": true
+      }
+    }
+  }
+}
