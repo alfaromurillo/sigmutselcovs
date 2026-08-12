@@ -130,7 +130,7 @@ def annotate_rt_twidth(
         variants_df.copy(),
         read_bed_file(loc_cov_rt_twidth, "cov_twidth"),
         "cov_twidth",
-        bin_size=50000)
+        bin_size=bin_size)
 
 
 def load_or_generate_rt_cov_df(
