@@ -42,16 +42,16 @@ Key design decisions (2026-08-12):
 
 ## Phase 1 — project registry
 
-- [ ] registry.py: frozen dataclasses (ProjectSpec: GtexSpec,
+- [x] registry.py: frozen dataclasses (ProjectSpec: GtexSpec,
       GexpSpec, AtacSpec, RoadmapSpec, RepliseqSpec,
       SimpleMatrixSpec); load_registry / available_projects /
       get_project / validate_registry
-- [ ] data/projects.json: defaults block + COAD row (reproduces
+- [x] data/projects.json: defaults block + COAD row (reproduces
       current setup exactly) + BRCA row (ATAC UUID f1c06cd3-…,
       Roadmap E027/E028/E119, MCF-7 fraction accessions
       ENCFF001GSV/GTD/GTF/GTH/GTK/GSX early→late,
       gtex_breast_mammary_tissue)
-- [ ] tests: validation, COAD golden row, unknown-code error,
+- [x] tests: validation, COAD golden row, unknown-code error,
       defaults merging, mapping-key cross-check
 
 ## Phase 2 — paths and builder
