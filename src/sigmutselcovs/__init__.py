@@ -34,6 +34,11 @@ _LAZY = {
     "DownloadReport": "download",
     "validate_covariates": "validate",
     "print_validation_report": "validate",
+    "fetch_covariate_matrix": "fetch",
+    "fetch_covariate_artifacts": "fetch",
+    "CovariateArtifactsUnavailable": "fetch",
+    "check_updates": "updates",
+    "print_update_report": "updates",
 }
 
 __all__ = [
