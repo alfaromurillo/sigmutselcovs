@@ -1,8 +1,6 @@
 #!/bin/bash
-
-echo "Gene expression from GTEx..."
-cd data/
-mkdir -p gene_expression
-cd gene_expression
-wget https://storage.googleapis.com/adult-gtex/bulk-gex/v10/rna-seq/GTEx_Analysis_v10_RNASeQCv2.4.2_gene_median_tpm.gct.gz
-gunzip -f GTEx_Analysis_v10_RNASeQCv2.4.2_gene_median_tpm.gct.gz
+# Deprecated: use `sigmutselcovs download-gtex` (or, from Python,
+# sigmutselcovs.download.ensure_gtex_gct). The GCT now lives in the
+# user cache, never inside the installed package.
+echo "setup.sh is deprecated; running sigmutselcovs download-gtex..."
+exec python -m sigmutselcovs.cli download-gtex "$@"

@@ -27,10 +27,7 @@ from .covariates_gene_expression import (
     load_or_generate_mean_tcga_gexp,
     load_or_generate_tcga_gexp_per_sample,
 )
-from .covariates_locations import (
-    location_cov_gene_expression_gtex,
-    location_gtex_tcga_mapping,
-)
+from .covariates_locations import location_gtex_tcga_mapping
 from .covariates_replication_timing import (
     load_or_generate_mrt,
     load_or_generate_rt_fractions,
@@ -396,9 +393,9 @@ def build_covariate_matrix(
     blocks: list[tuple[str, list[str]]] = []
 
     if "gtex" in selected:
+        from .download import resolve_gtex_gct
         gtex = import_gtex(
-            gtex_gct if gtex_gct is not None
-            else location_cov_gene_expression_gtex,
+            resolve_gtex_gct(gtex_gct),
             mapping_path=location_gtex_tcga_mapping,
             columns=spec.gtex.mapping_key)
         frames.append(gtex)

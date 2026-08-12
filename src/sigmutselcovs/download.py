@@ -117,6 +117,72 @@ def download_file(url: str,
     return dest
 
 
+def _gtex_source() -> dict:
+    """GTEx GCT url/version from the packaged sources.json."""
+    import json
+
+    from .covariates_locations import location_covariates_data
+    raw = json.loads(
+        (location_covariates_data / "sources.json").read_text())
+    return raw["sources"]["gtex_gene_median_tpm"]
+
+
+def _gtex_cache_dir() -> Path:
+    base = os.environ.get("XDG_CACHE_HOME",
+                          str(Path.home() / ".cache"))
+    return Path(base) / "sigmutselcovs" / "gtex"
+
+
+def resolve_gtex_gct(explicit: str | Path | None = None) -> Path:
+    """Resolve the GTEx GCT path without downloading.
+
+    Order: explicit path, then any ``*.gct`` in the packaged data
+    directory, then any ``*.gct`` in the user cache
+    (``$XDG_CACHE_HOME/sigmutselcovs/gtex/``).  When none exists,
+    returns the cache path the GCT *would* have, so callers get a
+    meaningful FileNotFoundError (or can hand it to
+    `ensure_gtex_gct`).
+    """
+    from .covariates_locations import location_cov_gene_expression_gtex
+
+    if explicit is not None:
+        return Path(explicit)
+    if location_cov_gene_expression_gtex.exists():
+        return location_cov_gene_expression_gtex
+    packaged = sorted(
+        location_cov_gene_expression_gtex.parent.glob("*.gct"))
+    if packaged:
+        return packaged[0]
+    cached = sorted(_gtex_cache_dir().glob("*.gct"))
+    if cached:
+        return cached[0]
+    return _gtex_cache_dir() / location_cov_gene_expression_gtex.name
+
+
+def ensure_gtex_gct(dest: str | Path | None = None,
+                    *,
+                    force: bool = False,
+                    session: requests.Session | None = None) -> Path:
+    """Return a usable GTEx GCT path, downloading it if needed.
+
+    Downloads go to the user cache (or ``dest`` when given) — never
+    into site-packages, unlike the old package setup.sh, which broke
+    read-only installs.
+    """
+    resolved = resolve_gtex_gct(dest)
+    if resolved.exists() and not force:
+        return resolved
+    source = _gtex_source()
+    gz = resolved.with_suffix(resolved.suffix + ".gz")
+    logger.info("Fetching GTEx %s GCT to %s",
+                source.get("version", "?"), resolved)
+    download_file(source["url"], gz, force=force, session=session)
+    with gzip.open(gz, "rb") as src, open(resolved, "wb") as out:
+        shutil.copyfileobj(src, out)
+    gz.unlink()
+    return resolved
+
+
 def download_gdc_gene_expression(spec: GexpSpec,
                                  paths: ProjectPaths,
                                  *,

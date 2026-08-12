@@ -1,6 +1,7 @@
 """Download layer tests (mocked HTTP, no network)."""
 
 import hashlib
+from pathlib import Path
 
 import pytest
 
@@ -291,6 +292,57 @@ def test_download_covariates_dry_run_and_subset(tmp_path):
                               {"status": "would-download"}}
     with pytest.raises(ValueError, match="Unknown sources"):
         dl.download_covariates("BRCA", tmp_path, which=("bogus",))
+
+
+def test_resolve_gtex_gct_order(tmp_path, monkeypatch):
+    import sigmutselcovs.download as dl
+
+    # cache fallback when the packaged file is absent
+    monkeypatch.setattr(
+        "sigmutselcovs.covariates_locations."
+        "location_cov_gene_expression_gtex",
+        tmp_path / "pkg" / "missing.gct")
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
+    resolved = dl.resolve_gtex_gct()
+    assert resolved == (tmp_path / "cache" / "sigmutselcovs"
+                        / "gtex" / "missing.gct")
+    # cached file wins once present
+    cached = tmp_path / "cache" / "sigmutselcovs" / "gtex" / "x.gct"
+    cached.parent.mkdir(parents=True)
+    cached.write_text("gct")
+    assert dl.resolve_gtex_gct() == cached
+    # packaged file beats cache
+    packaged = tmp_path / "pkg" / "v10.gct"
+    packaged.parent.mkdir(parents=True)
+    packaged.write_text("gct")
+    assert dl.resolve_gtex_gct() == packaged
+    # explicit beats everything
+    assert dl.resolve_gtex_gct("/somewhere/else.gct") == Path(
+        "/somewhere/else.gct")
+
+
+def test_ensure_gtex_gct_downloads_to_cache(tmp_path, monkeypatch):
+    import gzip as _gzip
+
+    import sigmutselcovs.download as dl
+
+    monkeypatch.setattr(
+        "sigmutselcovs.covariates_locations."
+        "location_cov_gene_expression_gtex",
+        tmp_path / "pkg" / "GTEx_v10.gct")
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
+    monkeypatch.setattr(
+        dl, "_gtex_source",
+        lambda: {"url": "http://gtex/f.gct.gz", "version": "v10"})
+    session = _URLSession(
+        {"http://gtex/f.gct.gz": _gzip.compress(b"gct content")})
+    got = dl.ensure_gtex_gct(session=session)
+    assert got.read_bytes() == b"gct content"
+    assert str(tmp_path / "cache") in str(got)  # never site-packages
+    # second call resolves without network
+    again = dl.ensure_gtex_gct(session=session)
+    assert again == got
+    assert len(session.fetched) == 1
 
 
 def test_short_download_keeps_part_for_resume(tmp_path):
