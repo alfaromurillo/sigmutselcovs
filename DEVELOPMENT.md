@@ -9,6 +9,7 @@ Full data-source citations: `SOURCES.md`.
 ```bash
 pip install -e ".[dev]"
 pip install -e ../sigmutsel   # until sigmutsel is on PyPI
+pip install -e ../gdcfetch    # until gdcfetch is on PyPI
 pytest                        # network-marked tests are skipped
 ```
 
@@ -48,7 +49,6 @@ the old `coad_analysis/code/covariates.py` `build()`.
 | `registry.py` + `data/projects.json` | Per-cancer-type data sources |
 | `paths.py` | `ProjectPaths`: data-dir layout (mirrors `coad_data/`) |
 | `download.py` | Idempotent per-source downloaders + orchestrator |
-| `gdc.py` | GDC files API: query, manifest/sample-sheet writers |
 | `encode.py` | ENCODE accession → S3 URL resolution |
 | `builder.py` | `build_covariate_matrix` + column dictionary |
 | `validate.py` | Data-sanity + biological-plausibility checks |
@@ -61,6 +61,15 @@ the old `coad_analysis/code/covariates.py` `build()`.
 | `covariates_utilities.py` | GTF parsing, BED reading, annotation, PCA |
 | `covariates_checks.py` | fix_all / fix_variance / fix_skewness |
 | `covariates_locations.py` | Packaged-data paths (mapping JSON, GCT) |
+
+GDC search/download/manifest functions (`search_files`,
+`download_files`, `get_data_size`, `write_manifest`,
+`write_sample_sheet`) come from the external
+[gdcfetch](https://github.com/alfaromurillo/gdcfetch) package, not
+a module here — it was split out since it's useful independently of
+sigmutselcovs. See its `DEVELOPMENT.md` for the "two kinds of GDC
+UUID" distinction (indexed files vs. publication-pinned blobs like
+the ATAC tarballs) if you're touching anything GDC-related.
 
 ## Adding a new cancer type
 

@@ -90,12 +90,20 @@ handles the null case cleanly.
 
 ## Other gotchas (apply across all steps)
 
-- **GDC's `/data/<uuid>` endpoint rejects HEAD requests with a 400**
-  -- if you need file metadata (size, md5) without downloading,
-  use `GET /files/<uuid>?fields=file_size,md5sum` instead. This
-  matters for `check_updates()`'s ATAC entries and for any manual
-  verification of a tarball before committing its UUID to the
-  registry.
+- **GDC's `/data/<uuid>` endpoint rejects HEAD requests with a 400,
+  and `GET /files/<uuid>` only works for UUIDs that are actually
+  indexed in search.** The ATAC tarball UUIDs are *not* indexed --
+  `GET /files/<uuid>` 404s for them even though the blob is real
+  (verified 2026-08 against the confirmed-working COAD/BRCA UUIDs).
+  The reliable way to get metadata for any `/data/<uuid>` blob,
+  indexed or not, is a 1-byte ranged GET
+  (`Range: bytes=0-0`), which returns a `Content-Range:
+  0-0/<total>` header giving the exact size --
+  `gdcfetch.get_data_size` does this (used by
+  `check_updates()`'s `tcga_atac_bigwigs` entry, method
+  `gdc_blob_size`). Note it only gives size, not md5 -- the
+  `Content-MD5` header on a ranged response covers just the
+  requested byte range, not the whole file.
 - **`pyBigWig` cannot open bigWigs from a URL** -- neither the
   ENCODE portal's `@@download` link nor the S3 URL it redirects to
   worked when tested directly. Always download to disk first (the

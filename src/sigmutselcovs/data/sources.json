@@ -21,13 +21,13 @@
     },
     "tcga_atac_bigwigs": {
       "description": "TCGA ATAC-seq (Corces 2018) bigWig tarballs",
-      "check": {"method": "gdc_file_meta",
+      "check": {"method": "gdc_blob_size",
                 "uuids": {
                   "COAD": "26b96cd9-dce0-4340-b15f-9e0afbb6312c",
                   "BRCA": "f1c06cd3-cf35-41cc-bc75-6db273c94273"},
-                "compare": ["file_size", "md5sum"]},
+                "compare": ["file_size"]},
       "known": {},
-      "notes": "GET /files/<uuid>; HEAD on /data/<uuid> returns 400."
+      "notes": "These UUIDs are not indexed in GDC's /files search at all (verified 2026-08: GET /files/<uuid> 404s even though the blob is real); HEAD on /data/<uuid> also returns 400. A 1-byte ranged GET on /data/<uuid> is the only way to get metadata -- see gdcfetch.get_data_size."
     },
     "roadmap_fc_signal": {
       "description": "Roadmap consolidated macs2 fold-change signal",

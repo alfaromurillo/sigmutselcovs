@@ -18,8 +18,9 @@ from pathlib import Path
 import pandas as pd
 import requests
 
+from gdcfetch import get_data_size, search_files
+
 from .covariates_locations import location_covariates_data
-from .gdc import GDC_API, query_gdc_files
 
 logger = logging.getLogger(__name__)
 
@@ -41,25 +42,31 @@ def _check_http_head(entry: dict, session, timeout: int) -> dict:
 def _check_gdc_file_count(entry: dict, session, timeout: int) -> dict:
     return {
         project: len(
-            query_gdc_files(project, session=session, timeout=timeout)
+            search_files(project, session=session, timeout=timeout)
         )
         for project in entry["check"]["projects"]
     }
 
 
-def _check_gdc_file_meta(entry: dict, session, timeout: int) -> dict:
-    current = {}
-    fields = entry["check"]["compare"]
-    for label, uuid in entry["check"]["uuids"].items():
-        response = session.get(
-            f"{GDC_API}/files/{uuid}",
-            params={"fields": ",".join(fields)},
-            timeout=timeout,
-        )
-        response.raise_for_status()
-        data = response.json()["data"]
-        current[label] = {field: data.get(field) for field in fields}
-    return current
+def _check_gdc_blob_size(entry: dict, session, timeout: int) -> dict:
+    """Size-only check for GDC /data/<uuid> blobs.
+
+    These UUIDs (e.g. the TCGA ATAC-seq tarballs) are not indexed in
+    /files at all -- GET /files/<uuid> 404s for them even though the
+    blob is real (verified 2026-08). A 1-byte ranged GET on
+    /data/<uuid> is the only reliable way to get metadata, and it
+    only gives size (the Content-MD5 header on a ranged response
+    covers just the requested byte range, not the whole file, so
+    md5 isn't checkable this way).
+    """
+    return {
+        label: {
+            "file_size": get_data_size(
+                uuid, session=session, timeout=timeout
+            )
+        }
+        for label, uuid in entry["check"]["uuids"].items()
+    }
 
 
 def _check_encode_files(entry: dict, session, timeout: int) -> dict:
@@ -80,7 +87,7 @@ def _check_encode_files(entry: dict, session, timeout: int) -> dict:
 _METHODS = {
     "http_head": _check_http_head,
     "gdc_file_count": _check_gdc_file_count,
-    "gdc_file_meta": _check_gdc_file_meta,
+    "gdc_blob_size": _check_gdc_blob_size,
     "encode_files": _check_encode_files,
 }
 

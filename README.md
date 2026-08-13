@@ -34,11 +34,12 @@ and downloads the source data needed to build them.
 git clone https://github.com/alfaromurillo/sigmutselcovs.git
 cd sigmutselcovs
 pip install "sigmutsel @ git+https://github.com/alfaromurillo/sigmutsel.git"
+pip install "gdcfetch @ git+https://github.com/alfaromurillo/gdcfetch.git"
 pip install -e ".[dev]"
 ```
 
-(`sigmutsel` is not yet on PyPI; install it from GitHub until it
-is.)
+(`sigmutsel` and `gdcfetch` are not yet on PyPI; install them from
+GitHub until they are.)
 
 ## Quick start
 
@@ -111,6 +112,11 @@ ENCODE's stricter three-part citation policy.**
 - [sigmutsel](https://github.com/alfaromurillo/sigmutsel): mutation
   rate estimation and selection inference, the consumer of these
   covariate matrices.
+- [gdcfetch](https://github.com/alfaromurillo/gdcfetch): the GDC
+  search/download client this package's gene-expression and
+  update-check code is built on. Useful on its own for downloading
+  any GDC data — mutation calls, copy number, structural variants
+  — not just what sigmutselcovs happens to need.
 
 ## License
 

@@ -26,8 +26,10 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        # sigmutsel is not on PyPI yet; install from source until it is.
+        # sigmutsel and gdcfetch are not on PyPI yet; install from
+        # source until they are.
         pip install "sigmutsel @ git+https://github.com/alfaromurillo/sigmutsel.git"
+        pip install "gdcfetch @ git+https://github.com/alfaromurillo/gdcfetch.git"
         pip install -e ".[dev]"
 
     - name: Run tests

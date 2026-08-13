@@ -19,13 +19,14 @@ import requests
 
 from dataclasses import dataclass, field
 
-from .encode import resolve_encode_file
-from .gdc import (
-    download_gdc_files,
-    query_gdc_files,
-    write_gdc_manifest,
-    write_gdc_sample_sheet,
+from gdcfetch import (
+    download_files,
+    search_files,
+    write_manifest,
+    write_sample_sheet,
 )
+
+from .encode import resolve_encode_file
 from .paths import ProjectPaths, bigwig_files, project_paths
 from .registry import (
     AtacSpec,
@@ -218,7 +219,6 @@ def download_gdc_gene_expression(
     paths: ProjectPaths,
     *,
     force: bool = False,
-    use_gdc_client: bool | None = None,
     session: requests.Session | None = None,
 ) -> int:
     """Query GDC and download a project's STAR count files.
@@ -229,7 +229,7 @@ def download_gdc_gene_expression(
     Returns the number of files in the inventory.
     """
     paths.gexp_tcga_dir.mkdir(parents=True, exist_ok=True)
-    hits = query_gdc_files(
+    hits = search_files(
         spec.tcga_project_id,
         data_type=spec.data_type,
         workflow_type=spec.workflow_type,
@@ -245,16 +245,9 @@ def download_gdc_gene_expression(
         paths.gexp_tcga_dir
         / f"gdc_manifest.{date.today().isoformat()}.txt"
     )
-    write_gdc_manifest(hits, manifest)
-    write_gdc_sample_sheet(hits, directory=paths.gexp_tcga_dir)
-    # download_gdc_files writes its own pending-only manifest for
-    # gdc-client, so already-present files are never refetched.
-    download_gdc_files(
-        hits,
-        paths.gexp_star_dir,
-        use_gdc_client=use_gdc_client,
-        session=session,
-    )
+    write_manifest(hits, manifest)
+    write_sample_sheet(hits, directory=paths.gexp_tcga_dir)
+    download_files(hits, paths.gexp_star_dir, session=session)
     return len(hits)
 
 
@@ -432,7 +425,6 @@ def download_covariates(
     registry_path: str | Path | None = None,
     force: bool = False,
     dry_run: bool = False,
-    use_gdc_client: bool | None = None,
     session: requests.Session | None = None,
 ) -> DownloadReport:
     """Download all covariate source data for a registered project.
@@ -476,11 +468,7 @@ def download_covariates(
         try:
             if source == "gexp":
                 n = download_gdc_gene_expression(
-                    source_spec,
-                    paths,
-                    force=force,
-                    use_gdc_client=use_gdc_client,
-                    session=session,
+                    source_spec, paths, force=force, session=session
                 )
                 report.add(source, "ok", n_files=n)
             elif source == "repliseq":

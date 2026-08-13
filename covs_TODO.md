@@ -133,8 +133,10 @@ Key design decisions (2026-08-12):
 - [x] cli.py console entry: download / build / fetch / validate /
       check-updates / download-gtex / projects
 - [x] data/sources.json + check_updates() (GTEx GCT etag/length;
-      GDC STAR file counts COAD=524 BRCA=1231; ATAC file meta via
-      GET /files/<uuid> — HEAD on /data 400s; Roadmap head; ENCODE
+      GDC STAR file counts COAD=524 BRCA=1231; ATAC blob size via
+      1-byte ranged GET on /data/<uuid> — corrected 2026-08-13
+      after finding GET /files/<uuid> 404s for these unindexed
+      tarball UUIDs (gdcfetch.get_data_size); Roadmap head; ENCODE
       file status/md5; GEO mat head); update_file=True rewrites
       known blocks
 - [x] fetch.py + data/osf.json: fetch_covariate_matrix(project,
