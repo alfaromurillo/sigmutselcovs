@@ -164,8 +164,10 @@ Key design decisions (2026-08-12):
 
 ## Phase 7 — BRCA bring-up (on gauss; code via scp, no GitHub auth)
 
-- [ ] Download staged: repliseq (~52 MB) → roadmap (~8 GB, expect
-      3 known 404s) → gexp (1231 files ~5 GB) → atac (~15 GB est.)
+- [~] Download staged: repliseq (~52 MB, done) → roadmap (in
+      progress, expect known 404s) → gexp (1231/1231 files, done;
+      one transient GDC 500 exposed and fixed a retry bug) → atac
+      (in progress)
 - [ ] Build BRCA; smoke: gtex_breast_mammary_tissue present;
       6 clr_rt_*; brca_* = 2×n_bigwigs; 36 roadmap columns;
       simple has 4 components
