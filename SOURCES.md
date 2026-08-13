@@ -4,10 +4,7 @@ Every covariate `sigmutselcovs` builds comes from an external
 public resource. This file documents each one: what it is, exactly
 which dataset/version/accession this package uses, how the source
 asks to be cited, and any acknowledgment text its data-use policy
-requires. It exists so that a methods section or acknowledgments
-paragraph can be written directly from this file rather than
-re-researching each source from scratch — treat it as the
-authoritative record for the article's data-and-methods citations.
+requires.
 
 When adding a new cancer type (see `DEVELOPMENT.md` and, while it
 still exists, the `add-tissue` skill), record any new

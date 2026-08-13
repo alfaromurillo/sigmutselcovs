@@ -104,9 +104,7 @@ section should cite for each:
 
 **See `SOURCES.md` for the full citations (with DOIs), the exact
 dataset/version/accession used per source, license terms, and
-ENCODE's stricter three-part citation policy** — that file is the
-one to work from when writing an acknowledgments section or a
-data-availability statement.
+ENCODE's stricter three-part citation policy.**
 
 ## Related packages
 
