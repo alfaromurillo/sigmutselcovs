@@ -23,8 +23,8 @@ and downloads the source data needed to build them.
   documenting every column's source, assembly, and units.
 - **Validates**: automatic data-sanity and biological-plausibility
   checks on every build.
-- **Fetches**: pre-built matrices can be pulled from OSF instead of
-  rebuilding from ~10s of GB of raw tracks.
+- **Fetches**: pre-built matrices can be pulled from Zenodo instead
+  of rebuilding from ~10s of GB of raw tracks.
 
 ## Installation
 
@@ -75,7 +75,7 @@ console command (`download`, `build`, `validate`, `fetch`,
 | `download_covariates(project, data_dir, *, which=(...))` | Fetch source data (GDC gene expression, replication timing, Roadmap chromatin, TCGA ATAC-seq) for a registered project into `data_dir`. Idempotent and resumable — safe to rerun after a partial failure. `which` selects a subset of sources. |
 | `build_covariate_matrix(project, data_dir, *, cache_matrices=False)` | Assemble the `full`, `simple`, and `tcga` covariate matrices from data already in `data_dir` (returns a `CovariateMatrices` NamedTuple; unpacks as a 3-tuple). Also writes a per-column dictionary (`cov_matrix_columns.csv`) and a build manifest when `cache_matrices=True`. Runs `validate_covariates` automatically at the end. |
 | `validate_covariates(project, data_dir)` | Run data-sanity (NaN fractions, value ranges, column counts) and biological-plausibility (expression vs. replication timing, histone-mark direction, a housekeeping-gene panel) checks; returns a DataFrame of pass/warn/fail results. |
-| `fetch_covariate_matrix(project, which="pca")` | Download a pre-built matrix from OSF instead of running download + build locally. Raises `CovariateArtifactsUnavailable` (a `FileNotFoundError`) with the equivalent download/build commands when nothing is published yet. |
+| `fetch_covariate_matrix(project, which="pca")` | Download a pre-built matrix from Zenodo instead of running download + build locally. Raises `CovariateArtifactsUnavailable` (a `FileNotFoundError`) with the equivalent download/build commands when nothing is published yet. |
 | `check_updates()` | Compare each external source (GTEx, GDC, ENCODE, Roadmap, GEO) against its last-known state; run every few months to catch upstream data releases. |
 
 `load_registry()` / `available_projects()` / `get_project(code)`

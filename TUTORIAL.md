@@ -141,7 +141,7 @@ default; pass `strict_validation=True` to raise on failure).
 
 ## 5. Or skip straight to a pre-built matrix
 
-If BRCA's matrices have already been published to OSF, you don't
+If BRCA's matrices have already been published to Zenodo, you don't
 need to download or build anything:
 
 ```python
@@ -151,6 +151,6 @@ pca = fetch_covariate_matrix("BRCA")          # small, default
 full = fetch_covariate_matrix("BRCA", "full") # larger
 ```
 
-Until the OSF project is populated, this raises
+Until a Zenodo record is published for the project, this raises
 `CovariateArtifactsUnavailable` (a `FileNotFoundError` subclass)
 with the download/build commands above in the error message.

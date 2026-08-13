@@ -9,7 +9,7 @@ Subcommands:
 - ``validate <PROJECT> --data-dir DIR`` — run the sanity and
   plausibility checks
 - ``fetch <PROJECT> [--which pca]`` — download pre-built matrices
-  from OSF
+  from Zenodo
 - ``check-updates`` — compare covariate sources to their recorded
   state
 - ``download-gtex`` — fetch the GTEx GCT into the user cache
@@ -94,7 +94,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--strict", action="store_true")
 
     p = sub.add_parser(
-        "fetch", help="download pre-built matrices from OSF"
+        "fetch", help="download pre-built matrices from Zenodo"
     )
     _add_project_arg(p)
     p.add_argument(

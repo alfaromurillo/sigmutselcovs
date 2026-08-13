@@ -30,8 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   timing, active/repressive chromatin marks, housekeeping-gene
   panel), run automatically at the end of every build.
 - `fetch_covariate_matrix(project, which=...)`: download pre-built
-  matrices from OSF instead of rebuilding from raw tracks (the OSF
-  project itself is not yet populated).
+  matrices from Zenodo instead of rebuilding from raw tracks (no
+  records are published yet).
 - `check_updates()`: compare external covariate sources (GTEx, GDC,
   ENCODE, Roadmap, GEO) against their last-known state.
 - `sigmutselcovs` console command: `projects`, `download`, `build`,

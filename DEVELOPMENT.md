@@ -22,7 +22,7 @@ sigmutselcovs projects
 sigmutselcovs download BRCA --data-dir brca_data
 sigmutselcovs build    BRCA --data-dir brca_data
 sigmutselcovs validate BRCA --data-dir brca_data
-sigmutselcovs fetch    BRCA          # pre-built from OSF (once published)
+sigmutselcovs fetch    BRCA          # pre-built from Zenodo (once published)
 sigmutselcovs check-updates          # run every ~6 months
 sigmutselcovs download-gtex
 ```
@@ -51,7 +51,7 @@ the old `coad_analysis/code/covariates.py` `build()`.
 | `encode.py` | ENCODE accession → S3 URL resolution |
 | `builder.py` | `build_covariate_matrix` + column dictionary |
 | `validate.py` | Data-sanity + biological-plausibility checks |
-| `fetch.py` + `data/osf.json` | Pre-built matrices from OSF |
+| `fetch.py` + `data/zenodo.json` | Pre-built matrices from Zenodo |
 | `updates.py` + `data/sources.json` | Source update checks |
 | `cli.py` | The `sigmutselcovs` console command |
 | `covariates_gene_expression.py` | GTEx and TCGA expression loaders |

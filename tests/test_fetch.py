@@ -1,4 +1,4 @@
-"""OSF fetch tests (mocked HTTP)."""
+"""Zenodo fetch tests (mocked HTTP)."""
 
 import hashlib
 
@@ -10,20 +10,20 @@ from sigmutselcovs.fetch import (
     CovariateArtifactsUnavailable,
     fetch_covariate_artifacts,
     fetch_covariate_matrix,
-    osf_available,
+    zenodo_available,
 )
 
 
-def test_unconfigured_osf_raises_actionable_error():
+def test_unconfigured_project_raises_actionable_error():
     with pytest.raises(
-        CovariateArtifactsUnavailable, match="not published yet"
+        CovariateArtifactsUnavailable, match="published: none"
     ):
-        fetch.osf_index(config={"index_url": None})
+        fetch.zenodo_record("COAD", config={"records": {}})
     # subclasses FileNotFoundError so callers can catch broadly
     assert issubclass(
         CovariateArtifactsUnavailable, FileNotFoundError
     )
-    assert not osf_available("COAD", config={"index_url": None})
+    assert not zenodo_available("COAD", config={"records": {}})
 
 
 class _Response:
@@ -49,46 +49,43 @@ class _Response:
 
 
 class _Session:
-    def __init__(self, index, files):
-        self.index = index
+    def __init__(self, record, files):
+        self.record = record
         self.files = files
 
     def get(self, url, stream=False, headers=None, timeout=None):
-        if url.endswith("index.json"):
-            return _Response(payload=self.index)
+        if url.endswith("/998877"):
+            return _Response(payload=self.record)
         return _Response(content=self.files[url])
 
 
 def _setup(tmp_path):
     csv = b"ensembl_gene_id,PC1\nENSG00000000001,0.5\n"
-    index = {
-        "schema_version": 1,
-        "projects": {
-            "COAD": {
-                "layout_version": "v1",
-                "files": [
-                    {
-                        "name": "cov_matrix_pca.parquet",
-                        "url": "http://osf/pca",
-                        "md5": hashlib.md5(b"parquet").hexdigest(),
-                        "size": len(b"parquet"),
-                    },
-                    {
-                        "name": "cov_matrix_simple.csv",
-                        "url": "http://osf/simple",
-                        "md5": hashlib.md5(csv).hexdigest(),
-                        "size": len(csv),
-                    },
-                ],
-            }
-        },
+    pca = b"parquet"
+    record = {
+        "id": 998877,
+        "files": [
+            {
+                "key": "cov_matrix_pca.parquet",
+                "size": len(pca),
+                "checksum": "md5:" + hashlib.md5(pca).hexdigest(),
+                "links": {"self": "http://zenodo/pca"},
+            },
+            {
+                "key": "cov_matrix_simple.csv",
+                "size": len(csv),
+                "checksum": "md5:" + hashlib.md5(csv).hexdigest(),
+                "links": {"self": "http://zenodo/simple"},
+            },
+        ],
     }
     session = _Session(
-        index,
-        {"http://osf/pca": b"parquet", "http://osf/simple": csv},
+        record,
+        {"http://zenodo/pca": pca, "http://zenodo/simple": csv},
     )
     config = {
-        "index_url": "http://osf/index.json",
+        "api_url": "http://zenodo/api/records",
+        "records": {"COAD": 998877},
         "layout_version": "v1",
     }
     return session, config
@@ -157,7 +154,7 @@ def test_unknown_artifact_rejected(tmp_path):
 
 def test_md5_mismatch_detected(tmp_path):
     session, config = _setup(tmp_path)
-    session.files["http://osf/pca"] = b"corrupted!!"
+    session.files["http://zenodo/pca"] = b"corrupted!!"
     with pytest.raises(OSError):
         fetch_covariate_artifacts(
             "COAD",

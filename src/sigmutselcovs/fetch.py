@@ -1,27 +1,27 @@
-"""Fetch pre-computed covariate matrices from OSF.
+"""Fetch pre-computed covariate matrices from Zenodo.
 
 Most users should not need to download ~30 GB of raw tracks and
-rebuild: the matrices for supported projects are published on OSF.
-The default artifact is the PCA-reduced matrix (a few MB); the full
-matrix (~0.5-1 GB per project), the simple/tcga matrices, the column
-dictionary, and the per-gene intermediates are opt-in.
+rebuild: the matrices for supported projects are published on
+Zenodo, one record per project. The default artifact is the
+PCA-reduced matrix (a few MB); the full matrix (~0.5-1 GB per
+project), the simple/tcga matrices, and the column dictionary are
+opt-in.
 
-Layout on OSF (osfstorage), addressed through ``covariates/
-index.json``:
+Files published in each project's Zenodo record:
 
-    covariates/index.json
-    covariates/<PROJECT>/<layout_version>/build_manifest.json
-    covariates/<PROJECT>/<layout_version>/cov_matrix_pca.parquet
-    covariates/<PROJECT>/<layout_version>/cov_matrix_full.parquet
-    covariates/<PROJECT>/<layout_version>/cov_matrix_simple.csv
-    covariates/<PROJECT>/<layout_version>/cov_matrix_tcga.csv
-    covariates/<PROJECT>/<layout_version>/cov_matrix_columns.csv
-    covariates/<PROJECT>/<layout_version>/intermediates/...
+    build_manifest.json
+    cov_matrix_pca.parquet
+    cov_matrix_full.parquet
+    cov_matrix_simple.csv
+    cov_matrix_tcga.csv
+    cov_matrix_columns.csv
 
-``index.json`` maps each project to its published files (name, size,
-md5, download URL).  The OSF project id / index URL live in
-``data/osf.json`` — currently placeholders until the artifacts are
-first uploaded.
+Record ids per project live in ``data/zenodo.json`` (``records``,
+mapping PROJECT -> Zenodo record id) -- currently empty, until the
+artifacts are first uploaded. Unlike a hosted index file, this
+mapping is entirely local: whether a project is published is known
+without a network call, and only fetching its file list/checksums
+requires one (``GET {api_url}/{record_id}``, Zenodo's own REST API).
 """
 
 import json
@@ -37,7 +37,7 @@ from .download import download_file
 
 logger = logging.getLogger(__name__)
 
-location_osf_config = location_covariates_data / "osf.json"
+location_zenodo_config = location_covariates_data / "zenodo.json"
 
 _ARTIFACTS = (
     "cov_matrix_pca",
@@ -68,41 +68,45 @@ def _cache_dir() -> Path:
     return Path(base) / "sigmutselcovs"
 
 
-def load_osf_config(path: str | Path | None = None) -> dict:
-    path = Path(path) if path is not None else location_osf_config
+def load_zenodo_config(path: str | Path | None = None) -> dict:
+    path = Path(path) if path is not None else location_zenodo_config
     return json.loads(path.read_text())
 
 
-def osf_index(
+def zenodo_record(
+    project: str,
     *,
     config: dict | None = None,
     session: requests.Session | None = None,
     timeout: int = 30,
 ) -> dict:
-    """Fetch and return the OSF artifact index."""
-    config = config or load_osf_config()
-    index_url = config.get("index_url")
-    if not index_url:
+    """Fetch a project's Zenodo record (file list, sizes, checksums)."""
+    config = config or load_zenodo_config()
+    project = project.upper()
+    records = config.get("records", {})
+    record_id = records.get(project)
+    if not record_id:
         raise CovariateArtifactsUnavailable(
-            "Pre-built covariate artifacts are not published yet "
-            "(index_url is not configured in sigmutselcovs/data/"
-            "osf.json).\nBuild locally instead:\n"
-            "    sigmutselcovs download <PROJECT> --data-dir <dir>\n"
-            "    sigmutselcovs build <PROJECT> --data-dir <dir>"
+            f"No published covariate artifacts for {project}; "
+            f"published: {sorted(records) or 'none'}.\n"
+            "Build locally instead:\n"
+            f"    sigmutselcovs download {project} --data-dir <dir>\n"
+            f"    sigmutselcovs build {project} --data-dir <dir>"
         )
+    api_url = config.get("api_url", "https://zenodo.org/api/records")
     session = session or requests.Session()
-    response = session.get(index_url, timeout=timeout)
+    response = session.get(f"{api_url}/{record_id}", timeout=timeout)
     response.raise_for_status()
     return response.json()
 
 
-def osf_available(project: str, **kwargs) -> bool:
-    """Whether pre-built artifacts exist for a project."""
+def zenodo_available(project: str, **kwargs) -> bool:
+    """Whether a published, reachable record exists for a project."""
     try:
-        index = osf_index(**kwargs)
+        zenodo_record(project, **kwargs)
     except CovariateArtifactsUnavailable:
         return False
-    return project.upper() in index.get("projects", {})
+    return True
 
 
 def fetch_covariate_artifacts(
@@ -139,23 +143,12 @@ def fetch_covariate_artifacts(
             f"valid: {_ARTIFACTS}"
         )
     project = project.upper()
-    config = config or load_osf_config()
-    index = osf_index(config=config, session=session)
-    projects = index.get("projects", {})
-    if project not in projects:
-        raise CovariateArtifactsUnavailable(
-            f"No published covariate artifacts for {project}; "
-            f"published: {sorted(projects) or 'none'}.\n"
-            "Build locally instead:\n"
-            f"    sigmutselcovs download {project} --data-dir <dir>\n"
-            f"    sigmutselcovs build {project} --data-dir <dir>"
-        )
-    entry = projects[project]
-    files = {f["name"]: f for f in entry.get("files", [])}
+    config = config or load_zenodo_config()
+    session = session or requests.Session()
+    record = zenodo_record(project, config=config, session=session)
+    files = {f["key"]: f for f in record.get("files", [])}
 
-    layout = entry.get(
-        "layout_version", config.get("layout_version", "v1")
-    )
+    layout = config.get("layout_version", "v1")
     dest = (
         Path(dest)
         if dest is not None
@@ -163,7 +156,6 @@ def fetch_covariate_artifacts(
     )
     dest.mkdir(parents=True, exist_ok=True)
 
-    session = session or requests.Session()
     out: dict[str, Path] = {}
     for artifact in artifacts:
         filename = _FILENAMES[artifact]
@@ -173,10 +165,12 @@ def fetch_covariate_artifacts(
                 f"published set {sorted(files)}"
             )
         meta = files[filename]
+        checksum = meta.get("checksum")  # Zenodo format: "md5:<hex>"
+        md5 = checksum.split(":", 1)[1] if checksum else None
         out[artifact] = download_file(
-            meta["url"],
+            meta["links"]["self"],
             dest / filename,
-            expected_md5=meta.get("md5"),
+            expected_md5=md5,
             expected_size=meta.get("size"),
             force=force,
             session=session,
