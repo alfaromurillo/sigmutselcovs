@@ -12,7 +12,8 @@ import hashlib
 import logging
 import shutil
 import subprocess
-from concurrent.futures import ThreadPoolExecutor
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date
 from pathlib import Path
 
@@ -244,31 +245,55 @@ def _download_one(
     session: requests.Session,
     verify_md5: bool,
     timeout: int,
+    retries: int = 3,
 ) -> Path:
-    """Fetch one GDC file into <dest>/<file_id>/<file_name>."""
+    """Fetch one GDC file into <dest>/<file_id>/<file_name>.
+
+    GDC occasionally returns a transient 500 on an otherwise healthy
+    batch; retry a few times with backoff before giving up on this
+    one file.
+    """
     target_dir = dest / hit["file_id"]
     target = target_dir / hit["file_name"]
     if target.exists() and target.stat().st_size == hit["file_size"]:
         return target
     target_dir.mkdir(parents=True, exist_ok=True)
     part = target.with_suffix(target.suffix + ".part")
-    with session.get(
-        f"{GDC_API}/data/{hit['file_id']}",
-        stream=True,
-        timeout=timeout,
-    ) as response:
-        response.raise_for_status()
-        with open(part, "wb") as fh:
-            for chunk in response.iter_content(chunk_size=1 << 20):
-                fh.write(chunk)
-    if verify_md5 and _md5(part) != hit["md5sum"]:
-        part.unlink()
-        raise OSError(
-            f"md5 mismatch for {hit['file_id']} "
-            f"({hit['file_name']})"
-        )
-    part.replace(target)
-    return target
+
+    last_exc: Exception | None = None
+    for attempt in range(retries):
+        if attempt:
+            time.sleep(2**attempt)
+        try:
+            with session.get(
+                f"{GDC_API}/data/{hit['file_id']}",
+                stream=True,
+                timeout=timeout,
+            ) as response:
+                response.raise_for_status()
+                with open(part, "wb") as fh:
+                    for chunk in response.iter_content(
+                        chunk_size=1 << 20
+                    ):
+                        fh.write(chunk)
+            if verify_md5 and _md5(part) != hit["md5sum"]:
+                raise OSError(
+                    f"md5 mismatch for {hit['file_id']} "
+                    f"({hit['file_name']})"
+                )
+            part.replace(target)
+            return target
+        except (requests.RequestException, OSError) as exc:
+            last_exc = exc
+            logger.warning(
+                "Attempt %d/%d failed for %s: %s",
+                attempt + 1,
+                retries,
+                hit["file_id"],
+                exc,
+            )
+    part.unlink(missing_ok=True)
+    raise last_exc
 
 
 def download_gdc_files(
@@ -280,6 +305,7 @@ def download_gdc_files(
     workers: int = 6,
     verify_md5: bool = True,
     timeout: int = 600,
+    session: requests.Session | None = None,
 ) -> list[Path]:
     """Download GDC files into ``<dest>/<file_id>/<file_name>``.
 
@@ -335,9 +361,10 @@ def download_gdc_files(
             check=True,
         )
     else:
-        session = requests.Session()
+        session = session or requests.Session()
+        failed: list[tuple[dict, Exception]] = []
         with ThreadPoolExecutor(max_workers=workers) as pool:
-            futures = [
+            future_to_hit = {
                 pool.submit(
                     _download_one,
                     h,
@@ -345,10 +372,21 @@ def download_gdc_files(
                     session=session,
                     verify_md5=verify_md5,
                     timeout=timeout,
-                )
+                ): h
                 for h in pending
-            ]
-            for future in futures:
-                future.result()
+            }
+            for future in as_completed(future_to_hit):
+                hit = future_to_hit[future]
+                try:
+                    future.result()
+                except Exception as exc:  # noqa: BLE001
+                    failed.append((hit, exc))
+        if failed:
+            ids = [h["file_id"] for h, _ in failed]
+            raise OSError(
+                f"{len(failed)} of {len(pending)} GDC downloads "
+                f"failed after retries: {ids}. Rerunning is safe "
+                "(already-downloaded files are skipped)."
+            )
 
     return [dest / h["file_id"] / h["file_name"] for h in hits]

@@ -250,7 +250,10 @@ def download_gdc_gene_expression(
     # download_gdc_files writes its own pending-only manifest for
     # gdc-client, so already-present files are never refetched.
     download_gdc_files(
-        hits, paths.gexp_star_dir, use_gdc_client=use_gdc_client
+        hits,
+        paths.gexp_star_dir,
+        use_gdc_client=use_gdc_client,
+        session=session,
     )
     return len(hits)
 
