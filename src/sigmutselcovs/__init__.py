@@ -61,7 +61,8 @@ def __getattr__(name):
         module = importlib.import_module(f".{_LAZY[name]}", __name__)
         return getattr(module, name)
     raise AttributeError(
-        f"module {__name__!r} has no attribute {name!r}")
+        f"module {__name__!r} has no attribute {name!r}"
+    )
 
 
 def __dir__():

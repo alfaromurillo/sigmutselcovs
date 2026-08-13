@@ -44,18 +44,27 @@ def _healthy_matrix() -> pd.DataFrame:
     df["coad_s1_insertions_body"] = expr_like(0.5)
     df["coad_s1_insertions_promoter"] = expr_like(0.2)
     for eid in ("e075", "e106"):
-        for mark, sign in (("h3k4me3", 1), ("h3k27ac", 1),
-                           ("h3k9ac", 1), ("h3k9me3", -1),
-                           ("h3k27me3", -1), ("h3k36me3", 1)):
+        for mark, sign in (
+            ("h3k4me3", 1),
+            ("h3k27ac", 1),
+            ("h3k9ac", 1),
+            ("h3k9me3", -1),
+            ("h3k27me3", -1),
+            ("h3k36me3", 1),
+        ):
             df[f"{eid}_{mark}_fc_signal_body"] = np.exp(
-                sign * activity + noise())
+                sign * activity + noise()
+            )
             df[f"{eid}_{mark}_fc_signal_promoter"] = np.exp(
-                sign * activity + noise())
+                sign * activity + noise()
+            )
     # make housekeeping genes highly expressed and early
     for gid in HOUSEKEEPING_GENES.values():
-        for col in ("gtex_colon_sigmoid",
-                    "gtex_colon_transverse_mucosa",
-                    "tpm_unstranded"):
+        for col in (
+            "gtex_colon_sigmoid",
+            "gtex_colon_transverse_mucosa",
+            "tpm_unstranded",
+        ):
             df.loc[gid, col] = df[col].max() * 2
         df.loc[gid, "mrt"] = 0.01
     return df
@@ -66,8 +75,9 @@ def _statuses(frame: pd.DataFrame) -> dict[str, str]:
 
 
 def test_healthy_matrix_passes():
-    frame = validate_covariates("COAD",
-                                cov_matrix_raw=_healthy_matrix())
+    frame = validate_covariates(
+        "COAD", cov_matrix_raw=_healthy_matrix()
+    )
     assert not (frame["status"] == "fail").any()
     statuses = _statuses(frame)
     assert statuses["expression_vs_mrt"] == "pass"
@@ -108,8 +118,11 @@ def test_mrt_out_of_range_fails():
 def test_inverted_biology_warns_and_batches():
     df = _healthy_matrix()
     # invert expression so every cross-block direction flips
-    for col in ("gtex_colon_sigmoid", "gtex_colon_transverse_mucosa",
-                "tpm_unstranded"):
+    for col in (
+        "gtex_colon_sigmoid",
+        "gtex_colon_transverse_mucosa",
+        "tpm_unstranded",
+    ):
         df[col] = df[col].max() - df[col]
     frame = validate_covariates("COAD", cov_matrix_raw=df)
     statuses = _statuses(frame)
@@ -132,8 +145,9 @@ def test_clr_count_mismatch_fails():
 
 
 def test_missing_blocks_not_applicable():
-    df = _healthy_matrix()[["gtex_colon_sigmoid",
-                            "gtex_colon_transverse_mucosa"]]
+    df = _healthy_matrix()[
+        ["gtex_colon_sigmoid", "gtex_colon_transverse_mucosa"]
+    ]
     frame = validate_covariates("COAD", cov_matrix_raw=df)
     row = frame.set_index("check").loc["expression_vs_mrt"]
     assert row["status"] == "pass"
@@ -141,5 +155,7 @@ def test_missing_blocks_not_applicable():
 
 
 def test_requires_matrix_or_data_dir():
-    with pytest.raises(ValueError, match="data_dir or cov_matrix_raw"):
+    with pytest.raises(
+        ValueError, match="data_dir or cov_matrix_raw"
+    ):
         validate_covariates("COAD")

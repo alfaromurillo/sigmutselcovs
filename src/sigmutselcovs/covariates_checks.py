@@ -25,11 +25,12 @@ logger = logging.getLogger(__name__)
 # Variance
 # ---------------------------------------------------------------------------
 
+
 def check_variance(
-        df: pd.DataFrame,
-        columns: list[str] | None = None,
-        cv_threshold: float = 0.01,
-        dominant_pct_threshold: float = 0.95,
+    df: pd.DataFrame,
+    columns: list[str] | None = None,
+    cv_threshold: float = 0.01,
+    dominant_pct_threshold: float = 0.95,
 ) -> pd.DataFrame:
     """Flag constant and near-constant columns.
 
@@ -76,7 +77,8 @@ def check_variance(
             True if the column should be removed (constant or near-constant).
     """
     cols = (
-        columns if columns is not None
+        columns
+        if columns is not None
         else df.select_dtypes(include="number").columns.tolist()
     )
 
@@ -86,10 +88,17 @@ def check_variance(
         n = len(vals)
 
         if n == 0:
-            records.append(dict(
-                column=col, variance=float("nan"), cv=float("nan"),
-                pct_most_common=float("nan"),
-                is_constant=False, is_near_constant=False, drop=False))
+            records.append(
+                dict(
+                    column=col,
+                    variance=float("nan"),
+                    cv=float("nan"),
+                    pct_most_common=float("nan"),
+                    is_constant=False,
+                    is_near_constant=False,
+                    drop=False,
+                )
+            )
             continue
 
         var = float(np.var(vals, ddof=1)) if n > 1 else 0.0
@@ -101,29 +110,31 @@ def check_variance(
         pct_most_common = float(counts.max() / n)
 
         is_constant = len(unique_vals) <= 1
-        is_near_constant = (
-            not is_constant
-            and (
-                (not np.isnan(cv) and cv < cv_threshold)
-                or pct_most_common > dominant_pct_threshold
-            )
+        is_near_constant = not is_constant and (
+            (not np.isnan(cv) and cv < cv_threshold)
+            or pct_most_common > dominant_pct_threshold
         )
 
-        records.append(dict(
-            column=col, variance=var, cv=cv,
-            pct_most_common=pct_most_common,
-            is_constant=is_constant,
-            is_near_constant=is_near_constant,
-            drop=is_constant or is_near_constant))
+        records.append(
+            dict(
+                column=col,
+                variance=var,
+                cv=cv,
+                pct_most_common=pct_most_common,
+                is_constant=is_constant,
+                is_near_constant=is_near_constant,
+                drop=is_constant or is_near_constant,
+            )
+        )
 
     return pd.DataFrame(records).set_index("column")
 
 
 def fix_variance(
-        df: pd.DataFrame,
-        columns: list[str] | None = None,
-        cv_threshold: float = 0.01,
-        dominant_pct_threshold: float = 0.95,
+    df: pd.DataFrame,
+    columns: list[str] | None = None,
+    cv_threshold: float = 0.01,
+    dominant_pct_threshold: float = 0.95,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Drop constant and near-constant columns.
 
@@ -142,14 +153,19 @@ def fix_variance(
         Full output of :func:`check_variance`.
     """
     report = check_variance(
-        df, columns=columns,
+        df,
+        columns=columns,
         cv_threshold=cv_threshold,
-        dominant_pct_threshold=dominant_pct_threshold)
+        dominant_pct_threshold=dominant_pct_threshold,
+    )
 
     to_drop = report.index[report["drop"]].tolist()
     if to_drop:
         logger.info(
-            "fix_variance: dropping %d column(s): %s", len(to_drop), to_drop)
+            "fix_variance: dropping %d column(s): %s",
+            len(to_drop),
+            to_drop,
+        )
 
     return df.drop(columns=to_drop), report
 
@@ -158,11 +174,12 @@ def fix_variance(
 # Skewness
 # ---------------------------------------------------------------------------
 
+
 def check_skewness(
-        df: pd.DataFrame,
-        columns: list[str] | None = None,
-        skew_threshold: float = 1.0,
-        max_median_ratio_threshold: float = 10.0,
+    df: pd.DataFrame,
+    columns: list[str] | None = None,
+    skew_threshold: float = 1.0,
+    max_median_ratio_threshold: float = 10.0,
 ) -> pd.DataFrame:
     """Report skewness statistics and log-transform recommendations per column.
 
@@ -208,7 +225,8 @@ def check_skewness(
     from scipy.stats import skew as _skew
 
     cols = (
-        columns if columns is not None
+        columns
+        if columns is not None
         else df.select_dtypes(include="number").columns.tolist()
     )
 
@@ -217,22 +235,32 @@ def check_skewness(
         vals = df[col].dropna().to_numpy(dtype=float)
 
         if len(vals) == 0:
-            records.append(dict(
-                column=col, skewness=float("nan"),
-                max_median_ratio=float("nan"),
-                all_nonneg=False, apply_log=False, pseudo_count=0.0))
+            records.append(
+                dict(
+                    column=col,
+                    skewness=float("nan"),
+                    max_median_ratio=float("nan"),
+                    all_nonneg=False,
+                    apply_log=False,
+                    pseudo_count=0.0,
+                )
+            )
             continue
 
         all_nonneg = bool((vals >= 0).all())
         has_positives = bool((vals > 0).any())
         s = float(_skew(vals))
         median = float(np.median(vals))
-        mmr = float(vals.max() / median) if median > 0 else float("inf")
+        mmr = (
+            float(vals.max() / median) if median > 0 else float("inf")
+        )
 
         apply = (
             all_nonneg
             and has_positives
-            and (s > skew_threshold or mmr > max_median_ratio_threshold)
+            and (
+                s > skew_threshold or mmr > max_median_ratio_threshold
+            )
         )
 
         pseudo_count = (
@@ -241,21 +269,27 @@ def check_skewness(
             else 0.0
         )
 
-        records.append(dict(
-            column=col, skewness=s, max_median_ratio=mmr,
-            all_nonneg=all_nonneg, apply_log=apply,
-            pseudo_count=pseudo_count))
+        records.append(
+            dict(
+                column=col,
+                skewness=s,
+                max_median_ratio=mmr,
+                all_nonneg=all_nonneg,
+                apply_log=apply,
+                pseudo_count=pseudo_count,
+            )
+        )
 
     return pd.DataFrame(records).set_index("column")
 
 
 def fix_skewness(
-        df: pd.DataFrame,
-        columns: list[str] | None = None,
-        skew_threshold: float = 1.0,
-        max_median_ratio_threshold: float = 10.0,
-        iterative: bool = True,
-        max_iter: int = 5,
+    df: pd.DataFrame,
+    columns: list[str] | None = None,
+    skew_threshold: float = 1.0,
+    max_median_ratio_threshold: float = 10.0,
+    iterative: bool = True,
+    max_iter: int = 5,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Apply log transforms to right-skewed non-negative columns.
 
@@ -296,30 +330,41 @@ def fix_skewness(
     applied: dict[str, list[float]] = {}
     for i in range(max_iter if iterative else 1):
         report = check_skewness(
-            fixed, columns=columns,
+            fixed,
+            columns=columns,
             skew_threshold=skew_threshold,
-            max_median_ratio_threshold=max_median_ratio_threshold)
+            max_median_ratio_threshold=max_median_ratio_threshold,
+        )
 
         n_flagged = int(report["apply_log"].sum())
         if n_flagged == 0:
-            logger.info("fix_skewness: converged after %d pass(es)", i)
+            logger.info(
+                "fix_skewness: converged after %d pass(es)", i
+            )
             break
 
         for col, row in report.iterrows():
             if row["apply_log"]:
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore", RuntimeWarning)
-                    fixed[col] = np.log(row["pseudo_count"] + fixed[col])
+                    fixed[col] = np.log(
+                        row["pseudo_count"] + fixed[col]
+                    )
                 applied.setdefault(col, []).append(
-                    float(row["pseudo_count"]))
+                    float(row["pseudo_count"])
+                )
 
         logger.info(
             "fix_skewness pass %d: transformed %d / %d columns",
-            i + 1, n_flagged, len(report))
+            i + 1,
+            n_flagged,
+            len(report),
+        )
     else:
         logger.warning(
             "fix_skewness: reached max_iter=%d without full convergence",
-            max_iter)
+            max_iter,
+        )
 
     if report is not None:
         report.attrs["applied"] = applied
@@ -330,10 +375,11 @@ def fix_skewness(
 # Missingness
 # ---------------------------------------------------------------------------
 
+
 def check_missingness(
-        df: pd.DataFrame,
-        columns: list[str] | None = None,
-        missing_threshold: float = 0.5,
+    df: pd.DataFrame,
+    columns: list[str] | None = None,
+    missing_threshold: float = 0.5,
 ) -> pd.DataFrame:
     """Report the fraction of missing values per column.
 
@@ -365,9 +411,14 @@ def check_missingness(
     for col in cols:
         n_missing = int(df[col].isna().sum())
         pct = n_missing / n_rows if n_rows > 0 else float("nan")
-        records.append(dict(
-            column=col, n_missing=n_missing, pct_missing=pct,
-            flag=pct > missing_threshold))
+        records.append(
+            dict(
+                column=col,
+                n_missing=n_missing,
+                pct_missing=pct,
+                flag=pct > missing_threshold,
+            )
+        )
 
     return pd.DataFrame(records).set_index("column")
 
@@ -376,10 +427,11 @@ def check_missingness(
 # Collinearity
 # ---------------------------------------------------------------------------
 
+
 def check_collinearity(
-        df: pd.DataFrame,
-        columns: list[str] | None = None,
-        corr_threshold: float = 0.95,
+    df: pd.DataFrame,
+    columns: list[str] | None = None,
+    corr_threshold: float = 0.95,
 ) -> pd.DataFrame:
     """Flag pairs of columns with near-perfect Pearson correlation.
 
@@ -413,7 +465,8 @@ def check_collinearity(
         Empty DataFrame if no pairs exceed the threshold.
     """
     cols = (
-        columns if columns is not None
+        columns
+        if columns is not None
         else df.select_dtypes(include="number").columns.tolist()
     )
 
@@ -421,28 +474,32 @@ def check_collinearity(
     cols_list = list(cols)
     records = []
     for i, a in enumerate(cols_list):
-        for b in cols_list[i + 1:]:
+        for b in cols_list[i + 1 :]:
             r = float(corr.loc[a, b])
             if abs(r) > corr_threshold:
                 records.append(dict(col_a=a, col_b=b, correlation=r))
 
-    return pd.DataFrame(records) if records else pd.DataFrame(
-        columns=["col_a", "col_b", "correlation"])
+    return (
+        pd.DataFrame(records)
+        if records
+        else pd.DataFrame(columns=["col_a", "col_b", "correlation"])
+    )
 
 
 # ---------------------------------------------------------------------------
 # Combined interface
 # ---------------------------------------------------------------------------
 
+
 def check_all(
-        df: pd.DataFrame,
-        columns: list[str] | None = None,
-        cv_threshold: float = 0.01,
-        dominant_pct_threshold: float = 0.95,
-        skew_threshold: float = 1.0,
-        max_median_ratio_threshold: float = 10.0,
-        missing_threshold: float = 0.5,
-        corr_threshold: float = 0.95,
+    df: pd.DataFrame,
+    columns: list[str] | None = None,
+    cv_threshold: float = 0.01,
+    dominant_pct_threshold: float = 0.95,
+    skew_threshold: float = 1.0,
+    max_median_ratio_threshold: float = 10.0,
+    missing_threshold: float = 0.5,
+    corr_threshold: float = 0.95,
 ) -> dict[str, pd.DataFrame]:
     """Run all covariate quality checks and return a report dictionary.
 
@@ -469,29 +526,33 @@ def check_all(
     """
     return {
         "variance": check_variance(
-            df, columns=columns,
+            df,
+            columns=columns,
             cv_threshold=cv_threshold,
-            dominant_pct_threshold=dominant_pct_threshold),
+            dominant_pct_threshold=dominant_pct_threshold,
+        ),
         "skewness": check_skewness(
-            df, columns=columns,
+            df,
+            columns=columns,
             skew_threshold=skew_threshold,
-            max_median_ratio_threshold=max_median_ratio_threshold),
+            max_median_ratio_threshold=max_median_ratio_threshold,
+        ),
         "missingness": check_missingness(
-            df, columns=columns,
-            missing_threshold=missing_threshold),
+            df, columns=columns, missing_threshold=missing_threshold
+        ),
         "collinearity": check_collinearity(
-            df, columns=columns,
-            corr_threshold=corr_threshold),
+            df, columns=columns, corr_threshold=corr_threshold
+        ),
     }
 
 
 def fix_all(
-        df: pd.DataFrame,
-        columns: list[str] | None = None,
-        cv_threshold: float = 0.01,
-        dominant_pct_threshold: float = 0.95,
-        skew_threshold: float = 1.0,
-        max_median_ratio_threshold: float = 10.0,
+    df: pd.DataFrame,
+    columns: list[str] | None = None,
+    cv_threshold: float = 0.01,
+    dominant_pct_threshold: float = 0.95,
+    skew_threshold: float = 1.0,
+    max_median_ratio_threshold: float = 10.0,
 ) -> tuple[pd.DataFrame, dict[str, pd.DataFrame]]:
     """Drop low-variance columns then apply log transforms.
 
@@ -522,13 +583,16 @@ def fix_all(
         ``"variance"`` and ``"skewness"`` reports from each fix step.
     """
     fixed, var_report = fix_variance(
-        df, columns=columns,
+        df,
+        columns=columns,
         cv_threshold=cv_threshold,
-        dominant_pct_threshold=dominant_pct_threshold)
+        dominant_pct_threshold=dominant_pct_threshold,
+    )
 
     fixed, skew_report = fix_skewness(
         fixed,
         skew_threshold=skew_threshold,
-        max_median_ratio_threshold=max_median_ratio_threshold)
+        max_median_ratio_threshold=max_median_ratio_threshold,
+    )
 
     return fixed, {"variance": var_report, "skewness": skew_report}

@@ -22,8 +22,12 @@ def _write_bigwig(path, values, *, chrom="chr1", bin_size=BIN):
     bw.addHeader([(chrom, length)])
     starts = list(range(0, length, bin_size))
     ends = [s + bin_size for s in starts]
-    bw.addEntries([chrom] * len(starts), starts, ends=ends,
-                  values=[float(v) for v in values])
+    bw.addEntries(
+        [chrom] * len(starts),
+        starts,
+        ends=ends,
+        values=[float(v) for v in values],
+    )
     bw.close()
     return path
 
@@ -45,23 +49,30 @@ def mat_file(tmp_path):
         starts=[0, 50000, 0],
         ends=[50000, 100000, 50000],
         fractions=[
-            [1.0, 0.0, 2.0],   # s1 per bin
-            [1.0, 0.0, 0.0],   # s2
-            [1.0, 0.0, 0.0],   # s3
-            [1.0, 0.0, 0.0],   # s4
-        ])
+            [1.0, 0.0, 2.0],  # s1 per bin
+            [1.0, 0.0, 0.0],  # s2
+            [1.0, 0.0, 0.0],  # s3
+            [1.0, 0.0, 0.0],  # s4
+        ],
+    )
     return path
 
 
 def test_fractions_bins_normalization_pin(mat_file):
     """Pins the pre-refactor behavior of the normalization."""
     out = load_repliseq_fractions_bins(mat_file)
-    assert list(out.columns) == ["Chromosome", "region_start",
-                                 "region_end", "rt_s1", "rt_s2",
-                                 "rt_s3", "rt_s4"]
+    assert list(out.columns) == [
+        "Chromosome",
+        "region_start",
+        "region_end",
+        "rt_s1",
+        "rt_s2",
+        "rt_s3",
+        "rt_s4",
+    ]
     rt = out[[f"rt_s{i}" for i in range(1, 5)]].to_numpy()
     np.testing.assert_allclose(rt[0], [0.25, 0.25, 0.25, 0.25])
-    assert np.isnan(rt[1]).all()          # zero-signal bin -> NaN
+    assert np.isnan(rt[1]).all()  # zero-signal bin -> NaN
     np.testing.assert_allclose(rt[2], [1.0, 0.0, 0.0, 0.0])
     assert out["region_start"].tolist() == [0, 50000, 0]
     assert out["region_end"].tolist() == [50000, 100000, 50000]
@@ -80,21 +91,29 @@ def test_bigwig_adapter_two_fractions(tmp_path):
     early = _write_bigwig(tmp_path / "early.bigWig", [1, 0, 3, 0])
     late = _write_bigwig(tmp_path / "late.bigWig", [1, 2, 1, 0])
     out = load_repliseq_fractions_bins_from_bigwigs([early, late])
-    assert list(out.columns) == ["Chromosome", "region_start",
-                                 "region_end", "rt_s1", "rt_s2"]
+    assert list(out.columns) == [
+        "Chromosome",
+        "region_start",
+        "region_end",
+        "rt_s1",
+        "rt_s2",
+    ]
     assert len(out) == 4
     assert out["region_start"].tolist() == [0, BIN, 2 * BIN, 3 * BIN]
-    np.testing.assert_allclose(out["rt_s1"].to_numpy()[:3],
-                               [0.5, 0.0, 0.75])
-    np.testing.assert_allclose(out["rt_s2"].to_numpy()[:3],
-                               [0.5, 1.0, 0.25])
+    np.testing.assert_allclose(
+        out["rt_s1"].to_numpy()[:3], [0.5, 0.0, 0.75]
+    )
+    np.testing.assert_allclose(
+        out["rt_s2"].to_numpy()[:3], [0.5, 1.0, 0.25]
+    )
     assert pd.isna(out["rt_s1"].iloc[3])  # all-zero bin
 
 
 def test_bigwig_adapter_six_fractions_sum_to_one(tmp_path):
     paths = [
         _write_bigwig(tmp_path / f"f{i}.bigWig", [i + 1, 2 * i + 1])
-        for i in range(6)]
+        for i in range(6)
+    ]
     out = load_repliseq_fractions_bins_from_bigwigs(paths)
     rt = out[[f"rt_s{i}" for i in range(1, 7)]].to_numpy()
     np.testing.assert_allclose(rt.sum(axis=1), [1.0, 1.0])
@@ -127,8 +146,11 @@ def test_mrt_two_fractions_closed_form(tmp_path):
 def test_mrt_six_fractions_midpoints(tmp_path):
     """N=6 midpoints [1,3,5,7,9,11]/12 (UW weighted average)."""
     paths = [
-        _write_bigwig(tmp_path / f"f{i}.bigWig", [1 if i == 2 else 0, 1])
-        for i in range(6)]
+        _write_bigwig(
+            tmp_path / f"f{i}.bigWig", [1 if i == 2 else 0, 1]
+        )
+        for i in range(6)
+    ]
     out = load_repliseq_mrt_bins(paths)
     # all signal in fraction 3 -> its midpoint 5/12
     assert out["mrt"].iloc[0] == pytest.approx(5 / 12)
@@ -139,9 +161,11 @@ def test_mrt_six_fractions_midpoints(tmp_path):
 def test_mrt_fraction_subset_renormalizes(tmp_path):
     paths = [
         _write_bigwig(tmp_path / f"f{i}.bigWig", [v])
-        for i, v in enumerate([5.0, 1.0, 3.0, 2.0])]
+        for i, v in enumerate([5.0, 1.0, 3.0, 2.0])
+    ]
     out = load_repliseq_mrt_bins(
-        paths, mrt_fraction_cols=["rt_s2", "rt_s3"])
+        paths, mrt_fraction_cols=["rt_s2", "rt_s3"]
+    )
     # subset renormalized: f = [1,3]/4; midpoints [0.25, 0.75]
     expected = (0.25 * 1 + 0.75 * 3) / 4
     assert out["mrt"].iloc[0] == pytest.approx(expected)
@@ -166,8 +190,21 @@ def _write_gtf(path, genes):
     lines = []
     for gid, chrom, start, end in genes:
         attrs = f'gene_id "{gid}"; gene_type "protein_coding";'
-        lines.append("\t".join([chrom, "TEST", "gene", str(start),
-                                str(end), ".", "+", ".", attrs]))
+        lines.append(
+            "\t".join(
+                [
+                    chrom,
+                    "TEST",
+                    "gene",
+                    str(start),
+                    str(end),
+                    ".",
+                    "+",
+                    ".",
+                    attrs,
+                ]
+            )
+        )
     path.write_text("\n".join(lines) + "\n")
     return path
 
@@ -179,12 +216,15 @@ def test_wavelet_per_gene(tmp_path):
     )
 
     track = _write_bigwig(tmp_path / "wavelet.bigWig", [2, 4, 6])
-    gtf = _write_gtf(tmp_path / "genes.gtf", [
-        # spans bins 1-2 fully -> mean(2, 4) = 3
-        ("ENSG00000000001", "chr1", 1, 2 * BIN),
-        # inside bin 3 only -> 6
-        ("ENSG00000000002", "chr1", 2 * BIN + 1, 2 * BIN + 1000),
-    ])
+    gtf = _write_gtf(
+        tmp_path / "genes.gtf",
+        [
+            # spans bins 1-2 fully -> mean(2, 4) = 3
+            ("ENSG00000000001", "chr1", 1, 2 * BIN),
+            # inside bin 3 only -> 6
+            ("ENSG00000000002", "chr1", 2 * BIN + 1, 2 * BIN + 1000),
+        ],
+    )
     ser = generate_rt_wavelet_per_gene(track, gtf)
     assert ser.name == "rt_wavelet"
     assert ser.loc["ENSG00000000001"] == pytest.approx(3.0)
@@ -193,5 +233,7 @@ def test_wavelet_per_gene(tmp_path):
     cache = tmp_path / "rt_wavelet_per_gene.csv"
     first = load_or_generate_rt_wavelet(cache, track, gtf)
     assert cache.exists()
-    again = load_or_generate_rt_wavelet(cache, "nonexistent.bigWig", gtf)
+    again = load_or_generate_rt_wavelet(
+        cache, "nonexistent.bigWig", gtf
+    )
     pd.testing.assert_series_equal(first, again)

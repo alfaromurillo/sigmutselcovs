@@ -19,11 +19,12 @@ logger = logging.getLogger(__name__)
 
 
 def import_gtex(
-        loc_cov_gtex: str | Path,
-        variants_df: pd.DataFrame | None = None,
-        columns: str | list[str] | None = None,
-        mapping_path: str | Path | None = None,
-        strip_gene_id_version: bool = True) -> pd.DataFrame:
+    loc_cov_gtex: str | Path,
+    variants_df: pd.DataFrame | None = None,
+    columns: str | list[str] | None = None,
+    mapping_path: str | Path | None = None,
+    strip_gene_id_version: bool = True,
+) -> pd.DataFrame:
     """Import GTEx expression data.
 
     This function reads a GTEx **gene-level** expression matrix in GCT
@@ -86,30 +87,31 @@ def import_gtex(
       list of column names to attach.
 
     """
-    gtex = pd.read_table(loc_cov_gtex,
-                         skiprows=2,
-                         index_col='Name')
+    gtex = pd.read_table(loc_cov_gtex, skiprows=2, index_col="Name")
 
     if isinstance(columns, list):
         cols = columns
     elif columns is None:
         # all GTEx tissue columns except 'Description'
-        cols = [c for c in gtex.columns if c != 'Description']
+        cols = [c for c in gtex.columns if c != "Description"]
     else:
         code = columns.upper()
         if mapping_path is None:
             mapping_path = location_gtex_tcga_mapping
         try:
-            with open(mapping_path, 'r') as fh:
+            with open(mapping_path, "r") as fh:
                 mapping = json.load(fh)
             mapping = {str(k).upper(): v for k, v in mapping.items()}
         except Exception as exc:
-            raise ValueError("Failed to load mapping "
-                             f"from {mapping_path}: {exc}")
+            raise ValueError(
+                "Failed to load mapping "
+                f"from {mapping_path}: {exc}"
+            )
         if code not in mapping:
             raise ValueError(
                 f"Unsupported study code '{code}' "
-                f"in mapping {mapping_path}.")
+                f"in mapping {mapping_path}."
+            )
         cols = mapping[code]
 
     # keep only columns that exist in the GTEx file; warn if missing
@@ -120,23 +122,25 @@ def import_gtex(
     cols = present_cols
 
     def _label_for(col: str) -> str:
-        return 'gtex_' + (
+        return "gtex_" + (
             col.lower()
-            .replace(' ', '_')
-            .replace('-', '_')
-            .replace('.', '_'))
+            .replace(" ", "_")
+            .replace("-", "_")
+            .replace(".", "_")
+        )
 
     if variants_df is None:
         out = gtex.copy()
         out = out.reset_index()
         if strip_gene_id_version:
-            out['ensembl_gene_id'] = (out['Name']
-                                      .astype('string')
-                                      .str
-                                      .replace(r'\.\d+$', '', regex=True))
+            out["ensembl_gene_id"] = (
+                out["Name"]
+                .astype("string")
+                .str.replace(r"\.\d+$", "", regex=True)
+            )
         else:
-            out['ensembl_gene_id'] = out['Name']
-        out = out.set_index('ensembl_gene_id')
+            out["ensembl_gene_id"] = out["Name"]
+        out = out.set_index("ensembl_gene_id")
         out = out[cols]
         # rename columns to gtex_* in gene mode too
         out = out.rename(columns={c: _label_for(c) for c in cols})
@@ -145,19 +149,18 @@ def import_gtex(
         # Variant case
         labels = [_label_for(c) for c in cols]
         out = annotate_with_gene_features(
-            variants_df,
-            gtex,
-            cols,
-            labels=labels)
+            variants_df, gtex, cols, labels=labels
+        )
 
     return out
 
 
 def import_tcga_gene_expression(
-        loc_dir: str | Path,
-        cols: list[str] | None = None,
-        strip_gene_id_version: bool = True,
-        tissue_type: str | None = None) -> pd.DataFrame:
+    loc_dir: str | Path,
+    cols: list[str] | None = None,
+    strip_gene_id_version: bool = True,
+    tissue_type: str | None = None,
+) -> pd.DataFrame:
     """Load TCGA STAR-count files and add Tumor_Sample_Barcode.
 
     Read all GDC STAR gene-count TSVs under *loc_dir*, map each file
@@ -192,107 +195,133 @@ def import_tcga_gene_expression(
     root = Path(loc_dir)
 
     if cols is None:
-        cols = ['ensembl_gene_id', 'gene_name', 'tpm_unstranded']
-    elif cols == 'full':
-        cols = ['ensembl_gene_id',
-                'gene_name',
-                'unstranded',
-                'stranded_first',
-                'stranded_second',
-                'tpm_unstranded',
-                'fpkm_unstranded',
-                'fpkm_uq_unstranded']
+        cols = ["ensembl_gene_id", "gene_name", "tpm_unstranded"]
+    elif cols == "full":
+        cols = [
+            "ensembl_gene_id",
+            "gene_name",
+            "unstranded",
+            "stranded_first",
+            "stranded_second",
+            "tpm_unstranded",
+            "fpkm_unstranded",
+            "fpkm_uq_unstranded",
+        ]
 
     # ── load sample sheet → UUID → barcode map ─────────────────────
-    ss_paths = sorted(root.glob('gdc_sample_sheet*.tsv'))
+    ss_paths = sorted(root.glob("gdc_sample_sheet*.tsv"))
     if not ss_paths:
         raise FileNotFoundError("No gdc_sample_sheet*.tsv found.")
-    ss = pd.read_csv(ss_paths[-1], sep='\t', dtype=str)
+    ss = pd.read_csv(ss_paths[-1], sep="\t", dtype=str)
 
-    file_id_col = 'File ID' if 'File ID' in ss.columns else 'FileID'
-    if 'Sample ID' not in ss.columns:
+    file_id_col = "File ID" if "File ID" in ss.columns else "FileID"
+    if "Sample ID" not in ss.columns:
         raise KeyError("Sample sheet missing 'Sample ID' column.")
 
     if tissue_type is not None:
-        tissue_col = next((c for c in ss.columns
-                           if c.lower() == 'tissue type'), None)
+        tissue_col = next(
+            (c for c in ss.columns if c.lower() == "tissue type"),
+            None,
+        )
         if tissue_col is None:
-            logger.warning("No 'Tissue Type' column in sample sheet; "
-                           "tissue_type filter ignored.")
+            logger.warning(
+                "No 'Tissue Type' column in sample sheet; "
+                "tissue_type filter ignored."
+            )
         else:
             ss = ss[ss[tissue_col].str.lower() == tissue_type.lower()]
-            logger.info("tissue_type=%r: kept %d of %d sample-sheet rows.",
-                        tissue_type, len(ss),
-                        pd.read_csv(ss_paths[-1], sep='\t').shape[0])
+            logger.info(
+                "tissue_type=%r: kept %d of %d sample-sheet rows.",
+                tissue_type,
+                len(ss),
+                pd.read_csv(ss_paths[-1], sep="\t").shape[0],
+            )
 
-    id_to_bar = (ss[[file_id_col, 'Sample ID']]
-                 .dropna()
-                 .drop_duplicates(subset=[file_id_col])
-                 .set_index(file_id_col)['Sample ID']
-                 .astype(str)
-                 .to_dict())
+    id_to_bar = (
+        ss[[file_id_col, "Sample ID"]]
+        .dropna()
+        .drop_duplicates(subset=[file_id_col])
+        .set_index(file_id_col)["Sample ID"]
+        .astype(str)
+        .to_dict()
+    )
 
     # ── find STAR count TSVs ───────────────────────────────────────
-    tsvs = list(root.glob('**/*augmented_star_gene_counts.tsv'))
+    tsvs = list(root.glob("**/*augmented_star_gene_counts.tsv"))
 
     frames: list[pd.DataFrame] = []
     for p in tsvs:
         file_id = p.parent.name
         barcode = id_to_bar.get(file_id)
         if barcode is None:
-            logger.warning("No barcode for %s; skipping %s", file_id, p)
+            logger.warning(
+                "No barcode for %s; skipping %s", file_id, p
+            )
             continue
 
-        df = pd.read_csv(p, sep='\t', comment='#')
+        df = pd.read_csv(p, sep="\t", comment="#")
 
         # rename 'gene_id' → 'ensembl_gene_id' before filtering
-        if 'gene_id' in df.columns and \
-           'ensembl_gene_id' not in df.columns:
-            df = df.rename(columns={'gene_id': 'ensembl_gene_id'})
+        if (
+            "gene_id" in df.columns
+            and "ensembl_gene_id" not in df.columns
+        ):
+            df = df.rename(columns={"gene_id": "ensembl_gene_id"})
 
         # drop QC counters
-        if 'ensembl_gene_id' in df.columns:
-            mask = ~df['ensembl_gene_id'].astype(str).str.startswith('N_')
+        if "ensembl_gene_id" in df.columns:
+            mask = (
+                ~df["ensembl_gene_id"]
+                .astype(str)
+                .str.startswith("N_")
+            )
             df = df[mask]
 
         # optionally strip Ensembl version
-        if strip_gene_id_version and 'ensembl_gene_id' in df.columns:
-            df['ensembl_gene_id'] = (df['ensembl_gene_id']
-                                     .astype('string')
-                                     .str
-                                     .replace(r'\.\d+$', '', regex=True))
+        if strip_gene_id_version and "ensembl_gene_id" in df.columns:
+            df["ensembl_gene_id"] = (
+                df["ensembl_gene_id"]
+                .astype("string")
+                .str.replace(r"\.\d+$", "", regex=True)
+            )
 
         # keep only requested columns that exist
         keep = [c for c in cols if c in df.columns]
         df = df[keep]
 
         # coerce numerics
-        for c in ['unstranded', 'tpm_unstranded', 'fpkm_unstranded',
-                  'fpkm_uq_unstranded']:
+        for c in [
+            "unstranded",
+            "tpm_unstranded",
+            "fpkm_unstranded",
+            "fpkm_uq_unstranded",
+        ]:
             if c in df.columns:
-                df[c] = pd.to_numeric(df[c], errors='coerce')
+                df[c] = pd.to_numeric(df[c], errors="coerce")
 
-        df.insert(0, 'Tumor_Sample_Barcode', barcode)
+        df.insert(0, "Tumor_Sample_Barcode", barcode)
         frames.append(df)
 
     if not frames:
-        logger.warning("No STAR gene-count TSVs parsed under %s", root)
-        return pd.DataFrame(columns=['Tumor_Sample_Barcode'] + cols)
+        logger.warning(
+            "No STAR gene-count TSVs parsed under %s", root
+        )
+        return pd.DataFrame(columns=["Tumor_Sample_Barcode"] + cols)
 
     out = pd.concat(frames, ignore_index=True)
     return out
 
 
 def load_or_generate_mean_tcga_gexp(
-        location_csv: str | Path,
-        tcga_dir: str | Path,
-        *,
-        cols: list[str] | None = None,
-        tissue_type: str | None = "Tumor",
-        strip_gene_id_version: bool = True,
-        force_generation: bool = False,
-        float_format: str = "%.6g"
-        ) -> pd.Series:
+    location_csv: str | Path,
+    tcga_dir: str | Path,
+    *,
+    cols: list[str] | None = None,
+    tissue_type: str | None = "Tumor",
+    strip_gene_id_version: bool = True,
+    force_generation: bool = False,
+    float_format: str = "%.6g",
+) -> pd.Series:
     """Load or generate the mean TCGA gene expression (TPM) per Ensembl gene.
 
     If the CSV exists at ``location_csv`` and ``force_generation`` is
@@ -331,14 +360,18 @@ def load_or_generate_mean_tcga_gexp(
     location_csv = Path(location_csv)
 
     if location_csv.exists() and not force_generation:
-        logger.info("Loading mean TCGA expression from %s", location_csv)
+        logger.info(
+            "Loading mean TCGA expression from %s", location_csv
+        )
         tbl = pd.read_csv(location_csv, index_col=0)
         if tbl.shape[1] == 1:
             ser = tbl.iloc[:, 0]
         else:
-            col = ("tpm_unstranded"
-                   if "tpm_unstranded" in tbl.columns
-                   else tbl.columns[0])
+            col = (
+                "tpm_unstranded"
+                if "tpm_unstranded" in tbl.columns
+                else tbl.columns[0]
+            )
             ser = tbl[col]
         ser = ser.astype(float)
         if ser.name is None:
@@ -346,22 +379,29 @@ def load_or_generate_mean_tcga_gexp(
         logger.info("... done loading mean TCGA expression.")
         return ser
 
-    logger.info("Generating mean TCGA expression from %s "
-                "(tissue_type=%r)", tcga_dir, tissue_type)
+    logger.info(
+        "Generating mean TCGA expression from %s " "(tissue_type=%r)",
+        tcga_dir,
+        tissue_type,
+    )
     df = import_tcga_gene_expression(
         tcga_dir,
         cols=cols,
         tissue_type=tissue_type,
-        strip_gene_id_version=strip_gene_id_version)
+        strip_gene_id_version=strip_gene_id_version,
+    )
 
     mean_ser = (
         df.groupby("ensembl_gene_id", sort=True)["tpm_unstranded"]
-          .mean()
-          .astype(float)
-          .rename("tpm_unstranded"))
+        .mean()
+        .astype(float)
+        .rename("tpm_unstranded")
+    )
 
     # write as a 2-column CSV for readability
-    mean_ser.to_frame().to_csv(location_csv, float_format=float_format)
+    mean_ser.to_frame().to_csv(
+        location_csv, float_format=float_format
+    )
     logger.info("Saved mean TCGA expression to %s", location_csv)
     logger.info("... done generating mean TCGA expression.")
     return mean_ser
@@ -378,14 +418,14 @@ _NUMERIC_STAR_COLS = [
 
 
 def load_or_generate_tcga_gexp_per_sample(
-        location_parquet: str | Path,
-        tcga_dir: str | Path,
-        *,
-        metrics: list[str] | None = None,
-        tissue_type: str | None = None,
-        strip_gene_id_version: bool = True,
-        force_generation: bool = False,
-        ) -> pd.DataFrame:
+    location_parquet: str | Path,
+    tcga_dir: str | Path,
+    *,
+    metrics: list[str] | None = None,
+    tissue_type: str | None = None,
+    strip_gene_id_version: bool = True,
+    force_generation: bool = False,
+) -> pd.DataFrame:
     """Load or generate a gene × (sample_metric) TCGA expression matrix.
 
     Each STAR count file contributes one column per requested metric,
@@ -433,8 +473,10 @@ def load_or_generate_tcga_gexp_per_sample(
     location_parquet = Path(location_parquet)
 
     if location_parquet.exists() and not force_generation:
-        logger.info("Loading per-sample TCGA expression from %s",
-                    location_parquet)
+        logger.info(
+            "Loading per-sample TCGA expression from %s",
+            location_parquet,
+        )
         df = pd.read_parquet(location_parquet)
         df.index.name = "ensembl_gene_id"
         logger.info("... done loading per-sample TCGA expression.")
@@ -443,26 +485,33 @@ def load_or_generate_tcga_gexp_per_sample(
     if metrics is None:
         metrics = list(_NUMERIC_STAR_COLS)
 
-    logger.info("Generating per-sample TCGA expression from %s", tcga_dir)
+    logger.info(
+        "Generating per-sample TCGA expression from %s", tcga_dir
+    )
 
     long_df = import_tcga_gene_expression(
         tcga_dir,
         cols=["ensembl_gene_id"] + metrics,
         strip_gene_id_version=strip_gene_id_version,
-        tissue_type=tissue_type)
+        tissue_type=tissue_type,
+    )
 
     # Pivot: rows = genes, columns = barcode_metric
     frames = []
     for metric in metrics:
         if metric not in long_df.columns:
-            logger.warning("Metric %s not found in STAR files; skipping.",
-                           metric)
+            logger.warning(
+                "Metric %s not found in STAR files; skipping.", metric
+            )
             continue
-        wide = (long_df[["ensembl_gene_id", "Tumor_Sample_Barcode", metric]]
-                .pivot_table(index="ensembl_gene_id",
-                             columns="Tumor_Sample_Barcode",
-                             values=metric,
-                             aggfunc="mean"))
+        wide = long_df[
+            ["ensembl_gene_id", "Tumor_Sample_Barcode", metric]
+        ].pivot_table(
+            index="ensembl_gene_id",
+            columns="Tumor_Sample_Barcode",
+            values=metric,
+            aggfunc="mean",
+        )
         wide.columns = [f"{col}_{metric}" for col in wide.columns]
         frames.append(wide)
 
@@ -470,6 +519,8 @@ def load_or_generate_tcga_gexp_per_sample(
     result.index.name = "ensembl_gene_id"
 
     result.to_parquet(location_parquet)
-    logger.info("Saved per-sample TCGA expression to %s", location_parquet)
+    logger.info(
+        "Saved per-sample TCGA expression to %s", location_parquet
+    )
     logger.info("... done generating per-sample TCGA expression.")
     return result

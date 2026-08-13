@@ -17,10 +17,12 @@ logger = logging.getLogger(__name__)
 ENCODE_API = "https://www.encodeproject.org"
 
 
-def resolve_encode_file(accession: str,
-                        *,
-                        session: requests.Session | None = None,
-                        timeout: int = 60) -> dict:
+def resolve_encode_file(
+    accession: str,
+    *,
+    session: requests.Session | None = None,
+    timeout: int = 60,
+) -> dict:
     """Return metadata for an ENCODE file accession.
 
     Returns a dict with ``accession``, ``file_format``,
@@ -31,7 +33,8 @@ def resolve_encode_file(accession: str,
     session = session or requests.Session()
     response = session.get(
         f"{ENCODE_API}/files/{accession}/?format=json",
-        timeout=timeout)
+        timeout=timeout,
+    )
     response.raise_for_status()
     meta = response.json()
     url = (meta.get("cloud_metadata") or {}).get("url")

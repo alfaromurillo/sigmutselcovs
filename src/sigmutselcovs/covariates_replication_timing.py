@@ -34,24 +34,31 @@ logger = logging.getLogger(__name__)
 
 def _legacy_kwarg(old: str, new: str):
     """Map a renamed keyword argument with a DeprecationWarning."""
+
     def deco(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             if old in kwargs:
                 if new in kwargs:
                     raise TypeError(
-                        f"{func.__name__}() got both {old!r} and {new!r}")
+                        f"{func.__name__}() got both {old!r} and {new!r}"
+                    )
                 warnings.warn(
                     f"{old!r} is deprecated; use {new!r}",
-                    DeprecationWarning, stacklevel=2)
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
                 kwargs[new] = kwargs.pop(old)
             return func(*args, **kwargs)
+
         return wrapper
+
     return deco
 
 
-def annotate_rt_izs(variants_df: pd.DataFrame,
-                    loc_cov_rt_iz: str | Path) -> pd.DataFrame:
+def annotate_rt_izs(
+    variants_df: pd.DataFrame, loc_cov_rt_iz: str | Path
+) -> pd.DataFrame:
     """Annotate variants with 0 or 1 flag for RT IZs.
 
     Gives a 1 if the variant occurs in any replication-timing (RT)
@@ -90,19 +97,19 @@ def annotate_rt_izs(variants_df: pd.DataFrame,
     """
     izs = read_bed_file(loc_cov_rt_iz, "IZ")
     out_df = variants_df.copy()
-    for iz in izs['IZ'].unique():
+    for iz in izs["IZ"].unique():
         logger.info(f"Covariate for RT initiation zone: {iz}")
         out_df = annotate_indicator_in_region(
-            out_df,
-            izs[izs['IZ'] == iz],
-            f"iz_{iz}")
+            out_df, izs[izs["IZ"] == iz], f"iz_{iz}"
+        )
     return out_df
 
 
 def annotate_rt_left_right(
-        variants_df: pd.DataFrame,
-        loc_cov_rt_left: str | Path,
-        loc_cov_rt_right: str | Path) -> pd.DataFrame:
+    variants_df: pd.DataFrame,
+    loc_cov_rt_left: str | Path,
+    loc_cov_rt_right: str | Path,
+) -> pd.DataFrame:
     """Add indicator columns for leftward and rightward TTRs.
 
     Columns ``cov_left`` and ``cov_right`` are set to 1 when a variant
@@ -114,35 +121,35 @@ def annotate_rt_left_right(
 
     logger.info("Covariate for RT leftward transition (TTR‐left)")
     out_df = annotate_indicator_in_region(
-        out_df,
-        read_bed_file(loc_cov_rt_left),
-        "left")
+        out_df, read_bed_file(loc_cov_rt_left), "left"
+    )
 
     logger.info("Covariate for RT rightward transition (TTR‐right)")
     out_df = annotate_indicator_in_region(
-        out_df,
-        read_bed_file(loc_cov_rt_right),
-        "right")
+        out_df, read_bed_file(loc_cov_rt_right), "right"
+    )
 
     return out_df
 
 
 def annotate_rt_terms(
-        variants_df: pd.DataFrame,
-        loc_cov_rt_terms: str | Path) -> pd.DataFrame:
+    variants_df: pd.DataFrame, loc_cov_rt_terms: str | Path
+) -> pd.DataFrame:
     """Add ``cov_terms`` indicating proximity to RT termination sites."""
     logger.info("Covariate for RT termination sites (TTR‐terms)")
     return annotate_indicator_in_region(
         variants_df.copy(),
         read_bed_file(loc_cov_rt_terms, has_index_col=True),
-        "terms")
+        "terms",
+    )
 
 
 def annotate_rt_twidth(
-        variants_df: pd.DataFrame,
-        loc_cov_rt_twidth: str | Path,
-        *,
-        bin_size: int = 50000) -> pd.DataFrame:
+    variants_df: pd.DataFrame,
+    loc_cov_rt_twidth: str | Path,
+    *,
+    bin_size: int = 50000,
+) -> pd.DataFrame:
     """Bin *Twidth* values and annotate variants with ``cov_twidth``.
 
     The BED‐like file at *loc_cov_rt_twidth* must contain a numeric column
@@ -154,20 +161,22 @@ def annotate_rt_twidth(
         variants_df.copy(),
         read_bed_file(loc_cov_rt_twidth, "cov_twidth"),
         "cov_twidth",
-        bin_size=bin_size)
+        bin_size=bin_size,
+    )
 
 
 def load_or_generate_rt_cov_df(
-        location_df: str | Path,
-        variants_df: pd.DataFrame,
-        *,
-        loc_cov_rt_izs: str | Path | None = None,
-        loc_cov_rt_left: str | Path | None = None,
-        loc_cov_rt_right: str | Path | None = None,
-        loc_cov_rt_terms: str | Path | None = None,
-        loc_cov_rt_twidth: str | Path | None = None,
-        extra_cols_to_keep: list | None = None,
-        force_generation: bool = False) -> pd.DataFrame:
+    location_df: str | Path,
+    variants_df: pd.DataFrame,
+    *,
+    loc_cov_rt_izs: str | Path | None = None,
+    loc_cov_rt_left: str | Path | None = None,
+    loc_cov_rt_right: str | Path | None = None,
+    loc_cov_rt_terms: str | Path | None = None,
+    loc_cov_rt_twidth: str | Path | None = None,
+    extra_cols_to_keep: list | None = None,
+    force_generation: bool = False,
+) -> pd.DataFrame:
     """Load or create a DataFrame containing only covariate columns.
 
     Parameters
@@ -198,9 +207,8 @@ def load_or_generate_rt_cov_df(
 
     if loc_cov_rt_left is not None and loc_cov_rt_right is not None:
         covariates = annotate_rt_left_right(
-            covariates,
-            loc_cov_rt_left,
-            loc_cov_rt_right)
+            covariates, loc_cov_rt_left, loc_cov_rt_right
+        )
 
     if loc_cov_rt_terms is not None:
         covariates = annotate_rt_terms(covariates, loc_cov_rt_terms)
@@ -211,8 +219,9 @@ def load_or_generate_rt_cov_df(
     if extra_cols_to_keep is None:
         extra_cols_to_keep = []
 
-    def keep_cov_cols_only(df: pd.DataFrame,
-                           extra_cols: list) -> pd.DataFrame:
+    def keep_cov_cols_only(
+        df: pd.DataFrame, extra_cols: list
+    ) -> pd.DataFrame:
         """Return only the variant index and *cov_* columns."""
         cov_cols = [c for c in df.columns if c.startswith("cov_")]
         return df.loc[:, extra_cols + cov_cols].copy()
@@ -226,16 +235,23 @@ def load_or_generate_rt_cov_df(
 
 def print_info_about_izs(variants_df):
     import numpy as np
-    iz_cols = [c for c in variants_df.columns if c.startswith("cov_iz_")]
+
+    iz_cols = [
+        c for c in variants_df.columns if c.startswith("cov_iz_")
+    ]
 
     # ------------------------------------------------------------------
     # 1. For every variant say whether it is inside *any* IZ
     # ------------------------------------------------------------------
-    in_any_iz = variants_df[iz_cols].any(axis=1)     # True / False per row
+    in_any_iz = variants_df[iz_cols].any(
+        axis=1
+    )  # True / False per row
 
-    print("Variants in at least one IZ: "
-          f"{len(variants_df[in_any_iz])} out of {len(variants_df)} "
-          f"({round(100*len(variants_df[in_any_iz])/len(variants_df))}%)")
+    print(
+        "Variants in at least one IZ: "
+        f"{len(variants_df[in_any_iz])} out of {len(variants_df)} "
+        f"({round(100*len(variants_df[in_any_iz])/len(variants_df))}%)"
+    )
 
     # ------------------------------------------------------------------
     # 2. For every gene ask: “do *any* of its variants hit an IZ?”
@@ -245,33 +261,38 @@ def print_info_about_izs(variants_df):
     print(
         "\nGenes in at least one IZ: "
         f"{sum(has_iz_per_gene)} out of {variants_df['gene'].nunique()} "
-        f"({round(100*sum(has_iz_per_gene)/variants_df['gene'].nunique())}%)")
+        f"({round(100*sum(has_iz_per_gene)/variants_df['gene'].nunique())}%)"
+    )
 
     # ------------------------------------------------------------------
     # 3. For every variant pick the IZ column that is 1 (which is the
     # max), rows with all-zero flags → NaN so they don’t count
     # ------------------------------------------------------------------
-    iz_of_variant = (
-        variants_df[iz_cols].idxmax(axis=1))
+    iz_of_variant = variants_df[iz_cols].idxmax(axis=1)
     iz_of_variant[variants_df[iz_cols].sum(axis=1) == 0] = np.nan
 
     # ------------------------------------------------------------------
     # 4.  Genes that have *both* IZ and non-IZ variants
     # ------------------------------------------------------------------
-    has_non_iz_per_gene = (~in_any_iz).groupby(variants_df["gene"]).any()
-    mixed_genes = has_iz_per_gene & has_non_iz_per_gene      # both True
+    has_non_iz_per_gene = (
+        (~in_any_iz).groupby(variants_df["gene"]).any()
+    )
+    mixed_genes = has_iz_per_gene & has_non_iz_per_gene  # both True
 
     print(
         "\nGenes with variants inside *and* outside IZs: "
         f"{mixed_genes.sum()} out of {variants_df['gene'].nunique()} "
-        f"({round(100*mixed_genes.sum()/variants_df['gene'].nunique())}%)")
+        f"({round(100*mixed_genes.sum()/variants_df['gene'].nunique())}%)"
+    )
     # if mixed_genes.any():
     #     print(", ".join(mixed_genes[mixed_genes].index.tolist()))
 
     # ------------------------------------------------------------------
     # 4. Now, per gene, count distinct IZs (NaN ignored)
     # ------------------------------------------------------------------
-    n_iz_per_gene = iz_of_variant.groupby(variants_df["gene"]).nunique()
+    n_iz_per_gene = iz_of_variant.groupby(
+        variants_df["gene"]
+    ).nunique()
 
     # genes with variants in ≥ 2 different IZs
     genes_with_multi_iz = n_iz_per_gene[n_iz_per_gene >= 2]
@@ -282,11 +303,13 @@ def print_info_about_izs(variants_df):
 _AUTOSOMES = tuple(f"chr{i}" for i in range(1, 23))
 
 
-def _bin_bigwigs(bigwig_paths: Sequence[str | Path],
-                 *,
-                 bin_size: int = 50_000,
-                 chromosomes: Sequence[str] | None = None,
-                 statistic: str = "mean") -> pd.DataFrame:
+def _bin_bigwigs(
+    bigwig_paths: Sequence[str | Path],
+    *,
+    bin_size: int = 50_000,
+    chromosomes: Sequence[str] | None = None,
+    statistic: str = "mean",
+) -> pd.DataFrame:
     """Bin one or more bigWig tracks into fixed genomic windows.
 
     Bins are 0-based half-open windows of `bin_size` starting at 0 on
@@ -303,27 +326,40 @@ def _bin_bigwigs(bigwig_paths: Sequence[str | Path],
 
     handles = [pyBigWig.open(str(p)) for p in bigwig_paths]
     try:
-        wanted = (list(chromosomes) if chromosomes is not None
-                  else list(_AUTOSOMES))
+        wanted = (
+            list(chromosomes)
+            if chromosomes is not None
+            else list(_AUTOSOMES)
+        )
         chrom_col: list[str] = []
         start_col: list[int] = []
         end_col: list[int] = []
         values: list[list[float]] = [[] for _ in handles]
 
         for chrom in wanted:
-            names = [normalize_chromosome_name(chrom, bw.chroms())
-                     for bw in handles]
-            lengths = [bw.chroms()[name]
-                       for bw, name in zip(handles, names)
-                       if name is not None]
+            names = [
+                normalize_chromosome_name(chrom, bw.chroms())
+                for bw in handles
+            ]
+            lengths = [
+                bw.chroms()[name]
+                for bw, name in zip(handles, names)
+                if name is not None
+            ]
             if not lengths:
-                logger.warning("Chromosome %s not found in any track; "
-                               "skipping", chrom)
+                logger.warning(
+                    "Chromosome %s not found in any track; "
+                    "skipping",
+                    chrom,
+                )
                 continue
             if len(set(lengths)) > 1:
                 logger.warning(
                     "Chromosome %s length differs across tracks "
-                    "(%s); using the minimum", chrom, sorted(set(lengths)))
+                    "(%s); using the minimum",
+                    chrom,
+                    sorted(set(lengths)),
+                )
             length = min(lengths)
             for start in range(0, length, bin_size):
                 end = min(start + bin_size, length)
@@ -332,26 +368,35 @@ def _bin_bigwigs(bigwig_paths: Sequence[str | Path],
                 end_col.append(end)
                 for i, (bw, name) in enumerate(zip(handles, names)):
                     values[i].append(
-                        fetch_bigwig_stat(bw, name, start, end, statistic)
-                        if name is not None else float("nan"))
+                        fetch_bigwig_stat(
+                            bw, name, start, end, statistic
+                        )
+                        if name is not None
+                        else float("nan")
+                    )
     finally:
         for bw in handles:
             bw.close()
 
-    out = pd.DataFrame({"Chromosome": chrom_col,
-                        "region_start": start_col,
-                        "region_end": end_col})
+    out = pd.DataFrame(
+        {
+            "Chromosome": chrom_col,
+            "region_start": start_col,
+            "region_end": end_col,
+        }
+    )
     for i, vals in enumerate(values, start=1):
         out[f"track_{i}"] = vals
     return out
 
 
 def load_repliseq_fractions_bins_from_bigwigs(
-        bigwig_paths: Sequence[str | Path],
-        *,
-        bin_size: int = 50_000,
-        chromosomes: Sequence[str] | None = None,
-        statistic: str = "mean") -> pd.DataFrame:
+    bigwig_paths: Sequence[str | Path],
+    *,
+    bin_size: int = 50_000,
+    chromosomes: Sequence[str] | None = None,
+    statistic: str = "mean",
+) -> pd.DataFrame:
     """Bin N Repli-seq fraction bigWigs into the fractions table.
 
     The tracks must be given in **early-to-late** order (e.g. the UW
@@ -378,19 +423,26 @@ def load_repliseq_fractions_bins_from_bigwigs(
         Per-bin summary statistic (``pyBigWig.stats`` type).
     """
     if len(bigwig_paths) < 2:
-        raise ValueError("Need at least two fraction bigWigs; got "
-                         f"{len(bigwig_paths)} (for a single wavelet "
-                         "track see generate_rt_wavelet_per_gene)")
-    bins = _bin_bigwigs(bigwig_paths,
-                        bin_size=bin_size,
-                        chromosomes=chromosomes,
-                        statistic=statistic)
-    frac_cols = [f"track_{i}" for i in range(1, len(bigwig_paths) + 1)]
+        raise ValueError(
+            "Need at least two fraction bigWigs; got "
+            f"{len(bigwig_paths)} (for a single wavelet "
+            "track see generate_rt_wavelet_per_gene)"
+        )
+    bins = _bin_bigwigs(
+        bigwig_paths,
+        bin_size=bin_size,
+        chromosomes=chromosomes,
+        statistic=statistic,
+    )
+    frac_cols = [
+        f"track_{i}" for i in range(1, len(bigwig_paths) + 1)
+    ]
     return _normalize_fraction_bins(bins, frac_cols)
 
 
-def _normalize_fraction_bins(bins: pd.DataFrame,
-                             frac_cols: list[str]) -> pd.DataFrame:
+def _normalize_fraction_bins(
+    bins: pd.DataFrame, frac_cols: list[str]
+) -> pd.DataFrame:
     """Normalize per-bin fraction signal to rt_s1..rt_sN on [0, 1].
 
     Each bin's fraction vector is scaled so it sums to 100 (per Zhao
@@ -429,7 +481,8 @@ def _resolve_source_type(source, source_type: str) -> str:
     if source_type != "auto":
         if source_type not in ("mat", "fraction_bigwigs", "wavelet"):
             raise ValueError(
-                f"Unknown repliseq source_type {source_type!r}")
+                f"Unknown repliseq source_type {source_type!r}"
+            )
         return source_type
     if isinstance(source, (list, tuple)):
         return "fraction_bigwigs"
@@ -437,10 +490,8 @@ def _resolve_source_type(source, source_type: str) -> str:
 
 
 def load_repliseq_fractions_bins(
-        source,
-        *,
-        source_type: str = "auto",
-        bin_size: int = 50_000) -> pd.DataFrame:
+    source, *, source_type: str = "auto", bin_size: int = 50_000
+) -> pd.DataFrame:
     """Load multi-fraction Repli-seq and return per-bin normalized fractions.
 
     Two source types are supported (``source_type='auto'`` infers
@@ -488,35 +539,43 @@ def load_repliseq_fractions_bins(
     resolved = _resolve_source_type(source, source_type)
     if resolved == "fraction_bigwigs":
         return load_repliseq_fractions_bins_from_bigwigs(
-            source, bin_size=bin_size)
+            source, bin_size=bin_size
+        )
     if resolved == "wavelet":
         raise ValueError(
             "Fractions are undefined for a wavelet track; use "
-            "generate_rt_wavelet_per_gene instead")
+            "generate_rt_wavelet_per_gene instead"
+        )
 
-    repli_seq = read_bed_file(source,
-                              feature_name=None,
-                              has_index_col=False,
-                              has_header=False,
-                              file_is_transposed=True)
+    repli_seq = read_bed_file(
+        source,
+        feature_name=None,
+        has_index_col=False,
+        has_header=False,
+        file_is_transposed=True,
+    )
 
     n_phases = len(repli_seq.columns) - 3
-    frac_cols = [f"fraction_signal_s{x}" for x in range(1, n_phases + 1)]
+    frac_cols = [
+        f"fraction_signal_s{x}" for x in range(1, n_phases + 1)
+    ]
     repli_seq.columns = list(repli_seq.columns[:3]) + frac_cols
 
     num_cols = ["region_start", "region_end"] + frac_cols
-    repli_seq[num_cols] = repli_seq[num_cols].apply(pd.to_numeric,
-                                                    errors="coerce")
+    repli_seq[num_cols] = repli_seq[num_cols].apply(
+        pd.to_numeric, errors="coerce"
+    )
 
     return _normalize_fraction_bins(repli_seq, frac_cols)
 
 
 def load_repliseq_mrt_bins(
-        source,
-        *,
-        source_type: str = "auto",
-        bin_size: int = 50_000,
-        mrt_fraction_cols: Sequence[str] | None = None) -> pd.DataFrame:
+    source,
+    *,
+    source_type: str = "auto",
+    bin_size: int = 50_000,
+    mrt_fraction_cols: Sequence[str] | None = None,
+) -> pd.DataFrame:
     """Load multi-fraction Repli-seq and compute per-bin MRT.
 
     Calls :func:`load_repliseq_fractions_bins`, then collapses the
@@ -558,14 +617,16 @@ def load_repliseq_mrt_bins(
 
     """
     fracs = load_repliseq_fractions_bins(
-        source, source_type=source_type, bin_size=bin_size)
+        source, source_type=source_type, bin_size=bin_size
+    )
     rt_cols = [c for c in fracs.columns if c.startswith("rt_s")]
     if mrt_fraction_cols is not None:
         missing = [c for c in mrt_fraction_cols if c not in rt_cols]
         if missing:
             raise ValueError(
                 f"mrt_fraction_cols not in the fractions: {missing}; "
-                f"available: {rt_cols}")
+                f"available: {rt_cols}"
+            )
         rt_cols = list(mrt_fraction_cols)
     n_phases = len(rt_cols)
     t = (np.arange(n_phases, dtype=float) + 0.5) / n_phases
@@ -588,11 +649,12 @@ def load_repliseq_mrt_bins(
 
 @_legacy_kwarg("repli_seq_hct", "repliseq_source")
 def generate_rt_fractions_per_gene(
-        repliseq_source,
-        gencode_annotation: str | Path,
-        *,
-        source_type: str = "auto",
-        bin_size: int = 50_000) -> pd.DataFrame:
+    repliseq_source,
+    gencode_annotation: str | Path,
+    *,
+    source_type: str = "auto",
+    bin_size: int = 50_000,
+) -> pd.DataFrame:
     """Compute gene-level Repli-seq fractions from multi-fraction data.
 
     Returns one column per S-phase fraction (``rt_s1``…``rt_sN``),
@@ -620,25 +682,27 @@ def generate_rt_fractions_per_gene(
 
     """
     fracs = load_repliseq_fractions_bins(
-        repliseq_source, source_type=source_type, bin_size=bin_size)
+        repliseq_source, source_type=source_type, bin_size=bin_size
+    )
     gene_bodies = load_gene_bodies_from_gtf(gencode_annotation)
     rt_cols = [c for c in fracs.columns if c.startswith("rt_s")]
     annotated = annotate_with_binned_features(
-        gene_bodies, fracs, feature_cols=rt_cols)
+        gene_bodies, fracs, feature_cols=rt_cols
+    )
     return annotated[rt_cols]
 
 
 @_legacy_kwarg("repli_seq_hct", "repliseq_source")
 def load_or_generate_rt_fractions(
-        location_csv: str | Path,
-        repliseq_source,
-        gencode_annotation: str | Path,
-        *,
-        source_type: str = "auto",
-        bin_size: int = 50_000,
-        force_generation: bool = False,
-        float_format: str = "%.6g"
-        ) -> pd.DataFrame:
+    location_csv: str | Path,
+    repliseq_source,
+    gencode_annotation: str | Path,
+    *,
+    source_type: str = "auto",
+    bin_size: int = 50_000,
+    force_generation: bool = False,
+    float_format: str = "%.6g",
+) -> pd.DataFrame:
     """Load or generate gene-level Repli-seq fractions.
 
     If the CSV exists at ``location_csv`` and ``force_generation`` is
@@ -669,17 +733,25 @@ def load_or_generate_rt_fractions(
     location_csv = Path(location_csv)
 
     if location_csv.exists() and not force_generation:
-        logger.info("Loading RT fractions per gene from %s", location_csv)
+        logger.info(
+            "Loading RT fractions per gene from %s", location_csv
+        )
         df = pd.read_csv(location_csv, index_col=0)
         df.index.name = "ensembl_gene_id"
         logger.info("... done loading RT fractions per gene.")
         return df.astype(float)
 
-    logger.info("Generating RT fractions per gene from %s and %s",
-                repliseq_source, gencode_annotation)
+    logger.info(
+        "Generating RT fractions per gene from %s and %s",
+        repliseq_source,
+        gencode_annotation,
+    )
     df = generate_rt_fractions_per_gene(
-        repliseq_source, gencode_annotation,
-        source_type=source_type, bin_size=bin_size)
+        repliseq_source,
+        gencode_annotation,
+        source_type=source_type,
+        bin_size=bin_size,
+    )
     df.to_csv(location_csv, float_format=float_format)
     logger.info("Saved RT fractions per gene to %s", location_csv)
     logger.info("... done generating RT fractions per gene.")
@@ -687,12 +759,13 @@ def load_or_generate_rt_fractions(
 
 
 def generate_rt_wavelet_per_gene(
-        bigwig_path: str | Path,
-        gencode_annotation: str | Path,
-        *,
-        bin_size: int = 50_000,
-        chromosomes: Sequence[str] | None = None,
-        statistic: str = "mean") -> pd.Series:
+    bigwig_path: str | Path,
+    gencode_annotation: str | Path,
+    *,
+    bin_size: int = 50_000,
+    chromosomes: Sequence[str] | None = None,
+    statistic: str = "mean",
+) -> pd.Series:
     """Compute a per-gene RT value from a single smoothed signal track.
 
     For cell lines whose only processed replication-timing output is
@@ -711,25 +784,29 @@ def generate_rt_wavelet_per_gene(
     pd.Series
         Indexed by 'ensembl_gene_id'; name 'rt_wavelet'.
     """
-    bins = _bin_bigwigs([bigwig_path],
-                        bin_size=bin_size,
-                        chromosomes=chromosomes,
-                        statistic=statistic)
+    bins = _bin_bigwigs(
+        [bigwig_path],
+        bin_size=bin_size,
+        chromosomes=chromosomes,
+        statistic=statistic,
+    )
     bins = bins.rename(columns={"track_1": "rt_wavelet"})
     gene_bodies = load_gene_bodies_from_gtf(gencode_annotation)
     annotated = annotate_with_binned_features(
-        gene_bodies, bins, feature_cols="rt_wavelet")
+        gene_bodies, bins, feature_cols="rt_wavelet"
+    )
     return annotated["rt_wavelet"].astype(float).rename("rt_wavelet")
 
 
 def load_or_generate_rt_wavelet(
-        location_csv: str | Path,
-        bigwig_path: str | Path,
-        gencode_annotation: str | Path,
-        *,
-        bin_size: int = 50_000,
-        force_generation: bool = False,
-        float_format: str = "%.6g") -> pd.Series:
+    location_csv: str | Path,
+    bigwig_path: str | Path,
+    gencode_annotation: str | Path,
+    *,
+    bin_size: int = 50_000,
+    force_generation: bool = False,
+    float_format: str = "%.6g",
+) -> pd.Series:
     """Load or generate the per-gene wavelet RT covariate.
 
     Same caching contract as :func:`load_or_generate_mrt`.
@@ -737,16 +814,22 @@ def load_or_generate_rt_wavelet(
     location_csv = Path(location_csv)
 
     if location_csv.exists() and not force_generation:
-        logger.info("Loading wavelet RT per gene from %s", location_csv)
+        logger.info(
+            "Loading wavelet RT per gene from %s", location_csv
+        )
         tbl = pd.read_csv(location_csv, index_col=0)
         ser = tbl.iloc[:, 0].astype(float).rename("rt_wavelet")
         logger.info("... done loading wavelet RT per gene.")
         return ser
 
-    logger.info("Generating wavelet RT per gene from %s and %s",
-                bigwig_path, gencode_annotation)
+    logger.info(
+        "Generating wavelet RT per gene from %s and %s",
+        bigwig_path,
+        gencode_annotation,
+    )
     ser = generate_rt_wavelet_per_gene(
-        bigwig_path, gencode_annotation, bin_size=bin_size)
+        bigwig_path, gencode_annotation, bin_size=bin_size
+    )
     ser.to_frame().to_csv(location_csv, float_format=float_format)
     logger.info("Saved wavelet RT per gene to %s", location_csv)
     logger.info("... done generating wavelet RT per gene.")
@@ -754,12 +837,14 @@ def load_or_generate_rt_wavelet(
 
 
 @_legacy_kwarg("repli_seq_hct", "repliseq_source")
-def generate_mrt_per_gene(repliseq_source,
-                          gencode_annotation,
-                          *,
-                          source_type: str = "auto",
-                          bin_size: int = 50_000,
-                          mrt_fraction_cols: Sequence[str] | None = None):
+def generate_mrt_per_gene(
+    repliseq_source,
+    gencode_annotation,
+    *,
+    source_type: str = "auto",
+    bin_size: int = 50_000,
+    mrt_fraction_cols: Sequence[str] | None = None,
+):
     """Compute gene-level MRT from multi-fraction Repli-seq.
 
     This function aggregates per-bin mean replication timing (MRT)
@@ -792,28 +877,33 @@ def generate_mrt_per_gene(repliseq_source,
 
     """
     cov_mrt = load_repliseq_mrt_bins(
-        repliseq_source, source_type=source_type, bin_size=bin_size,
-        mrt_fraction_cols=mrt_fraction_cols)
+        repliseq_source,
+        source_type=source_type,
+        bin_size=bin_size,
+        mrt_fraction_cols=mrt_fraction_cols,
+    )
 
     gene_bodies = load_gene_bodies_from_gtf(gencode_annotation)
 
-    mrt_per_gene = annotate_with_binned_features(gene_bodies, cov_mrt)['mrt']
+    mrt_per_gene = annotate_with_binned_features(
+        gene_bodies, cov_mrt
+    )["mrt"]
 
     return mrt_per_gene
 
 
 @_legacy_kwarg("repli_seq_hct", "repliseq_source")
 def load_or_generate_mrt(
-        location_csv: str | Path,
-        repliseq_source,
-        gencode_annotation: str | Path,
-        *,
-        source_type: str = "auto",
-        bin_size: int = 50_000,
-        mrt_fraction_cols: Sequence[str] | None = None,
-        force_generation: bool = False,
-        float_format: str = "%.6g"
-        ) -> pd.Series:
+    location_csv: str | Path,
+    repliseq_source,
+    gencode_annotation: str | Path,
+    *,
+    source_type: str = "auto",
+    bin_size: int = 50_000,
+    mrt_fraction_cols: Sequence[str] | None = None,
+    force_generation: bool = False,
+    float_format: str = "%.6g",
+) -> pd.Series:
     """Load or generate gene-level MRT (mean replication time, 0..1).
 
     If the CSV exists at `location_csv` and `force_generation` is
@@ -862,17 +952,21 @@ def load_or_generate_mrt(
         logger.info("... done loading MRT per gene.")
         return ser
 
-    logger.info(f"Generating MRT per gene from {repliseq_source} "
-                f"and {gencode_annotation}")
+    logger.info(
+        f"Generating MRT per gene from {repliseq_source} "
+        f"and {gencode_annotation}"
+    )
 
     cov_mrt = load_repliseq_mrt_bins(
-        repliseq_source, source_type=source_type, bin_size=bin_size,
-        mrt_fraction_cols=mrt_fraction_cols)
+        repliseq_source,
+        source_type=source_type,
+        bin_size=bin_size,
+        mrt_fraction_cols=mrt_fraction_cols,
+    )
     gene_bodies = load_gene_bodies_from_gtf(gencode_annotation)
     annotated = annotate_with_binned_features(
-        gene_bodies,
-        cov_mrt,
-        feature_cols="mrt")
+        gene_bodies, cov_mrt, feature_cols="mrt"
+    )
     ser = annotated["mrt"].astype(float).rename("mrt")
     ser.to_frame().to_csv(location_csv, float_format=float_format)
     logger.info("Saved MRT per gene to %s", location_csv)

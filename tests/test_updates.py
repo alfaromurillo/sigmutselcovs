@@ -2,7 +2,6 @@
 
 import json
 
-import pytest
 
 import sigmutselcovs.updates as updates
 from sigmutselcovs.updates import check_updates, location_sources
@@ -35,12 +34,21 @@ class _HeadSession:
 
 
 def _one_source(tmp_path, known):
-    raw = {"schema_version": 1, "checked": None, "sources": {
-        "gtex": {"description": "d",
-                 "url": "http://x/f.gct.gz",
-                 "check": {"method": "http_head",
-                           "compare": ["content-length"]},
-                 "known": known}}}
+    raw = {
+        "schema_version": 1,
+        "checked": None,
+        "sources": {
+            "gtex": {
+                "description": "d",
+                "url": "http://x/f.gct.gz",
+                "check": {
+                    "method": "http_head",
+                    "compare": ["content-length"],
+                },
+                "known": known,
+            }
+        },
+    }
     path = tmp_path / "sources.json"
     path.write_text(json.dumps(raw))
     return path
@@ -64,8 +72,9 @@ def test_status_ok_changed_unknown(tmp_path):
 
 def test_unreachable_does_not_raise(tmp_path):
     path = _one_source(tmp_path, {"content-length": "123"})
-    frame = check_updates(sources_path=path,
-                          session=_HeadSession({}, fail=True))
+    frame = check_updates(
+        sources_path=path, session=_HeadSession({}, fail=True)
+    )
     assert frame.loc[0, "status"] == "unreachable"
     assert "connection refused" in frame.loc[0, "notes"]
 
@@ -73,10 +82,13 @@ def test_unreachable_does_not_raise(tmp_path):
 def test_update_file_rewrites_known(tmp_path):
     path = _one_source(tmp_path, {})
     session = _HeadSession({"content-length": "123"})
-    check_updates(sources_path=path, session=session,
-                  update_file=True)
+    check_updates(
+        sources_path=path, session=session, update_file=True
+    )
     raw = json.loads(path.read_text())
-    assert raw["sources"]["gtex"]["known"] == {"content-length": "123"}
+    assert raw["sources"]["gtex"]["known"] == {
+        "content-length": "123"
+    }
     assert raw["checked"] is not None
     # next run is ok
     frame = check_updates(sources_path=path, session=session)
@@ -85,6 +97,7 @@ def test_update_file_rewrites_known(tmp_path):
 
 def test_sources_filter(tmp_path):
     path = _one_source(tmp_path, {})
-    frame = check_updates(sources_path=path, sources=["nope"],
-                          session=_HeadSession({}))
+    frame = check_updates(
+        sources_path=path, sources=["nope"], session=_HeadSession({})
+    )
     assert frame.empty

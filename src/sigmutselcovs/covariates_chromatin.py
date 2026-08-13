@@ -32,11 +32,12 @@ _fetch_stat = fetch_bigwig_stat
 
 
 def summarize_bigwig_over_genes(
-        bw_path: str | Path,
-        genes: pd.DataFrame,
-        *,
-        label: str | None = None,
-        statistic: str = "mean") -> pd.Series:
+    bw_path: str | Path,
+    genes: pd.DataFrame,
+    *,
+    label: str | None = None,
+    statistic: str = "mean",
+) -> pd.Series:
     """Return bigWig signal summarised across each gene body.
 
     Parameters
@@ -85,9 +86,8 @@ def summarize_bigwig_over_genes(
         if missing_chroms:
             missing = ", ".join(sorted(missing_chroms))
             logger.warning(
-                "Chromosomes absent in %s: %s",
-                path.name,
-                missing)
+                "Chromosomes absent in %s: %s", path.name, missing
+            )
 
     series = pd.Series(data, name=sanitize_feature_label(label))
     series.index.name = genes.index.name
@@ -95,13 +95,14 @@ def summarize_bigwig_over_genes(
 
 
 def summarize_promoter_signal(
-        bw_path: str | Path,
-        genes: pd.DataFrame,
-        *,
-        upstream: int = 2000,
-        downstream: int = 200,
-        label: str | None = None,
-        statistic: str = "mean") -> pd.Series:
+    bw_path: str | Path,
+    genes: pd.DataFrame,
+    *,
+    upstream: int = 2000,
+    downstream: int = 200,
+    label: str | None = None,
+    statistic: str = "mean",
+) -> pd.Series:
     """Summarise bigWig signal across strand-aware promoters.
 
     Parameters
@@ -157,19 +158,15 @@ def summarize_promoter_signal(
                 continue
 
             val = _fetch_stat(
-                bw,
-                chrom_norm,
-                prom_start,
-                prom_end,
-                statistic)
+                bw, chrom_norm, prom_start, prom_end, statistic
+            )
             values[gene_id] = val
 
         if missing_chroms:
             missing = ", ".join(sorted(missing_chroms))
             logger.warning(
-                "Chromosomes absent in %s: %s",
-                path.name,
-                missing)
+                "Chromosomes absent in %s: %s", path.name, missing
+            )
 
     series = pd.Series(values, name=sanitize_feature_label(label))
     series.index.name = genes.index.name
@@ -177,10 +174,12 @@ def summarize_promoter_signal(
 
 
 def load_tracks(
-        tracks: Sequence[str | Path | TrackSpec]
-        | Mapping[str, str | Path],
-        *,
-        default_statistic: str = "mean") -> list[TrackSpec]:
+    tracks: (
+        Sequence[str | Path | TrackSpec] | Mapping[str, str | Path]
+    ),
+    *,
+    default_statistic: str = "mean",
+) -> list[TrackSpec]:
     """Normalise a collection of bigWig track definitions.
 
     Parameters
@@ -204,7 +203,9 @@ def load_tracks(
                 TrackSpec(
                     label=str(label),
                     path=Path(path),
-                    statistic=default_statistic))
+                    statistic=default_statistic,
+                )
+            )
         return specs
 
     for item in tracks:
@@ -215,19 +216,23 @@ def load_tracks(
             TrackSpec(
                 label=Path(str(item)).stem,
                 path=Path(item),
-                statistic=default_statistic))
+                statistic=default_statistic,
+            )
+        )
 
     return specs
 
 
 def summarise_tracks_to_genes(
-        tracks: Sequence[str | Path | TrackSpec]
-        | Mapping[str, str | Path],
-        genes: pd.DataFrame,
-        *,
-        include_promoter: bool = True,
-        promoter_upstream: int = 2000,
-        promoter_downstream: int = 200) -> pd.DataFrame:
+    tracks: (
+        Sequence[str | Path | TrackSpec] | Mapping[str, str | Path]
+    ),
+    genes: pd.DataFrame,
+    *,
+    include_promoter: bool = True,
+    promoter_upstream: int = 2000,
+    promoter_downstream: int = 200,
+) -> pd.DataFrame:
     """Stack gene-level summaries for each track into a DataFrame.
 
     Parameters
@@ -258,7 +263,8 @@ def summarise_tracks_to_genes(
             spec.path,
             genes,
             label=f"{spec.label}_body",
-            statistic=spec.statistic)
+            statistic=spec.statistic,
+        )
 
         out[body_series.name] = body_series
 
@@ -269,7 +275,8 @@ def summarise_tracks_to_genes(
                 upstream=promoter_upstream,
                 downstream=promoter_downstream,
                 label=f"{spec.label}_promoter",
-                statistic=spec.statistic)
+                statistic=spec.statistic,
+            )
 
             out[prom_series.name] = prom_series
 
@@ -277,17 +284,19 @@ def summarise_tracks_to_genes(
 
 
 def load_or_generate_chromatin_covariates(
-        location_df: str | Path,
-        tracks: Sequence[str | Path | TrackSpec]
-        | Mapping[str, str | Path],
-        gtf_path: str | Path,
-        *,
-        biotypes: Iterable[str] | None = ("protein_coding",),
-        include_promoter: bool = True,
-        promoter_upstream: int = 2000,
-        promoter_downstream: int = 200,
-        force_generation: bool = False,
-        average_by_assay: bool = False) -> pd.DataFrame:
+    location_df: str | Path,
+    tracks: (
+        Sequence[str | Path | TrackSpec] | Mapping[str, str | Path]
+    ),
+    gtf_path: str | Path,
+    *,
+    biotypes: Iterable[str] | None = ("protein_coding",),
+    include_promoter: bool = True,
+    promoter_upstream: int = 2000,
+    promoter_downstream: int = 200,
+    force_generation: bool = False,
+    average_by_assay: bool = False,
+) -> pd.DataFrame:
     """Build or cache gene-level chromatin covariates.
 
     Parameters
@@ -325,7 +334,8 @@ def load_or_generate_chromatin_covariates(
     if location_df.exists() and not force_generation:
         logger.info(
             "Loading chromatin covariates from %s",
-            location_df,)
+            location_df,
+        )
         cached = pd.read_csv(location_df, index_col=0)
         if not cached.index.is_unique:
             cached = cached.groupby(level=0).mean()
@@ -336,11 +346,13 @@ def load_or_generate_chromatin_covariates(
         str(gtf_path),
         biotypes=list(biotypes) if biotypes is not None else None,
         add_chr_prefix_if_needed=True,
-        autosomes_only=False)
+        autosomes_only=False,
+    )
 
     if "start" not in genes.columns:
-        genes = genes.rename(columns={"region_start": "start",
-                                      "region_end": "end"})
+        genes = genes.rename(
+            columns={"region_start": "start", "region_end": "end"}
+        )
     genes = genes.loc[:, ["Chromosome", "start", "end", "strand"]]
 
     cov_df = summarise_tracks_to_genes(
@@ -348,7 +360,8 @@ def load_or_generate_chromatin_covariates(
         genes,
         include_promoter=include_promoter,
         promoter_upstream=promoter_upstream,
-        promoter_downstream=promoter_downstream)
+        promoter_downstream=promoter_downstream,
+    )
     if not cov_df.index.is_unique:
         cov_df = cov_df.groupby(level=0).mean()
 

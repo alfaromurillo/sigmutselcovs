@@ -18,11 +18,13 @@ _BIGWIG_PATTERNS = [
     "*.bigWig",
     "*.BigWig",
     "*.bw",
-    "*.BW"]
+    "*.BW",
+]
 
 
-def glob_patterns_dedup(root: Path,
-                        patterns: Sequence[str]) -> list[Path]:
+def glob_patterns_dedup(
+    root: Path, patterns: Sequence[str]
+) -> list[Path]:
     """Return a de-duplicated list of files matching patterns.
 
     Preserves the order produced by iterating over patterns, while

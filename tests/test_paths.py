@@ -2,7 +2,11 @@
 
 from pathlib import Path
 
-from sigmutselcovs.paths import ProjectPaths, bigwig_files, project_paths
+from sigmutselcovs.paths import (
+    ProjectPaths,
+    bigwig_files,
+    project_paths,
+)
 
 
 def test_layout_matches_historical_coad_tree(tmp_path):
@@ -11,21 +15,33 @@ def test_layout_matches_historical_coad_tree(tmp_path):
     root = Path(tmp_path).resolve()
     assert p.gexp_tcga_dir == root / "gene_expression" / "tcga"
     assert p.gexp_star_dir == (
-        root / "gene_expression" / "tcga" / "star_gene_counts")
+        root / "gene_expression" / "tcga" / "star_gene_counts"
+    )
     assert p.mean_gexp_csv == (
-        root / "gene_expression" / "tcga_mean_gene_expression.csv")
+        root / "gene_expression" / "tcga_mean_gene_expression.csv"
+    )
     assert p.mean_gexp_normal_csv == (
-        root / "gene_expression" / "tcga_mean_gene_expression_normal.csv")
+        root
+        / "gene_expression"
+        / "tcga_mean_gene_expression_normal.csv"
+    )
     assert p.gexp_per_sample_parquet == (
-        root / "gene_expression" / "tcga_gexp_per_sample.parquet")
+        root / "gene_expression" / "tcga_gexp_per_sample.parquet"
+    )
     assert p.mrt_csv == (
-        root / "replication_timing" / "mean_replication_time_per_gene.csv")
+        root
+        / "replication_timing"
+        / "mean_replication_time_per_gene.csv"
+    )
     assert p.rt_fractions_csv == (
-        root / "replication_timing" / "rt_fractions_per_gene.csv")
+        root / "replication_timing" / "rt_fractions_per_gene.csv"
+    )
     assert p.roadmap_covs_csv == (
-        root / "chromatin" / "roadmap" / "chromatin_covs_roadmap.csv")
+        root / "chromatin" / "roadmap" / "chromatin_covs_roadmap.csv"
+    )
     assert p.atac_covs_csv == (
-        root / "chromatin" / "tcga" / "chromatin_covs_tcga.csv")
+        root / "chromatin" / "tcga" / "chromatin_covs_tcga.csv"
+    )
     assert p.maf_dir == root / "tcga" / "all_maf_files"
     assert p.matrices_dir == root / "covariate_matrices"
 
@@ -55,4 +71,5 @@ def test_paths_frozen(tmp_path):
 
 def test_project_paths_accepts_str(tmp_path):
     assert project_paths(str(tmp_path)) == ProjectPaths(
-        root=Path(tmp_path).resolve())
+        root=Path(tmp_path).resolve()
+    )

@@ -19,7 +19,7 @@ class _FakeResponse:
 
     def iter_content(self, chunk_size):
         for i in range(0, len(self.content), chunk_size):
-            yield self.content[i:i + chunk_size]
+            yield self.content[i : i + chunk_size]
 
     def __enter__(self):
         return self
@@ -31,8 +31,12 @@ class _FakeResponse:
 class _FakeSession:
     """Serves `payload`; honours Range when `supports_range`."""
 
-    def __init__(self, payload: bytes, supports_range: bool = True,
-                 fail_after: int | None = None):
+    def __init__(
+        self,
+        payload: bytes,
+        supports_range: bool = True,
+        fail_after: int | None = None,
+    ):
         self.payload = payload
         self.supports_range = supports_range
         self.fail_after = fail_after
@@ -48,7 +52,7 @@ class _FakeSession:
             body = body[offset:]
             status = 206
         if self.fail_after is not None:
-            body = body[:self.fail_after]
+            body = body[: self.fail_after]
             self.fail_after = None
         return _FakeResponse(body, status)
 
@@ -59,10 +63,13 @@ PAYLOAD = b"x" * 100 + b"y" * 50
 def test_download_atomic_and_verified(tmp_path):
     dest = tmp_path / "file.bin"
     session = _FakeSession(PAYLOAD)
-    got = download_file("http://example/f", dest,
-                        expected_md5=hashlib.md5(PAYLOAD).hexdigest(),
-                        expected_size=len(PAYLOAD),
-                        session=session)
+    got = download_file(
+        "http://example/f",
+        dest,
+        expected_md5=hashlib.md5(PAYLOAD).hexdigest(),
+        expected_size=len(PAYLOAD),
+        session=session,
+    )
     assert got == dest
     assert dest.read_bytes() == PAYLOAD
     assert not dest.with_suffix(".bin.part").exists()
@@ -72,8 +79,12 @@ def test_skip_if_present(tmp_path):
     dest = tmp_path / "file.bin"
     dest.write_bytes(PAYLOAD)
     session = _FakeSession(PAYLOAD)
-    download_file("http://example/f", dest, session=session,
-                  expected_size=len(PAYLOAD))
+    download_file(
+        "http://example/f",
+        dest,
+        session=session,
+        expected_size=len(PAYLOAD),
+    )
     assert session.requests == []  # no HTTP at all
 
 
@@ -81,8 +92,12 @@ def test_refetch_on_size_mismatch(tmp_path):
     dest = tmp_path / "file.bin"
     dest.write_bytes(b"truncated")
     session = _FakeSession(PAYLOAD)
-    download_file("http://example/f", dest, session=session,
-                  expected_size=len(PAYLOAD))
+    download_file(
+        "http://example/f",
+        dest,
+        session=session,
+        expected_size=len(PAYLOAD),
+    )
     assert dest.read_bytes() == PAYLOAD
 
 
@@ -109,8 +124,12 @@ def test_md5_mismatch_raises_and_removes_part(tmp_path):
     dest = tmp_path / "file.bin"
     session = _FakeSession(PAYLOAD)
     with pytest.raises(OSError, match="md5 mismatch"):
-        download_file("http://example/f", dest, session=session,
-                      expected_md5="0" * 32)
+        download_file(
+            "http://example/f",
+            dest,
+            session=session,
+            expected_md5="0" * 32,
+        )
     assert not dest.exists()
     assert not (tmp_path / "file.bin.part").exists()
 
@@ -137,11 +156,17 @@ def test_download_repliseq_mat_gunzips(tmp_path):
     from sigmutselcovs.registry import RepliseqSpec
 
     table = b"chr1\t0\t50000\n"
-    spec = RepliseqSpec(type="mat", assembly="hg38", cell_line="HCT116",
-                        filename="rt.mat", url="http://geo/rt.mat.gz")
+    spec = RepliseqSpec(
+        type="mat",
+        assembly="hg38",
+        cell_line="HCT116",
+        filename="rt.mat",
+        url="http://geo/rt.mat.gz",
+    )
     paths = project_paths(tmp_path)
-    session = _URLSession({"http://geo/rt.mat.gz":
-                           _gzip.compress(table)})
+    session = _URLSession(
+        {"http://geo/rt.mat.gz": _gzip.compress(table)}
+    )
     got = dl.download_repliseq(spec, paths, session=session)
     assert got == [paths.rt_dir / "rt.mat"]
     assert got[0].read_bytes() == table
@@ -158,24 +183,37 @@ def test_download_repliseq_bigwigs(tmp_path, monkeypatch):
 
     payload = b"bigwigbytes"
     monkeypatch.setattr(
-        dl, "resolve_encode_file",
+        dl,
+        "resolve_encode_file",
         lambda acc, session=None: {
             "accession": acc,
             "url": f"http://s3/{acc}",
             "md5sum": hashlib.md5(payload).hexdigest(),
             "file_size": len(payload),
             "assembly": "hg19",
-        })
+        },
+    )
     spec = RepliseqSpec(
-        type="fraction_bigwigs", assembly="hg19", cell_line="MCF-7",
-        tracks=(TrackRef(label="s1", accession="ENCFF000AAA"),
-                TrackRef(label="s2", accession="ENCFF000BBB")))
+        type="fraction_bigwigs",
+        assembly="hg19",
+        cell_line="MCF-7",
+        tracks=(
+            TrackRef(label="s1", accession="ENCFF000AAA"),
+            TrackRef(label="s2", accession="ENCFF000BBB"),
+        ),
+    )
     paths = project_paths(tmp_path)
-    session = _URLSession({"http://s3/ENCFF000AAA": payload,
-                           "http://s3/ENCFF000BBB": payload})
+    session = _URLSession(
+        {
+            "http://s3/ENCFF000AAA": payload,
+            "http://s3/ENCFF000BBB": payload,
+        }
+    )
     got = dl.download_repliseq(spec, paths, session=session)
-    assert [p.name for p in got] == ["ENCFF000AAA.bigWig",
-                                     "ENCFF000BBB.bigWig"]
+    assert [p.name for p in got] == [
+        "ENCFF000AAA.bigWig",
+        "ENCFF000BBB.bigWig",
+    ]
     assert all(p.read_bytes() == payload for p in got)
 
 
@@ -185,19 +223,24 @@ def test_download_roadmap_tolerates_missing_marks(tmp_path):
     from sigmutselcovs.registry import RoadmapSpec
 
     template = "http://roadmap/{eid}-{mark}.fc.signal.bigwig"
-    spec = RoadmapSpec(eids=("E027",),
-                       marks=("H3K4me1", "H3K27ac"),
-                       url_template=template)
+    spec = RoadmapSpec(
+        eids=("E027",),
+        marks=("H3K4me1", "H3K27ac"),
+        url_template=template,
+    )
     paths = project_paths(tmp_path)
     session = _URLSession(
-        {template.format(eid="E027", mark="H3K4me1"): b"data"})
+        {template.format(eid="E027", mark="H3K4me1"): b"data"}
+    )
     got = dl.download_roadmap_tracks(spec, paths, session=session)
     assert [p.name for p in got] == ["E027-H3K4me1.fc.signal.bigwig"]
 
-    required = RoadmapSpec(eids=("E027",),
-                           marks=("H3K27ac",),
-                           required_marks=("H3K27ac",),
-                           url_template=template)
+    required = RoadmapSpec(
+        eids=("E027",),
+        marks=("H3K27ac",),
+        required_marks=("H3K27ac",),
+        url_template=template,
+    )
     with pytest.raises(Exception):
         dl.download_roadmap_tracks(required, paths, session=session)
 
@@ -210,6 +253,7 @@ def _make_atac_tarball(payloads: dict[str, bytes]) -> bytes:
     with tarfile.open(fileobj=buffer, mode="w:gz") as tar:
         for name, data in payloads.items():
             import time
+
             info = tarfile.TarInfo(name)
             info.size = len(data)
             info.mtime = int(time.time())
@@ -222,20 +266,25 @@ def test_download_tcga_atac_flattens(tmp_path):
     from sigmutselcovs.paths import project_paths
     from sigmutselcovs.registry import AtacSpec
 
-    tar_bytes = _make_atac_tarball({
-        "oak/stanford/deep/path/COAD_A_T1.insertions.bw": b"aaa",
-        "oak/stanford/deep/path/COAD_B_T1.insertions.bw": b"bbb",
-        "oak/stanford/deep/path/README.txt": b"skip me",
-        "../evil.bw": b"nope",
-    })
+    tar_bytes = _make_atac_tarball(
+        {
+            "oak/stanford/deep/path/COAD_A_T1.insertions.bw": b"aaa",
+            "oak/stanford/deep/path/COAD_B_T1.insertions.bw": b"bbb",
+            "oak/stanford/deep/path/README.txt": b"skip me",
+            "../evil.bw": b"nope",
+        }
+    )
     spec = AtacSpec(gdc_uuid="uuid-1234", column_prefix="coad")
     paths = project_paths(tmp_path)
     session = _URLSession({f"{dl.GDC_DATA_URL}/uuid-1234": tar_bytes})
     got = dl.download_tcga_atac(spec, paths, session=session)
-    assert [p.name for p in got] == ["COAD_A_T1.insertions.bw",
-                                     "COAD_B_T1.insertions.bw"]
-    assert (paths.atac_dir / "COAD_A_T1.insertions.bw"
-            ).read_bytes() == b"aaa"
+    assert [p.name for p in got] == [
+        "COAD_A_T1.insertions.bw",
+        "COAD_B_T1.insertions.bw",
+    ]
+    assert (
+        paths.atac_dir / "COAD_A_T1.insertions.bw"
+    ).read_bytes() == b"aaa"
     assert not (paths.atac_dir / "README.txt").exists()
     assert not (tmp_path / "evil.bw").exists()
     assert not list(paths.atac_dir.glob("*.tgz"))
@@ -260,12 +309,19 @@ def test_download_tcga_atac_empty_tarball_raises(tmp_path):
 def test_download_covariates_orchestration(tmp_path, monkeypatch):
     import sigmutselcovs.download as dl
 
-    monkeypatch.setattr(dl, "download_gdc_gene_expression",
-                        lambda spec, paths, **kw: 524)
-    monkeypatch.setattr(dl, "download_repliseq",
-                        lambda spec, paths, **kw: ["a"])
-    monkeypatch.setattr(dl, "download_roadmap_tracks",
-                        lambda spec, paths, **kw: ["a"] * 27)
+    monkeypatch.setattr(
+        dl,
+        "download_gdc_gene_expression",
+        lambda spec, paths, **kw: 524,
+    )
+    monkeypatch.setattr(
+        dl, "download_repliseq", lambda spec, paths, **kw: ["a"]
+    )
+    monkeypatch.setattr(
+        dl,
+        "download_roadmap_tracks",
+        lambda spec, paths, **kw: ["a"] * 27,
+    )
 
     def boom(spec, paths, **kw):
         raise OSError("tarball exploded")
@@ -286,10 +342,12 @@ def test_download_covariates_orchestration(tmp_path, monkeypatch):
 def test_download_covariates_dry_run_and_subset(tmp_path):
     import sigmutselcovs.download as dl
 
-    report = dl.download_covariates("BRCA", tmp_path, dry_run=True,
-                                    which=("repliseq",))
-    assert report.sources == {"repliseq":
-                              {"status": "would-download"}}
+    report = dl.download_covariates(
+        "BRCA", tmp_path, dry_run=True, which=("repliseq",)
+    )
+    assert report.sources == {
+        "repliseq": {"status": "would-download"}
+    }
     with pytest.raises(ValueError, match="Unknown sources"):
         dl.download_covariates("BRCA", tmp_path, which=("bogus",))
 
@@ -301,11 +359,13 @@ def test_resolve_gtex_gct_order(tmp_path, monkeypatch):
     monkeypatch.setattr(
         "sigmutselcovs.covariates_locations."
         "location_cov_gene_expression_gtex",
-        tmp_path / "pkg" / "missing.gct")
+        tmp_path / "pkg" / "missing.gct",
+    )
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
     resolved = dl.resolve_gtex_gct()
-    assert resolved == (tmp_path / "cache" / "sigmutselcovs"
-                        / "gtex" / "missing.gct")
+    assert resolved == (
+        tmp_path / "cache" / "sigmutselcovs" / "gtex" / "missing.gct"
+    )
     # cached file wins once present
     cached = tmp_path / "cache" / "sigmutselcovs" / "gtex" / "x.gct"
     cached.parent.mkdir(parents=True)
@@ -318,7 +378,8 @@ def test_resolve_gtex_gct_order(tmp_path, monkeypatch):
     assert dl.resolve_gtex_gct() == packaged
     # explicit beats everything
     assert dl.resolve_gtex_gct("/somewhere/else.gct") == Path(
-        "/somewhere/else.gct")
+        "/somewhere/else.gct"
+    )
 
 
 def test_ensure_gtex_gct_downloads_to_cache(tmp_path, monkeypatch):
@@ -329,13 +390,17 @@ def test_ensure_gtex_gct_downloads_to_cache(tmp_path, monkeypatch):
     monkeypatch.setattr(
         "sigmutselcovs.covariates_locations."
         "location_cov_gene_expression_gtex",
-        tmp_path / "pkg" / "GTEx_v10.gct")
+        tmp_path / "pkg" / "GTEx_v10.gct",
+    )
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
     monkeypatch.setattr(
-        dl, "_gtex_source",
-        lambda: {"url": "http://gtex/f.gct.gz", "version": "v10"})
+        dl,
+        "_gtex_source",
+        lambda: {"url": "http://gtex/f.gct.gz", "version": "v10"},
+    )
     session = _URLSession(
-        {"http://gtex/f.gct.gz": _gzip.compress(b"gct content")})
+        {"http://gtex/f.gct.gz": _gzip.compress(b"gct content")}
+    )
     got = dl.ensure_gtex_gct(session=session)
     assert got.read_bytes() == b"gct content"
     assert str(tmp_path / "cache") in str(got)  # never site-packages
@@ -349,12 +414,21 @@ def test_short_download_keeps_part_for_resume(tmp_path):
     dest = tmp_path / "file.bin"
     session = _FakeSession(PAYLOAD, fail_after=80)
     with pytest.raises(OSError, match="size"):
-        download_file("http://example/f", dest, session=session,
-                      expected_size=len(PAYLOAD), resume=False)
+        download_file(
+            "http://example/f",
+            dest,
+            session=session,
+            expected_size=len(PAYLOAD),
+            resume=False,
+        )
     assert not dest.exists()
     part = tmp_path / "file.bin.part"
     assert part.exists() and part.stat().st_size == 80
     # second attempt resumes and completes
-    download_file("http://example/f", dest, session=session,
-                  expected_size=len(PAYLOAD))
+    download_file(
+        "http://example/f",
+        dest,
+        session=session,
+        expected_size=len(PAYLOAD),
+    )
     assert dest.read_bytes() == PAYLOAD

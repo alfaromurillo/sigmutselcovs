@@ -38,7 +38,9 @@ from .covariates_locations import (
 
 logger = logging.getLogger(__name__)
 
-location_projects_registry = location_covariates_data / "projects.json"
+location_projects_registry = (
+    location_covariates_data / "projects.json"
+)
 
 _REPLISEQ_TYPES = ("mat", "fraction_bigwigs", "wavelet")
 _OPTIONAL_SOURCES = ("gexp", "atac", "roadmap", "repliseq")
@@ -83,7 +85,8 @@ class RoadmapSpec:
     url_template: str = (
         "https://egg2.wustl.edu/roadmap/data/byFileType/signal/"
         "consolidated/macs2signal/foldChange/"
-        "{eid}-{mark}.fc.signal.bigwig")
+        "{eid}-{mark}.fc.signal.bigwig"
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -149,16 +152,20 @@ def _build_spec(cls, raw: dict):
     unknown = set(raw) - known
     if unknown:
         raise ValueError(
-            f"Unknown keys for {cls.__name__}: {sorted(unknown)}")
+            f"Unknown keys for {cls.__name__}: {sorted(unknown)}"
+        )
     kwargs = {k: _tupled(v) for k, v in raw.items()}
     if cls is RepliseqSpec and kwargs.get("tracks"):
         kwargs["tracks"] = tuple(
             TrackRef(**dict(t)) if isinstance(t, dict) else t
-            for t in raw["tracks"])
+            for t in raw["tracks"]
+        )
     return cls(**kwargs)
 
 
-def _merge_defaults(entry: dict | None, defaults: dict | None) -> dict | None:
+def _merge_defaults(
+    entry: dict | None, defaults: dict | None
+) -> dict | None:
     """Merge a project's per-source entry over the defaults block.
 
     ``entry`` is None when the project explicitly disables the source
@@ -177,7 +184,8 @@ def validate_registry(raw: dict) -> None:
     if raw.get("schema_version") != 1:
         raise ValueError(
             "Unsupported registry schema_version: "
-            f"{raw.get('schema_version')!r} (expected 1)")
+            f"{raw.get('schema_version')!r} (expected 1)"
+        )
     projects = raw.get("projects")
     if not projects:
         raise ValueError("Registry has no projects")
@@ -192,28 +200,36 @@ def validate_registry(raw: dict) -> None:
         if mapping_key not in gtex_mapping:
             raise ValueError(
                 f"{code}: gtex.mapping_key {mapping_key!r} not in "
-                f"{location_gtex_tcga_mapping.name}")
+                f"{location_gtex_tcga_mapping.name}"
+            )
         repliseq = row.get("repliseq")
         if repliseq is not None:
             rtype = repliseq.get("type")
             if rtype not in _REPLISEQ_TYPES:
                 raise ValueError(
                     f"{code}: repliseq.type {rtype!r} not one of "
-                    f"{_REPLISEQ_TYPES}")
+                    f"{_REPLISEQ_TYPES}"
+                )
             if rtype == "mat" and not repliseq.get("filename"):
                 raise ValueError(
-                    f"{code}: repliseq type 'mat' needs a filename")
-            if rtype == "fraction_bigwigs" and not repliseq.get("tracks"):
+                    f"{code}: repliseq type 'mat' needs a filename"
+                )
+            if rtype == "fraction_bigwigs" and not repliseq.get(
+                "tracks"
+            ):
                 raise ValueError(
                     f"{code}: repliseq type 'fraction_bigwigs' "
-                    "needs tracks")
+                    "needs tracks"
+                )
             if rtype == "wavelet" and not repliseq.get("tracks"):
                 raise ValueError(
-                    f"{code}: repliseq type 'wavelet' needs one track")
+                    f"{code}: repliseq type 'wavelet' needs one track"
+                )
 
 
 def load_registry(
-        path: str | Path | None = None) -> dict[str, ProjectSpec]:
+    path: str | Path | None = None,
+) -> dict[str, ProjectSpec]:
     """Load and validate the project registry.
 
     Parameters
@@ -227,7 +243,9 @@ def load_registry(
     dict[str, ProjectSpec]
         Study code -> project specification.
     """
-    path = Path(path) if path is not None else location_projects_registry
+    path = (
+        Path(path) if path is not None else location_projects_registry
+    )
     with open(path) as fh:
         raw = json.load(fh)
     validate_registry(raw)
@@ -239,12 +257,18 @@ def load_registry(
 
         def source(key, cls, *, row=row):
             merged = _merge_defaults(row.get(key), defaults.get(key))
-            return None if merged is None else _build_spec(cls, merged)
+            return (
+                None if merged is None else _build_spec(cls, merged)
+            )
 
         gtex = _build_spec(GtexSpec, row["gtex"])
         simple_raw = _merge_defaults(
-            row.get("simple_matrix", {}), defaults.get("simple_matrix"))
-        simple_raw.setdefault("gtex_column", gtex.representative_column)
+            row.get("simple_matrix", {}),
+            defaults.get("simple_matrix"),
+        )
+        simple_raw.setdefault(
+            "gtex_column", gtex.representative_column
+        )
         registry[code] = ProjectSpec(
             code=code,
             description=row.get("description", code),
@@ -263,8 +287,9 @@ def available_projects(path: str | Path | None = None) -> list[str]:
     return sorted(load_registry(path))
 
 
-def get_project(code: str,
-                path: str | Path | None = None) -> ProjectSpec:
+def get_project(
+    code: str, path: str | Path | None = None
+) -> ProjectSpec:
     """Return the spec for one study code.
 
     Raises ValueError (not KeyError) for unknown codes, listing the
@@ -275,5 +300,6 @@ def get_project(code: str,
     if code_up not in registry:
         raise ValueError(
             f"Unknown project {code!r}; available: "
-            f"{', '.join(sorted(registry))}")
+            f"{', '.join(sorted(registry))}"
+        )
     return registry[code_up]

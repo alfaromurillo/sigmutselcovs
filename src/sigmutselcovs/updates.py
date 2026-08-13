@@ -28,17 +28,23 @@ location_sources = location_covariates_data / "sources.json"
 
 def _check_http_head(entry: dict, session, timeout: int) -> dict:
     url = entry.get("url") or entry["check"].get("url")
-    response = session.head(url, timeout=timeout,
-                            allow_redirects=True)
+    response = session.head(
+        url, timeout=timeout, allow_redirects=True
+    )
     response.raise_for_status()
-    return {key: response.headers.get(key)
-            for key in entry["check"]["compare"]}
+    return {
+        key: response.headers.get(key)
+        for key in entry["check"]["compare"]
+    }
 
 
 def _check_gdc_file_count(entry: dict, session, timeout: int) -> dict:
-    return {project: len(query_gdc_files(project, session=session,
-                                         timeout=timeout))
-            for project in entry["check"]["projects"]}
+    return {
+        project: len(
+            query_gdc_files(project, session=session, timeout=timeout)
+        )
+        for project in entry["check"]["projects"]
+    }
 
 
 def _check_gdc_file_meta(entry: dict, session, timeout: int) -> dict:
@@ -48,7 +54,8 @@ def _check_gdc_file_meta(entry: dict, session, timeout: int) -> dict:
         response = session.get(
             f"{GDC_API}/files/{uuid}",
             params={"fields": ",".join(fields)},
-            timeout=timeout)
+            timeout=timeout,
+        )
         response.raise_for_status()
         data = response.json()["data"]
         current[label] = {field: data.get(field) for field in fields}
@@ -60,10 +67,13 @@ def _check_encode_files(entry: dict, session, timeout: int) -> dict:
 
     current = {}
     for accession in entry["check"]["accessions"]:
-        meta = resolve_encode_file(accession, session=session,
-                                   timeout=timeout)
-        current[accession] = {field: meta.get(field)
-                              for field in entry["check"]["compare"]}
+        meta = resolve_encode_file(
+            accession, session=session, timeout=timeout
+        )
+        current[accession] = {
+            field: meta.get(field)
+            for field in entry["check"]["compare"]
+        }
     return current
 
 
@@ -75,12 +85,14 @@ _METHODS = {
 }
 
 
-def check_updates(*,
-                  sources: list[str] | None = None,
-                  sources_path: str | Path | None = None,
-                  update_file: bool = False,
-                  session: requests.Session | None = None,
-                  timeout: int = 30) -> pd.DataFrame:
+def check_updates(
+    *,
+    sources: list[str] | None = None,
+    sources_path: str | Path | None = None,
+    update_file: bool = False,
+    session: requests.Session | None = None,
+    timeout: int = 30,
+) -> pd.DataFrame:
     """Compare covariate sources against their recorded state.
 
     Parameters
@@ -103,8 +115,11 @@ def check_updates(*,
         current, known, notes.  ``unknown`` means there was no
         recorded state yet (first run).
     """
-    sources_path = (Path(sources_path) if sources_path is not None
-                    else location_sources)
+    sources_path = (
+        Path(sources_path)
+        if sources_path is not None
+        else location_sources
+    )
     raw = json.loads(sources_path.read_text())
     session = session or requests.Session()
 
@@ -116,12 +131,22 @@ def check_updates(*,
         try:
             current = _METHODS[method](entry, session, timeout)
         except KeyError:
-            raise ValueError(f"Unknown check method {method!r} "
-                             f"for source {name}")
-        except Exception as exc:  # noqa: BLE001 - network must not abort
-            rows.append({"source": name, "status": "unreachable",
-                         "current": None, "known": entry.get("known"),
-                         "notes": str(exc)})
+            raise ValueError(
+                f"Unknown check method {method!r} "
+                f"for source {name}"
+            )
+        except (
+            Exception
+        ) as exc:  # noqa: BLE001 - network must not abort
+            rows.append(
+                {
+                    "source": name,
+                    "status": "unreachable",
+                    "current": None,
+                    "known": entry.get("known"),
+                    "notes": str(exc),
+                }
+            )
             continue
         known = entry.get("known") or {}
         if not known:
@@ -130,9 +155,15 @@ def check_updates(*,
             status = "ok"
         else:
             status = "changed"
-        rows.append({"source": name, "status": status,
-                     "current": current, "known": known or None,
-                     "notes": entry.get("notes", "")})
+        rows.append(
+            {
+                "source": name,
+                "status": status,
+                "current": current,
+                "known": known or None,
+                "notes": entry.get("notes", ""),
+            }
+        )
         if update_file:
             entry["known"] = current
 
@@ -142,13 +173,21 @@ def check_updates(*,
         logger.info("Updated known states in %s", sources_path)
 
     frame = pd.DataFrame(
-        rows, columns=["source", "status", "current", "known",
-                       "notes"])
+        rows,
+        columns=["source", "status", "current", "known", "notes"],
+    )
     for _, row in frame.iterrows():
-        level = (logging.WARNING if row["status"] in
-                 ("changed", "unreachable") else logging.INFO)
-        logger.log(level, "check_updates %s: %s",
-                   row["source"], row["status"])
+        level = (
+            logging.WARNING
+            if row["status"] in ("changed", "unreachable")
+            else logging.INFO
+        )
+        logger.log(
+            level,
+            "check_updates %s: %s",
+            row["source"],
+            row["status"],
+        )
     return frame
 
 

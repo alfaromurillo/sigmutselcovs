@@ -39,9 +39,14 @@ logger = logging.getLogger(__name__)
 
 location_osf_config = location_covariates_data / "osf.json"
 
-_ARTIFACTS = ("cov_matrix_pca", "cov_matrix_full",
-              "cov_matrix_simple", "cov_matrix_tcga",
-              "cov_matrix_columns", "build_manifest")
+_ARTIFACTS = (
+    "cov_matrix_pca",
+    "cov_matrix_full",
+    "cov_matrix_simple",
+    "cov_matrix_tcga",
+    "cov_matrix_columns",
+    "build_manifest",
+)
 _FILENAMES = {
     "cov_matrix_pca": "cov_matrix_pca.parquet",
     "cov_matrix_full": "cov_matrix_full.parquet",
@@ -57,8 +62,9 @@ class CovariateArtifactsUnavailable(FileNotFoundError):
 
 
 def _cache_dir() -> Path:
-    base = os.environ.get("XDG_CACHE_HOME",
-                          str(Path.home() / ".cache"))
+    base = os.environ.get(
+        "XDG_CACHE_HOME", str(Path.home() / ".cache")
+    )
     return Path(base) / "sigmutselcovs"
 
 
@@ -67,10 +73,12 @@ def load_osf_config(path: str | Path | None = None) -> dict:
     return json.loads(path.read_text())
 
 
-def osf_index(*,
-              config: dict | None = None,
-              session: requests.Session | None = None,
-              timeout: int = 30) -> dict:
+def osf_index(
+    *,
+    config: dict | None = None,
+    session: requests.Session | None = None,
+    timeout: int = 30,
+) -> dict:
     """Fetch and return the OSF artifact index."""
     config = config or load_osf_config()
     index_url = config.get("index_url")
@@ -80,7 +88,8 @@ def osf_index(*,
             "(index_url is not configured in sigmutselcovs/data/"
             "osf.json).\nBuild locally instead:\n"
             "    sigmutselcovs download <PROJECT> --data-dir <dir>\n"
-            "    sigmutselcovs build <PROJECT> --data-dir <dir>")
+            "    sigmutselcovs build <PROJECT> --data-dir <dir>"
+        )
     session = session or requests.Session()
     response = session.get(index_url, timeout=timeout)
     response.raise_for_status()
@@ -97,14 +106,14 @@ def osf_available(project: str, **kwargs) -> bool:
 
 
 def fetch_covariate_artifacts(
-        project: str,
-        *,
-        artifacts: tuple[str, ...] = ("cov_matrix_pca",),
-        dest: str | Path | None = None,
-        force: bool = False,
-        config: dict | None = None,
-        session: requests.Session | None = None
-        ) -> dict[str, Path]:
+    project: str,
+    *,
+    artifacts: tuple[str, ...] = ("cov_matrix_pca",),
+    dest: str | Path | None = None,
+    force: bool = False,
+    config: dict | None = None,
+    session: requests.Session | None = None,
+) -> dict[str, Path]:
     """Download published artifacts for a project.
 
     Parameters
@@ -125,8 +134,10 @@ def fetch_covariate_artifacts(
     """
     unknown = set(artifacts) - set(_ARTIFACTS)
     if unknown:
-        raise ValueError(f"Unknown artifacts: {sorted(unknown)}; "
-                         f"valid: {_ARTIFACTS}")
+        raise ValueError(
+            f"Unknown artifacts: {sorted(unknown)}; "
+            f"valid: {_ARTIFACTS}"
+        )
     project = project.upper()
     config = config or load_osf_config()
     index = osf_index(config=config, session=session)
@@ -137,14 +148,19 @@ def fetch_covariate_artifacts(
             f"published: {sorted(projects) or 'none'}.\n"
             "Build locally instead:\n"
             f"    sigmutselcovs download {project} --data-dir <dir>\n"
-            f"    sigmutselcovs build {project} --data-dir <dir>")
+            f"    sigmutselcovs build {project} --data-dir <dir>"
+        )
     entry = projects[project]
     files = {f["name"]: f for f in entry.get("files", [])}
 
-    layout = entry.get("layout_version",
-                       config.get("layout_version", "v1"))
-    dest = (Path(dest) if dest is not None
-            else _cache_dir() / project / layout)
+    layout = entry.get(
+        "layout_version", config.get("layout_version", "v1")
+    )
+    dest = (
+        Path(dest)
+        if dest is not None
+        else _cache_dir() / project / layout
+    )
     dest.mkdir(parents=True, exist_ok=True)
 
     session = session or requests.Session()
@@ -154,22 +170,28 @@ def fetch_covariate_artifacts(
         if filename not in files:
             raise CovariateArtifactsUnavailable(
                 f"{project}: artifact {filename} not in the "
-                f"published set {sorted(files)}")
+                f"published set {sorted(files)}"
+            )
         meta = files[filename]
         out[artifact] = download_file(
-            meta["url"], dest / filename,
+            meta["url"],
+            dest / filename,
             expected_md5=meta.get("md5"),
             expected_size=meta.get("size"),
-            force=force, session=session)
+            force=force,
+            session=session,
+        )
     return out
 
 
-def fetch_covariate_matrix(project: str,
-                           which: str = "pca",
-                           *,
-                           dest: str | Path | None = None,
-                           force: bool = False,
-                           **kwargs) -> pd.DataFrame:
+def fetch_covariate_matrix(
+    project: str,
+    which: str = "pca",
+    *,
+    dest: str | Path | None = None,
+    force: bool = False,
+    **kwargs,
+) -> pd.DataFrame:
     """Fetch one published covariate matrix as a DataFrame.
 
     Parameters
@@ -179,8 +201,12 @@ def fetch_covariate_matrix(project: str,
     """
     artifact = f"cov_matrix_{which}"
     paths = fetch_covariate_artifacts(
-        project, artifacts=(artifact,), dest=dest, force=force,
-        **kwargs)
+        project,
+        artifacts=(artifact,),
+        dest=dest,
+        force=force,
+        **kwargs,
+    )
     path = paths[artifact]
     if path.suffix == ".parquet":
         return pd.read_parquet(path)

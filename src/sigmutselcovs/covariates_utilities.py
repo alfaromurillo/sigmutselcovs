@@ -37,9 +37,8 @@ def sanitize_feature_label(label: str) -> str:
 
 
 def normalize_chromosome_name(
-        chrom: str,
-        available: dict[str, int] | dict[str, tuple[int, int]]
-        ) -> str | None:
+    chrom: str, available: dict[str, int] | dict[str, tuple[int, int]]
+) -> str | None:
     """Return a chromosome name present in *available* if possible.
 
     Parameters
@@ -69,11 +68,9 @@ def normalize_chromosome_name(
     return None
 
 
-def fetch_bigwig_stat(bw,
-                      chrom: str,
-                      start: int,
-                      end: int,
-                      stat: str) -> float:
+def fetch_bigwig_stat(
+    bw, chrom: str, start: int, end: int, stat: str
+) -> float:
     """Return a summary statistic for a genomic interval.
 
     Parameters
@@ -100,11 +97,8 @@ def fetch_bigwig_stat(bw,
         return float("nan")
     try:
         val = bw.stats(
-            chrom,
-            int(start),
-            int(end),
-            type=stat,
-            exact=True)
+            chrom, int(start), int(end), type=stat, exact=True
+        )
     except RuntimeError:
         return float("nan")
     if not val:
@@ -114,13 +108,14 @@ def fetch_bigwig_stat(bw,
 
 
 def run_pca_on_covariates(
-        cov_df: pd.DataFrame,
-        columns: list[str] | None = None,
-        n_components: int | None = None,
-        *,
-        standardize: bool = True,
-        dropna: str = "any",
-        **pca_kwargs) -> pd.DataFrame:
+    cov_df: pd.DataFrame,
+    columns: list[str] | None = None,
+    n_components: int | None = None,
+    *,
+    standardize: bool = True,
+    dropna: str = "any",
+    **pca_kwargs,
+) -> pd.DataFrame:
     """Compute PCA over gene-level covariates and return scores.
 
     Parameters
@@ -163,8 +158,11 @@ def run_pca_on_covariates(
 
     if columns is None:
         # keep only numeric columns
-        cols = [c for c in cov_df.columns
-                if pd.api.types.is_numeric_dtype(cov_df[c])]
+        cols = [
+            c
+            for c in cov_df.columns
+            if pd.api.types.is_numeric_dtype(cov_df[c])
+        ]
     else:
         cols = list(columns)
 
@@ -200,11 +198,13 @@ def run_pca_on_covariates(
     return scores
 
 
-def read_bed_file(bed_file,
-                  feature_name=None,
-                  has_index_col=False,
-                  has_header=False,
-                  file_is_transposed=False):
+def read_bed_file(
+    bed_file,
+    feature_name=None,
+    has_index_col=False,
+    has_header=False,
+    file_is_transposed=False,
+):
     """Read a BED or BED-like tab-delimited file into a DataFrame.
 
     This function assumes the file contains at least three columns:
@@ -249,30 +249,39 @@ def read_bed_file(bed_file,
             feature_name is a list of incorrect length.
 
     """
-    regions = pd.read_csv(bed_file,
-                          sep="\t",
-                          header=0 if has_header else None,
-                          index_col=0 if has_index_col else None)
+    regions = pd.read_csv(
+        bed_file,
+        sep="\t",
+        header=0 if has_header else None,
+        index_col=0 if has_index_col else None,
+    )
     if file_is_transposed:
         regions = regions.T
 
     if regions.shape[1] < 3:
-        logger.error(f"{bed_file} has only {regions.shape[1]} columns; "
-                     "at least 3 are required for BED format.")
-        raise ValueError("Input file must have at least 3 columns: "
-                         "Chromosome, region_start, and region_end.")
+        logger.error(
+            f"{bed_file} has only {regions.shape[1]} columns; "
+            "at least 3 are required for BED format."
+        )
+        raise ValueError(
+            "Input file must have at least 3 columns: "
+            "Chromosome, region_start, and region_end."
+        )
 
     col_names = list(regions.columns)
     col_names[0:3] = ["Chromosome", "region_start", "region_end"]
 
-    col_names[3:len(col_names)+1] = [f"feature_{i + 1}"
-                                     for i in range(len(col_names) - 3)]
+    col_names[3 : len(col_names) + 1] = [
+        f"feature_{i + 1}" for i in range(len(col_names) - 3)
+    ]
     if isinstance(feature_name, str):
         col_names[3] = feature_name
     elif isinstance(feature_name, list):
-        col_names[3:len(feature_name)+3] = feature_name
+        col_names[3 : len(feature_name) + 3] = feature_name
     elif feature_name is not None:
-        error_info = "feature_name must be either a string, a list, or None."
+        error_info = (
+            "feature_name must be either a string, a list, or None."
+        )
         logger.error(error_info)
         raise TypeError(error_info)
 
@@ -286,7 +295,8 @@ def load_gene_bodies_from_gtf(
     biotypes: list[str] | None = None,
     add_chr_prefix_if_needed: bool = True,
     autosomes_only: bool = True,
-    drop_version_suffix: bool = True) -> pd.DataFrame:
+    drop_version_suffix: bool = True,
+) -> pd.DataFrame:
     """Load gene bodies from a GTF into a BED-like DataFrame.
 
     Parses only `feature == "gene"` entries from a GTF (e.g., GENCODE),
@@ -335,6 +345,7 @@ def load_gene_bodies_from_gtf(
     # Open plain or gz
     if gtf_path.suffix == ".gz":
         import gzip
+
         op = gzip.open
     else:
         op = open
@@ -344,8 +355,17 @@ def load_gene_bodies_from_gtf(
         for line in fh:
             if not line or line.startswith("#"):
                 continue
-            chrom, src, feat, start, end, score, strand, frame, attrs = (
-                line.rstrip("\n").split("\t"))
+            (
+                chrom,
+                src,
+                feat,
+                start,
+                end,
+                score,
+                strand,
+                frame,
+                attrs,
+            ) = line.rstrip("\n").split("\t")
             if feat != "gene":
                 continue
 
@@ -358,8 +378,9 @@ def load_gene_bodies_from_gtf(
             if drop_version_suffix:
                 gene_id = gene_id.split(".")[0]
 
-            m_type = (re.search(r'gene_type "([^"]+)"', attrs)
-                      or re.search(r'gene_biotype "([^"]+)"', attrs))
+            m_type = re.search(
+                r'gene_type "([^"]+)"', attrs
+            ) or re.search(r'gene_biotype "([^"]+)"', attrs)
             gtype = m_type.group(1) if m_type else None
             if biotypes is not None and gtype not in set(biotypes):
                 continue
@@ -370,11 +391,15 @@ def load_gene_bodies_from_gtf(
             rows.append((gene_id, chrom, s0, e1, strand))
 
     df = pd.DataFrame(
-        rows, columns=["ensembl_gene_id",
-                       "Chromosome",
-                       "start",
-                       "end",
-                       "strand"])
+        rows,
+        columns=[
+            "ensembl_gene_id",
+            "Chromosome",
+            "start",
+            "end",
+            "strand",
+        ],
+    )
 
     if df.empty:
         # Return an empty, correctly-shaped DataFrame with index set
@@ -383,7 +408,12 @@ def load_gene_bodies_from_gtf(
     # Ensure 'chr' style to match typical RT bins if requested
     if add_chr_prefix_if_needed:
         # Add 'chr' only if the current values do not already start with it
-        if not df["Chromosome"].astype(str).str.startswith("chr").all():
+        if (
+            not df["Chromosome"]
+            .astype(str)
+            .str.startswith("chr")
+            .all()
+        ):
             df["Chromosome"] = "chr" + df["Chromosome"].astype(str)
 
     if autosomes_only:
@@ -396,8 +426,9 @@ def load_gene_bodies_from_gtf(
     return df
 
 
-def clr_transform(df: pd.DataFrame,
-                  pseudocount: float | None = None) -> pd.DataFrame:
+def clr_transform(
+    df: pd.DataFrame, pseudocount: float | None = None
+) -> pd.DataFrame:
     """Apply the centered log-ratio (CLR) transform to compositional data.
 
     Multi-fraction Repli-seq columns sum to 1 per gene (compositional
@@ -434,19 +465,21 @@ def clr_transform(df: pd.DataFrame,
     X = df.copy().astype(float)
     if pseudocount is None:
         pos_vals = X.values[X.values > 0]
-        pseudocount = (pos_vals.min() / 2
-                       if pos_vals.size < X.size
-                       else 0.0)
+        pseudocount = (
+            pos_vals.min() / 2 if pos_vals.size < X.size else 0.0
+        )
     if pseudocount:
         X = X + pseudocount
     log_X = np.log(X)
     return log_X.sub(log_X.mean(axis=1), axis=0)
 
 
-def annotate_with_binned_features(df: pd.DataFrame,
-                                  binned_df: pd.DataFrame,
-                                  feature_cols=None,
-                                  bin_size: int | None = None) -> pd.DataFrame:
+def annotate_with_binned_features(
+    df: pd.DataFrame,
+    binned_df: pd.DataFrame,
+    feature_cols=None,
+    bin_size: int | None = None,
+) -> pd.DataFrame:
     """Annotate a DataFrame with fixed-bin genomic features.
 
     Modes
@@ -505,10 +538,11 @@ def annotate_with_binned_features(df: pd.DataFrame,
 
     # Pick default feature column(s) if None
     if feature_cols is None:
-        candidate_cols = [c for c in binned_df.columns
-                          if c not in ("Chromosome",
-                                       "region_start",
-                                       "region_end")]
+        candidate_cols = [
+            c
+            for c in binned_df.columns
+            if c not in ("Chromosome", "region_start", "region_end")
+        ]
         if not candidate_cols:
             raise ValueError("No feature columns found in binned_df.")
         feature_cols = candidate_cols
@@ -517,18 +551,24 @@ def annotate_with_binned_features(df: pd.DataFrame,
 
     # Ensure features are numeric (non-numeric → NaN)
     binned_df[feature_cols] = binned_df[feature_cols].apply(
-        pd.to_numeric, errors="coerce")
+        pd.to_numeric, errors="coerce"
+    )
 
     # ----- Infer/validate bin_size -----
     # Use all widths except the last bin per chromosome to infer size
     widths_all = []
     for _, grp in binned_df.groupby("Chromosome", sort=False):
-        w = (grp["region_end"].values[:-1] - grp["region_start"].values[:-1])
+        w = (
+            grp["region_end"].values[:-1]
+            - grp["region_start"].values[:-1]
+        )
         if w.size:
             widths_all.extend(w.tolist())
 
     if not widths_all:
-        raise ValueError("Could not infer bin sizes (not enough bins).")
+        raise ValueError(
+            "Could not infer bin sizes (not enough bins)."
+        )
 
     inferred = pd.Series(widths_all).mode().iloc[0]
     if bin_size is None:
@@ -536,23 +576,30 @@ def annotate_with_binned_features(df: pd.DataFrame,
 
     # Check consistency (non-terminal bins must equal bin_size)
     for chrom, grp in binned_df.groupby("Chromosome", sort=False):
-        w = (grp["region_end"].values[:-1] - grp["region_start"].values[:-1])
+        w = (
+            grp["region_end"].values[:-1]
+            - grp["region_start"].values[:-1]
+        )
         if w.size and not np.all(w == bin_size):
             raise ValueError(
                 f"Inconsistent non-terminal bin sizes on {chrom}; "
-                f"expected {bin_size}, saw {np.unique(w)}")
+                f"expected {bin_size}, saw {np.unique(w)}"
+            )
 
     # ----- Detect mode -----
-    has_variant_cols = ({"Chromosome", "Start_Position"}.issubset(df.columns)
-                        and (df.index.name == 'variant'))
-    has_gene_cols = ({"Chromosome", "start", "end"}.issubset(df.columns)
-                     and (df.index.name in ("ensembl_gene_id", "gene")))
+    has_variant_cols = {"Chromosome", "Start_Position"}.issubset(
+        df.columns
+    ) and (df.index.name == "variant")
+    has_gene_cols = {"Chromosome", "start", "end"}.issubset(
+        df.columns
+    ) and (df.index.name in ("ensembl_gene_id", "gene"))
     if not has_variant_cols and not has_gene_cols:
         raise ValueError(
             "Input `df` must be either:\n"
             " - Variant mode: columns {'Chromosome','Start_Position'}; or\n"
             " - Gene mode: index 'ensembl_gene_id' or 'gene' and "
-            "columns {'Chromosome','start','end'}.")
+            "columns {'Chromosome','start','end'}."
+        )
 
     out = df.copy()
 
@@ -562,29 +609,35 @@ def annotate_with_binned_features(df: pd.DataFrame,
         tmp["__order"] = np.arange(len(tmp))  # to preserve row order
         tmp = tmp.reset_index()
 
-        pos = (pd.to_numeric(tmp["Start_Position"], errors="coerce")
-               .fillna(-1)
-               .astype(np.int64))
+        pos = (
+            pd.to_numeric(tmp["Start_Position"], errors="coerce")
+            .fillna(-1)
+            .astype(np.int64)
+        )
         region_start = (np.maximum(pos, 0) // bin_size) * bin_size
         tmp["region_start"] = region_start
 
         merged = tmp.merge(
             binned_df[["Chromosome", "region_start"] + feature_cols],
             on=["Chromosome", "region_start"],
-            how="left")
+            how="left",
+        )
 
-        merged = (merged.sort_values("__order")
-                  .drop(columns=["__order", "region_start"]))
+        merged = merged.sort_values("__order").drop(
+            columns=["__order", "region_start"]
+        )
         merged = merged.set_index("variant")
         return merged
 
     # ---------- Gene mode ----------
     idx_name = out.index.name  # preserve
     out = out.sort_values(["Chromosome", "start"]).copy()
-    out["start"] = (pd.to_numeric(out["start"], errors="coerce")
-                    .astype("Int64"))
-    out["end"] = (pd.to_numeric(out["end"], errors="coerce")
-                  .astype("Int64"))
+    out["start"] = pd.to_numeric(
+        out["start"], errors="coerce"
+    ).astype("Int64")
+    out["end"] = pd.to_numeric(out["end"], errors="coerce").astype(
+        "Int64"
+    )
 
     # Initialize output columns
     for c in feature_cols:
@@ -598,9 +651,14 @@ def annotate_with_binned_features(df: pd.DataFrame,
 
         bs = bins["region_start"].to_numpy(np.int64)
         be = bins["region_end"].to_numpy(np.int64)
-        feats = np.column_stack([
-            pd.to_numeric(bins[c], errors="coerce").to_numpy(float)
-            for c in feature_cols])  # shape: n_bins × n_feats
+        feats = np.column_stack(
+            [
+                pd.to_numeric(bins[c], errors="coerce").to_numpy(
+                    float
+                )
+                for c in feature_cols
+            ]
+        )  # shape: n_bins × n_feats
 
         for gid, row in genes_chr.iterrows():
             gs = row["start"]
@@ -619,16 +677,18 @@ def annotate_with_binned_features(df: pd.DataFrame,
             s = np.maximum(bs[i0:i1], gs)
             e = np.minimum(be[i0:i1], ge)
             w = (e - s).astype(np.int64)  # overlap lengths
-            v = feats[i0:i1, :]           # values per overlapping bin
+            v = feats[i0:i1, :]  # values per overlapping bin
             ok = (w > 0)[:, None] & np.isfinite(v)
 
             w2 = np.where(ok, w[:, None], 0)
             num = (v * w2).sum(axis=0)
             den = w2.sum(axis=0)
-            val = np.divide(num,
-                            den,
-                            out=np.full(len(feature_cols), np.nan),
-                            where=den > 0)
+            val = np.divide(
+                num,
+                den,
+                out=np.full(len(feature_cols), np.nan),
+                where=den > 0,
+            )
 
             out.loc[gid, feature_cols] = val
 
@@ -681,7 +741,7 @@ def annotate_min_dist_to_regions(df, regions_df, label=None):
 
     """
     new_df = df.copy()
-    is_variant_df = (new_df.index.name == "variant")
+    is_variant_df = new_df.index.name == "variant"
 
     if is_variant_df:
         new_df = new_df.reset_index()
@@ -723,15 +783,14 @@ def annotate_min_dist_to_regions(df, regions_df, label=None):
         final_col_name = final_col_name + f"_{label}"
 
     new_df[final_col_name] = distances
-    return (new_df.set_index('variant')
-            if is_variant_df
-            else new_df)
+    return new_df.set_index("variant") if is_variant_df else new_df
 
 
 def annotate_indicator_in_region(
-        df: "pd.DataFrame",
-        regions_df: "pd.DataFrame",
-        label: str | None = None) -> "pd.DataFrame":
+    df: "pd.DataFrame",
+    regions_df: "pd.DataFrame",
+    label: str | None = None,
+) -> "pd.DataFrame":
     """Add a 0 or 1 if mutation belongs or not to a region.
 
     Parameters
@@ -775,14 +834,15 @@ def annotate_indicator_in_region(
 
     """
     out = df.copy()
-    has_variant_index = (out.index.name == "variant")
+    has_variant_index = out.index.name == "variant"
     if has_variant_index:
         out = out.reset_index()
 
     # Pre-group region intervals by chromosomed
     by_chr = {
         chrom: group[["region_start", "region_end"]].values
-        for chrom, group in regions_df.groupby("Chromosome")}
+        for chrom, group in regions_df.groupby("Chromosome")
+    }
 
     flags = []
 
@@ -798,8 +858,8 @@ def annotate_indicator_in_region(
         # chromosome entirely absent from region file
         if chrom not in by_chr:
             flags.append(
-                np.nan if chrom in {"chrX", "chrY", "X", "Y"}
-                else 0)
+                np.nan if chrom in {"chrX", "chrY", "X", "Y"} else 0
+            )
             continue
 
         intervals = by_chr[chrom]
@@ -815,12 +875,13 @@ def annotate_indicator_in_region(
 
 
 def annotate_with_gene_features(
-        df: pd.DataFrame,
-        gene_feature_df: pd.DataFrame,
-        feature_cols,
-        gene_col: str = "ensembl_gene_id",
-        strip_version: bool = True,
-        labels: str | Sequence[str] | None = None) -> pd.DataFrame:
+    df: pd.DataFrame,
+    gene_feature_df: pd.DataFrame,
+    feature_cols,
+    gene_col: str = "ensembl_gene_id",
+    strip_version: bool = True,
+    labels: str | Sequence[str] | None = None,
+) -> pd.DataFrame:
     """Add gene-level features to a mutation/variant DataFrame.
 
     Each row in *df* is matched to *gene_feature_df* on *gene_col*
@@ -877,10 +938,13 @@ def annotate_with_gene_features(
         gene_feature_df = pd.DataFrame(gene_feature_df)
 
     # ── Check requested columns exist ────────────────────────────────
-    missing = [c for c in feature_cols
-               if c not in gene_feature_df.columns]
+    missing = [
+        c for c in feature_cols if c not in gene_feature_df.columns
+    ]
     if missing:
-        raise ValueError(f"Missing columns in gene_feature_df: {missing}")
+        raise ValueError(
+            f"Missing columns in gene_feature_df: {missing}"
+        )
 
     # ── Build output column names from labels spec ───────────────────
     if labels is None:
@@ -893,7 +957,9 @@ def annotate_with_gene_features(
     else:
         # sequence of labels
         if len(labels) != len(feature_cols):
-            raise ValueError("labels must have same length as feature_cols.")
+            raise ValueError(
+                "labels must have same length as feature_cols."
+            )
         out_names = [f"cov_{lab}" for lab in labels]
     rename_map = dict(zip(feature_cols, out_names))
 
@@ -904,13 +970,13 @@ def annotate_with_gene_features(
     if gene_col in gfeat.columns:
         pass
     elif gfeat.index.name:  # named index
-        gfeat = (gfeat
-                 .reset_index()
-                 .rename(columns={gfeat.index.name: gene_col}))
+        gfeat = gfeat.reset_index().rename(
+            columns={gfeat.index.name: gene_col}
+        )
     else:  # unnamed index
-        gfeat = (gfeat
-                 .reset_index()
-                 .rename(columns={"index": gene_col}))
+        gfeat = gfeat.reset_index().rename(
+            columns={"index": gene_col}
+        )
 
     if strip_version:
         key = gfeat[gene_col].astype(str)
@@ -923,15 +989,15 @@ def annotate_with_gene_features(
         gfeat = gfeat.drop_duplicates("_stable", keep="last")
 
         # Use stable ID as merge key
-        gfeat = (gfeat
-                 .drop(columns=[gene_col, "_version"])
-                 .rename(columns={"_stable": gene_col}))
+        gfeat = gfeat.drop(columns=[gene_col, "_version"]).rename(
+            columns={"_stable": gene_col}
+        )
 
     gfeat = gfeat[[gene_col] + feature_cols]
 
     # ── Prepare df for merge while keeping index semantics ───────────
     out = df.copy()
-    has_variant_index = (out.index.name == "variant")
+    has_variant_index = out.index.name == "variant"
     if has_variant_index:
         out = out.reset_index()
 
@@ -939,11 +1005,15 @@ def annotate_with_gene_features(
         raise KeyError(f"'df' must contain join column '{gene_col}'.")
 
     if strip_version:
-        out[gene_col] = out[gene_col].astype(str).str.split(".", n=1).str[0]
+        out[gene_col] = (
+            out[gene_col].astype(str).str.split(".", n=1).str[0]
+        )
 
     # ── Merge (many variants → one gene row), then rename features ───
     before = len(out)
-    out = out.merge(gfeat, on=gene_col, how="left", validate="many_to_one")
+    out = out.merge(
+        gfeat, on=gene_col, how="left", validate="many_to_one"
+    )
     out = out.rename(columns=rename_map)
 
     # Warn about unmatched genes (use first appended column if present)
@@ -951,8 +1021,10 @@ def annotate_with_gene_features(
     if first_new and first_new in out.columns:
         unmatched = out[first_new].isna().sum()
         if unmatched:
-            logger.warning(f"{unmatched} of {before} rows had no gene "
-                           "feature match.")
+            logger.warning(
+                f"{unmatched} of {before} rows had no gene "
+                "feature match."
+            )
 
     # ── Restore variant index if present ─────────────────────────────
     return out.set_index("variant") if has_variant_index else out

@@ -60,3 +60,10 @@ markers = [
     "slow: long-running tests",
 ]
 addopts = "-m 'not network'"
+
+[tool.black]
+line-length = 70
+target-version = ['py312']
+
+[tool.ruff]
+line-length = 70

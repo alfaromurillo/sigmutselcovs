@@ -48,16 +48,38 @@ class _Report:
     def __init__(self):
         self.rows: list[dict] = []
 
-    def add(self, check: str, scope: str, status: str,
-            value=None, threshold=None, note: str = "") -> None:
-        self.rows.append({
-            "check": check, "scope": scope, "status": status,
-            "value": value, "threshold": threshold, "note": note})
+    def add(
+        self,
+        check: str,
+        scope: str,
+        status: str,
+        value=None,
+        threshold=None,
+        note: str = "",
+    ) -> None:
+        self.rows.append(
+            {
+                "check": check,
+                "scope": scope,
+                "status": status,
+                "value": value,
+                "threshold": threshold,
+                "note": note,
+            }
+        )
 
     def frame(self) -> pd.DataFrame:
         return pd.DataFrame(
-            self.rows, columns=["check", "scope", "status",
-                                "value", "threshold", "note"])
+            self.rows,
+            columns=[
+                "check",
+                "scope",
+                "status",
+                "value",
+                "threshold",
+                "note",
+            ],
+        )
 
 
 def _spearman(df: pd.DataFrame, a: pd.Series, b: pd.Series) -> float:
@@ -67,192 +89,342 @@ def _spearman(df: pd.DataFrame, a: pd.Series, b: pd.Series) -> float:
     return float(joined["a"].corr(joined["b"], method="spearman"))
 
 
-def _expression_series(df: pd.DataFrame,
-                       spec: ProjectSpec) -> pd.Series | None:
+def _expression_series(
+    df: pd.DataFrame, spec: ProjectSpec
+) -> pd.Series | None:
     for col in (spec.gtex.representative_column, "tpm_unstranded"):
         if col in df.columns:
             return df[col]
     return None
 
 
-def _mark_mean(df: pd.DataFrame, mark: str,
-               where: str) -> pd.Series | None:
-    cols = [c for c in df.columns
-            if mark in c and "fc_signal" in c and c.endswith(where)]
+def _mark_mean(
+    df: pd.DataFrame, mark: str, where: str
+) -> pd.Series | None:
+    cols = [
+        c
+        for c in df.columns
+        if mark in c and "fc_signal" in c and c.endswith(where)
+    ]
     if not cols:
         return None
     return df[cols].mean(axis=1)
 
 
-def _check_direction(report: _Report, df: pd.DataFrame,
-                     check: str, a: pd.Series | None,
-                     b: pd.Series | None, expected_sign: int,
-                     scope: str) -> None:
+def _check_direction(
+    report: _Report,
+    df: pd.DataFrame,
+    check: str,
+    a: pd.Series | None,
+    b: pd.Series | None,
+    expected_sign: int,
+    scope: str,
+) -> None:
     if a is None or b is None:
-        report.add(check, scope, "pass", note="not applicable "
-                   "(columns absent)")
+        report.add(
+            check,
+            scope,
+            "pass",
+            note="not applicable " "(columns absent)",
+        )
         return
     rho = _spearman(df, a, b)
     if np.isnan(rho):
-        report.add(check, scope, "warn", value=rho,
-                   note="too few complete pairs")
+        report.add(
+            check,
+            scope,
+            "warn",
+            value=rho,
+            note="too few complete pairs",
+        )
         return
     signed = rho * expected_sign
     if signed >= _DIRECTION_RHO:
         report.add(check, scope, "pass", value=round(rho, 3))
     elif signed > -_DIRECTION_RHO:
-        report.add(check, scope, "warn", value=round(rho, 3),
-                   threshold=_DIRECTION_RHO * expected_sign,
-                   note="no clear signal")
+        report.add(
+            check,
+            scope,
+            "warn",
+            value=round(rho, 3),
+            threshold=_DIRECTION_RHO * expected_sign,
+            note="no clear signal",
+        )
     else:
-        report.add(check, scope, "warn", value=round(rho, 3),
-                   threshold=_DIRECTION_RHO * expected_sign,
-                   note="direction opposite to expectation")
+        report.add(
+            check,
+            scope,
+            "warn",
+            value=round(rho, 3),
+            threshold=_DIRECTION_RHO * expected_sign,
+            note="direction opposite to expectation",
+        )
 
 
-def _sanity_tier(report: _Report, df: pd.DataFrame,
-                 spec: ProjectSpec, *, nan_warn: float,
-                 nan_fail: float) -> None:
+def _sanity_tier(
+    report: _Report,
+    df: pd.DataFrame,
+    spec: ProjectSpec,
+    *,
+    nan_warn: float,
+    nan_fail: float,
+) -> None:
     # NaN fractions
     nan_fraction = df.isna().mean()
     worst = float(nan_fraction.max()) if len(nan_fraction) else 0.0
     n_fail = int((nan_fraction > nan_fail).sum())
     n_warn = int((nan_fraction > nan_warn).sum()) - n_fail
     if n_fail:
-        report.add("nan_fraction", "matrix", "fail", value=worst,
-                   threshold=nan_fail,
-                   note=f"{n_fail} columns above {nan_fail:.0%} NaN: "
-                   + ", ".join(nan_fraction[
-                       nan_fraction > nan_fail].index[:5]))
+        report.add(
+            "nan_fraction",
+            "matrix",
+            "fail",
+            value=worst,
+            threshold=nan_fail,
+            note=f"{n_fail} columns above {nan_fail:.0%} NaN: "
+            + ", ".join(
+                nan_fraction[nan_fraction > nan_fail].index[:5]
+            ),
+        )
     elif n_warn:
-        report.add("nan_fraction", "matrix", "warn", value=worst,
-                   threshold=nan_warn,
-                   note=f"{n_warn} columns above {nan_warn:.0%} NaN")
+        report.add(
+            "nan_fraction",
+            "matrix",
+            "warn",
+            value=worst,
+            threshold=nan_warn,
+            note=f"{n_warn} columns above {nan_warn:.0%} NaN",
+        )
     else:
-        report.add("nan_fraction", "matrix", "pass", value=worst,
-                   threshold=nan_warn)
+        report.add(
+            "nan_fraction",
+            "matrix",
+            "pass",
+            value=worst,
+            threshold=nan_warn,
+        )
 
     # constant columns (fix_variance would drop them silently)
     numeric = df.select_dtypes("number")
-    constant = [c for c in numeric.columns
-                if numeric[c].nunique(dropna=True) <= 1]
-    report.add("constant_columns", "matrix",
-               "warn" if constant else "pass",
-               value=len(constant),
-               note=", ".join(constant[:5]))
+    constant = [
+        c
+        for c in numeric.columns
+        if numeric[c].nunique(dropna=True) <= 1
+    ]
+    report.add(
+        "constant_columns",
+        "matrix",
+        "warn" if constant else "pass",
+        value=len(constant),
+        note=", ".join(constant[:5]),
+    )
 
     # value ranges
     if "mrt" in df.columns:
         mrt = df["mrt"].dropna()
         ok = bool(((mrt >= 0) & (mrt <= 1)).all())
-        report.add("mrt_range", "repliseq",
-                   "pass" if ok else "fail",
-                   value=[round(float(mrt.min()), 3),
-                          round(float(mrt.max()), 3)],
-                   threshold="[0, 1]")
-    for label, prefix in (("gtex_nonnegative", "gtex_"),
-                          ("roadmap_nonnegative", "fc_signal")):
-        cols = [c for c in df.columns if
-                (c.startswith(prefix) if prefix.endswith("_")
-                 else prefix in c)]
+        report.add(
+            "mrt_range",
+            "repliseq",
+            "pass" if ok else "fail",
+            value=[
+                round(float(mrt.min()), 3),
+                round(float(mrt.max()), 3),
+            ],
+            threshold="[0, 1]",
+        )
+    for label, prefix in (
+        ("gtex_nonnegative", "gtex_"),
+        ("roadmap_nonnegative", "fc_signal"),
+    ):
+        cols = [
+            c
+            for c in df.columns
+            if (
+                c.startswith(prefix)
+                if prefix.endswith("_")
+                else prefix in c
+            )
+        ]
         if not cols:
             continue
         minimum = float(df[cols].min().min())
-        report.add(label, "matrix",
-                   "pass" if minimum >= 0 else "fail",
-                   value=minimum, threshold=">= 0")
+        report.add(
+            label,
+            "matrix",
+            "pass" if minimum >= 0 else "fail",
+            value=minimum,
+            threshold=">= 0",
+        )
     if "tpm_unstranded" in df.columns:
         minimum = float(df["tpm_unstranded"].min())
-        report.add("tpm_nonnegative", "gexp",
-                   "pass" if minimum >= 0 else "fail",
-                   value=minimum, threshold=">= 0")
+        report.add(
+            "tpm_nonnegative",
+            "gexp",
+            "pass" if minimum >= 0 else "fail",
+            value=minimum,
+            threshold=">= 0",
+        )
 
     # column counts vs registry
     if spec.repliseq is not None:
         clr_cols = [c for c in df.columns if c.startswith("clr_rt_s")]
         n = spec.repliseq.n_fractions
         if clr_cols and n is not None:
-            report.add("clr_fraction_count", "repliseq",
-                       "pass" if len(clr_cols) == n else "fail",
-                       value=len(clr_cols), threshold=n)
+            report.add(
+                "clr_fraction_count",
+                "repliseq",
+                "pass" if len(clr_cols) == n else "fail",
+                value=len(clr_cols),
+                threshold=n,
+            )
     if spec.atac is not None:
-        atac_cols = [c for c in df.columns
-                     if c.startswith(spec.atac.column_prefix.lower()
-                                     + "_")]
+        atac_cols = [
+            c
+            for c in df.columns
+            if c.startswith(spec.atac.column_prefix.lower() + "_")
+        ]
         if atac_cols:
-            report.add("atac_body_promoter_pairs", "atac",
-                       "pass" if len(atac_cols) % 2 == 0 else "fail",
-                       value=len(atac_cols), threshold="even",
-                       note="each sample contributes body+promoter")
+            report.add(
+                "atac_body_promoter_pairs",
+                "atac",
+                "pass" if len(atac_cols) % 2 == 0 else "fail",
+                value=len(atac_cols),
+                threshold="even",
+                note="each sample contributes body+promoter",
+            )
     if spec.roadmap is not None:
         roadmap_cols = [c for c in df.columns if "fc_signal" in c]
         maximum = 2 * len(spec.roadmap.eids) * len(spec.roadmap.marks)
         if roadmap_cols:
-            report.add("roadmap_column_count", "roadmap",
-                       "pass" if len(roadmap_cols) <= maximum
-                       else "fail",
-                       value=len(roadmap_cols),
-                       threshold=f"<= {maximum}")
+            report.add(
+                "roadmap_column_count",
+                "roadmap",
+                "pass" if len(roadmap_cols) <= maximum else "fail",
+                value=len(roadmap_cols),
+                threshold=f"<= {maximum}",
+            )
 
     # index integrity
     duplicated = int(df.index.duplicated().sum())
     ensg = df.index.astype(str).str.match(r"^ENSG\d+$")
-    report.add("index_unique", "matrix",
-               "pass" if duplicated == 0 else "fail",
-               value=duplicated, threshold=0)
+    report.add(
+        "index_unique",
+        "matrix",
+        "pass" if duplicated == 0 else "fail",
+        value=duplicated,
+        threshold=0,
+    )
     bad = int((~ensg).sum())
-    report.add("index_ensg_format", "matrix",
-               "pass" if bad == 0 else "warn",
-               value=bad, threshold=0,
-               note="non-ENSG or versioned ids in the index"
-               if bad else "")
+    report.add(
+        "index_ensg_format",
+        "matrix",
+        "pass" if bad == 0 else "warn",
+        value=bad,
+        threshold=0,
+        note="non-ENSG or versioned ids in the index" if bad else "",
+    )
 
 
-def _biology_tier(report: _Report, df: pd.DataFrame,
-                  spec: ProjectSpec) -> None:
+def _biology_tier(
+    report: _Report, df: pd.DataFrame, spec: ProjectSpec
+) -> None:
     expression = _expression_series(df, spec)
     mrt = df["mrt"] if "mrt" in df.columns else None
 
-    _check_direction(report, df, "expression_vs_mrt",
-                     expression, mrt, -1, "cross-block")
+    _check_direction(
+        report,
+        df,
+        "expression_vs_mrt",
+        expression,
+        mrt,
+        -1,
+        "cross-block",
+    )
     for mark in _ACTIVE_MARKS:
-        _check_direction(report, df, f"{mark}_vs_expression",
-                         _mark_mean(df, mark, "body"), expression,
-                         +1, "roadmap")
+        _check_direction(
+            report,
+            df,
+            f"{mark}_vs_expression",
+            _mark_mean(df, mark, "body"),
+            expression,
+            +1,
+            "roadmap",
+        )
     for mark in _REPRESSIVE_MARKS:
-        _check_direction(report, df, f"{mark}_vs_expression",
-                         _mark_mean(df, mark, "body"), expression,
-                         -1, "roadmap")
+        _check_direction(
+            report,
+            df,
+            f"{mark}_vs_expression",
+            _mark_mean(df, mark, "body"),
+            expression,
+            -1,
+            "roadmap",
+        )
     if spec.atac is not None:
         prefix = spec.atac.column_prefix.lower() + "_"
-        atac_body = [c for c in df.columns
-                     if c.startswith(prefix) and c.endswith("body")]
+        atac_body = [
+            c
+            for c in df.columns
+            if c.startswith(prefix) and c.endswith("body")
+        ]
         atac = df[atac_body].mean(axis=1) if atac_body else None
-        _check_direction(report, df, "atac_vs_expression",
-                         atac, expression, +1, "atac")
+        _check_direction(
+            report,
+            df,
+            "atac_vs_expression",
+            atac,
+            expression,
+            +1,
+            "atac",
+        )
 
     # replicate coherence: the same mark across Roadmap epigenomes
     if spec.roadmap is not None and len(spec.roadmap.eids) >= 2:
         for mark in set(_ACTIVE_MARKS) | set(_REPRESSIVE_MARKS):
-            cols = [c for c in df.columns
-                    if mark in c and c.endswith("body")]
-            eids = {re.match(r"(e\d+)_", c).group(1)
-                    for c in cols if re.match(r"(e\d+)_", c)}
+            cols = [
+                c
+                for c in df.columns
+                if mark in c and c.endswith("body")
+            ]
+            eids = {
+                re.match(r"(e\d+)_", c).group(1)
+                for c in cols
+                if re.match(r"(e\d+)_", c)
+            }
             if len(eids) < 2:
                 continue
             pair = sorted(cols)[:2]
-            _check_direction(report, df, f"{mark}_eid_coherence",
-                             df[pair[0]], df[pair[1]], +1, "roadmap")
+            _check_direction(
+                report,
+                df,
+                f"{mark}_eid_coherence",
+                df[pair[0]],
+                df[pair[1]],
+                +1,
+                "roadmap",
+            )
 
     # housekeeping panel
-    present = {name: gid for name, gid in HOUSEKEEPING_GENES.items()
-               if gid in df.index}
+    present = {
+        name: gid
+        for name, gid in HOUSEKEEPING_GENES.items()
+        if gid in df.index
+    }
     if not present:
-        report.add("housekeeping_panel", "matrix", "warn",
-                   note="none of the panel genes in the index")
+        report.add(
+            "housekeeping_panel",
+            "matrix",
+            "warn",
+            note="none of the panel genes in the index",
+        )
     elif df.index.has_duplicates:
-        report.add("housekeeping_panel", "matrix", "warn",
-                   note="index has duplicates; panel skipped")
+        report.add(
+            "housekeeping_panel",
+            "matrix",
+            "warn",
+            note="index has duplicates; panel skipped",
+        )
     elif expression is not None:
         misses = []
         expression_rank = expression.rank(pct=True)
@@ -265,22 +437,26 @@ def _biology_tier(report: _Report, df: pd.DataFrame,
                 rank = mrt_rank.get(gid, np.nan)
                 if not rank < 0.5:
                     misses.append(f"{name} mrt pct {rank:.2f}")
-        report.add("housekeeping_panel", "matrix",
-                   "warn" if misses else "pass",
-                   value=len(misses),
-                   note="; ".join(misses[:6]))
+        report.add(
+            "housekeeping_panel",
+            "matrix",
+            "warn" if misses else "pass",
+            value=len(misses),
+            note="; ".join(misses[:6]),
+        )
 
 
 def validate_covariates(
-        project: str,
-        data_dir: str | Path | None = None,
-        *,
-        cov_matrix_raw: pd.DataFrame | None = None,
-        registry_path: str | Path | None = None,
-        nan_warn: float = 0.5,
-        nan_fail: float = 0.95,
-        strict: bool = False,
-        gencode_gtfs=None) -> pd.DataFrame:
+    project: str,
+    data_dir: str | Path | None = None,
+    *,
+    cov_matrix_raw: pd.DataFrame | None = None,
+    registry_path: str | Path | None = None,
+    nan_warn: float = 0.5,
+    nan_fail: float = 0.95,
+    strict: bool = False,
+    gencode_gtfs=None,
+) -> pd.DataFrame:
     """Validate a project's covariate matrix.
 
     Parameters
@@ -306,45 +482,84 @@ def validate_covariates(
         if data_dir is None:
             raise ValueError("Give data_dir or cov_matrix_raw")
         from .builder import build_covariate_matrix
+
         cov_matrix_raw = build_covariate_matrix(
-            project, data_dir, registry_path=registry_path,
-            gencode_gtfs=gencode_gtfs, apply_fixes=False).full
+            project,
+            data_dir,
+            registry_path=registry_path,
+            gencode_gtfs=gencode_gtfs,
+            apply_fixes=False,
+        ).full
 
     report = _Report()
     if cov_matrix_raw.columns.duplicated().any():
-        duplicated = cov_matrix_raw.columns[
-            cov_matrix_raw.columns.duplicated()].unique().tolist()
-        report.add("duplicate_columns", "matrix", "warn",
-                   value=len(duplicated),
-                   note=f"checking first occurrence only: "
-                   f"{duplicated[:5]}")
+        duplicated = (
+            cov_matrix_raw.columns[
+                cov_matrix_raw.columns.duplicated()
+            ]
+            .unique()
+            .tolist()
+        )
+        report.add(
+            "duplicate_columns",
+            "matrix",
+            "warn",
+            value=len(duplicated),
+            note=f"checking first occurrence only: "
+            f"{duplicated[:5]}",
+        )
         cov_matrix_raw = cov_matrix_raw.loc[
-            :, ~cov_matrix_raw.columns.duplicated()]
-    _sanity_tier(report, cov_matrix_raw, spec,
-                 nan_warn=nan_warn, nan_fail=nan_fail)
+            :, ~cov_matrix_raw.columns.duplicated()
+        ]
+    _sanity_tier(
+        report,
+        cov_matrix_raw,
+        spec,
+        nan_warn=nan_warn,
+        nan_fail=nan_fail,
+    )
     _biology_tier(report, cov_matrix_raw, spec)
 
     # a batch of direction misses is a failure even if each alone
     # is only a warning
     frame = report.frame()
     direction_misses = int(
-        ((frame["status"] == "warn")
-         & frame["note"].str.contains("opposite", na=False)).sum())
+        (
+            (frame["status"] == "warn")
+            & frame["note"].str.contains("opposite", na=False)
+        ).sum()
+    )
     if direction_misses >= 3:
-        extra = pd.DataFrame([{
-            "check": "biology_batch", "scope": "matrix",
-            "status": "fail", "value": direction_misses,
-            "threshold": "< 3",
-            "note": "multiple biological directions inverted — "
-                    "check assemblies and column mapping"}])
+        extra = pd.DataFrame(
+            [
+                {
+                    "check": "biology_batch",
+                    "scope": "matrix",
+                    "status": "fail",
+                    "value": direction_misses,
+                    "threshold": "< 3",
+                    "note": "multiple biological directions inverted — "
+                    "check assemblies and column mapping",
+                }
+            ]
+        )
         frame = pd.concat([frame, extra], ignore_index=True)
 
     for _, row in frame.iterrows():
-        level = {"pass": logging.INFO, "warn": logging.WARNING,
-                 "fail": logging.ERROR}[row["status"]]
-        logger.log(level, "validate %s [%s]: %s value=%s %s",
-                   spec.code, row["status"], row["check"],
-                   row["value"], row["note"])
+        level = {
+            "pass": logging.INFO,
+            "warn": logging.WARNING,
+            "fail": logging.ERROR,
+        }[row["status"]]
+        logger.log(
+            level,
+            "validate %s [%s]: %s value=%s %s",
+            spec.code,
+            row["status"],
+            row["check"],
+            row["value"],
+            row["note"],
+        )
 
     if strict and (frame["status"] == "fail").any():
         failures = frame[frame["status"] == "fail"]["check"].tolist()
@@ -356,7 +571,10 @@ def print_validation_report(frame: pd.DataFrame) -> None:
     """Print the validation report in a compact fixed-width form."""
     for _, row in frame.iterrows():
         symbol = {"pass": "ok", "warn": "WARN", "fail": "FAIL"}[
-            row["status"]]
+            row["status"]
+        ]
         note = f"  {row['note']}" if row["note"] else ""
-        print(f"[{symbol:4s}] {row['check']:28s} "
-              f"value={row['value']}{note}")
+        print(
+            f"[{symbol:4s}] {row['check']:28s} "
+            f"value={row['value']}{note}"
+        )

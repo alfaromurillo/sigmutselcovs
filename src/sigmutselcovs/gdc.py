@@ -41,44 +41,71 @@ _DEFAULT_FIELDS = (
 )
 
 _SAMPLE_SHEET_COLUMNS = [
-    "File ID", "File Name", "Data Category", "Data Type", "Project ID",
-    "Case ID", "Sample ID", "Tissue Type", "Tumor Descriptor",
-    "Specimen Type", "Preservation Method"]
+    "File ID",
+    "File Name",
+    "Data Category",
+    "Data Type",
+    "Project ID",
+    "Case ID",
+    "Sample ID",
+    "Tissue Type",
+    "Tumor Descriptor",
+    "Specimen Type",
+    "Preservation Method",
+]
 
 
-def build_files_filter(project_id: str,
-                       *,
-                       data_type: str,
-                       workflow_type: str | None = None,
-                       access: str = "open",
-                       extra: list[dict] | None = None) -> dict:
+def build_files_filter(
+    project_id: str,
+    *,
+    data_type: str,
+    workflow_type: str | None = None,
+    access: str = "open",
+    extra: list[dict] | None = None,
+) -> dict:
     """Build the GDC files-endpoint filter for a project query."""
     clauses = [
-        {"op": "in", "content": {
-            "field": "cases.project.project_id",
-            "value": [project_id]}},
-        {"op": "in", "content": {
-            "field": "data_type", "value": [data_type]}},
-        {"op": "in", "content": {
-            "field": "access", "value": [access]}},
+        {
+            "op": "in",
+            "content": {
+                "field": "cases.project.project_id",
+                "value": [project_id],
+            },
+        },
+        {
+            "op": "in",
+            "content": {"field": "data_type", "value": [data_type]},
+        },
+        {
+            "op": "in",
+            "content": {"field": "access", "value": [access]},
+        },
     ]
     if workflow_type is not None:
-        clauses.append({"op": "in", "content": {
-            "field": "analysis.workflow_type",
-            "value": [workflow_type]}})
+        clauses.append(
+            {
+                "op": "in",
+                "content": {
+                    "field": "analysis.workflow_type",
+                    "value": [workflow_type],
+                },
+            }
+        )
     clauses.extend(extra or [])
     return {"op": "and", "content": clauses}
 
 
-def query_gdc_files(project_id: str,
-                    *,
-                    data_type: str = "Gene Expression Quantification",
-                    workflow_type: str | None = "STAR - Counts",
-                    access: str = "open",
-                    fields: tuple[str, ...] = _DEFAULT_FIELDS,
-                    page_size: int = 1000,
-                    session: requests.Session | None = None,
-                    timeout: int = 60) -> list[dict]:
+def query_gdc_files(
+    project_id: str,
+    *,
+    data_type: str = "Gene Expression Quantification",
+    workflow_type: str | None = "STAR - Counts",
+    access: str = "open",
+    fields: tuple[str, ...] = _DEFAULT_FIELDS,
+    page_size: int = 1000,
+    session: requests.Session | None = None,
+    timeout: int = 60,
+) -> list[dict]:
     """Return all file hits for a project, sorted by file_id.
 
     Paginates through the GDC files endpoint; the sort makes the
@@ -86,10 +113,12 @@ def query_gdc_files(project_id: str,
     historical checked-in manifests).
     """
     session = session or requests.Session()
-    filters = build_files_filter(project_id,
-                                 data_type=data_type,
-                                 workflow_type=workflow_type,
-                                 access=access)
+    filters = build_files_filter(
+        project_id,
+        data_type=data_type,
+        workflow_type=workflow_type,
+        access=access,
+    )
     hits: list[dict] = []
     start = 0
     while True:
@@ -99,8 +128,9 @@ def query_gdc_files(project_id: str,
             "size": page_size,
             "from": start,
         }
-        response = session.post(f"{GDC_API}/files", json=payload,
-                                timeout=timeout)
+        response = session.post(
+            f"{GDC_API}/files", json=payload, timeout=timeout
+        )
         response.raise_for_status()
         data = response.json()["data"]
         hits.extend(data["hits"])
@@ -116,13 +146,22 @@ def query_gdc_files(project_id: str,
 def write_gdc_manifest(hits: list[dict], path: str | Path) -> Path:
     """Write a gdc-client compatible manifest (id filename md5 size state)."""
     path = Path(path)
-    rows = [(h["file_id"], h["file_name"], h["md5sum"],
-             str(h["file_size"]), h.get("state", "released"))
-            for h in hits]
+    rows = [
+        (
+            h["file_id"],
+            h["file_name"],
+            h["md5sum"],
+            str(h["file_size"]),
+            h.get("state", "released"),
+        )
+        for h in hits
+    ]
     lines = ["\t".join(("id", "filename", "md5", "size", "state"))]
     lines += ["\t".join(r) for r in rows]
     path.write_text("\n".join(lines) + "\n")
-    logger.info("Wrote GDC manifest (%d files) to %s", len(rows), path)
+    logger.info(
+        "Wrote GDC manifest (%d files) to %s", len(rows), path
+    )
     return path
 
 
@@ -143,8 +182,12 @@ def _sample_sheet_row(hit: dict) -> list[str]:
         hit["file_name"],
         hit.get("data_category", ""),
         hit.get("data_type", ""),
-        _joined([c.get("project", {}).get("project_id", "")
-                 for c in cases]),
+        _joined(
+            [
+                c.get("project", {}).get("project_id", "")
+                for c in cases
+            ]
+        ),
         _joined([c.get("submitter_id", "") for c in cases]),
         _joined([s.get("submitter_id", "") for s in samples]),
         sample_field("tissue_type"),
@@ -154,10 +197,12 @@ def _sample_sheet_row(hit: dict) -> list[str]:
     ]
 
 
-def write_gdc_sample_sheet(hits: list[dict],
-                           path: str | Path | None = None,
-                           *,
-                           directory: str | Path | None = None) -> Path:
+def write_gdc_sample_sheet(
+    hits: list[dict],
+    path: str | Path | None = None,
+    *,
+    directory: str | Path | None = None,
+) -> Path:
     """Write a GDC sample sheet (the 11 columns the loaders parse).
 
     Either give an explicit ``path`` or a ``directory``, in which
@@ -168,14 +213,19 @@ def write_gdc_sample_sheet(hits: list[dict],
     if path is None:
         if directory is None:
             raise ValueError("Give either path or directory")
-        path = (Path(directory)
-                / f"gdc_sample_sheet.{date.today().isoformat()}.tsv")
+        path = (
+            Path(directory)
+            / f"gdc_sample_sheet.{date.today().isoformat()}.tsv"
+        )
     path = Path(path)
-    frame = pd.DataFrame([_sample_sheet_row(h) for h in hits],
-                         columns=_SAMPLE_SHEET_COLUMNS)
+    frame = pd.DataFrame(
+        [_sample_sheet_row(h) for h in hits],
+        columns=_SAMPLE_SHEET_COLUMNS,
+    )
     frame.to_csv(path, sep="\t", index=False)
-    logger.info("Wrote GDC sample sheet (%d rows) to %s",
-                len(frame), path)
+    logger.info(
+        "Wrote GDC sample sheet (%d rows) to %s", len(frame), path
+    )
     return path
 
 
@@ -187,8 +237,14 @@ def _md5(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _download_one(hit: dict, dest: Path, *, session: requests.Session,
-                  verify_md5: bool, timeout: int) -> Path:
+def _download_one(
+    hit: dict,
+    dest: Path,
+    *,
+    session: requests.Session,
+    verify_md5: bool,
+    timeout: int,
+) -> Path:
     """Fetch one GDC file into <dest>/<file_id>/<file_name>."""
     target_dir = dest / hit["file_id"]
     target = target_dir / hit["file_name"]
@@ -196,28 +252,35 @@ def _download_one(hit: dict, dest: Path, *, session: requests.Session,
         return target
     target_dir.mkdir(parents=True, exist_ok=True)
     part = target.with_suffix(target.suffix + ".part")
-    with session.get(f"{GDC_API}/data/{hit['file_id']}",
-                     stream=True, timeout=timeout) as response:
+    with session.get(
+        f"{GDC_API}/data/{hit['file_id']}",
+        stream=True,
+        timeout=timeout,
+    ) as response:
         response.raise_for_status()
         with open(part, "wb") as fh:
             for chunk in response.iter_content(chunk_size=1 << 20):
                 fh.write(chunk)
     if verify_md5 and _md5(part) != hit["md5sum"]:
         part.unlink()
-        raise OSError(f"md5 mismatch for {hit['file_id']} "
-                      f"({hit['file_name']})")
+        raise OSError(
+            f"md5 mismatch for {hit['file_id']} "
+            f"({hit['file_name']})"
+        )
     part.replace(target)
     return target
 
 
-def download_gdc_files(hits: list[dict],
-                       dest: str | Path,
-                       *,
-                       use_gdc_client: bool | None = None,
-                       manifest_path: str | Path | None = None,
-                       workers: int = 6,
-                       verify_md5: bool = True,
-                       timeout: int = 600) -> list[Path]:
+def download_gdc_files(
+    hits: list[dict],
+    dest: str | Path,
+    *,
+    use_gdc_client: bool | None = None,
+    manifest_path: str | Path | None = None,
+    workers: int = 6,
+    verify_md5: bool = True,
+    timeout: int = 600,
+) -> list[Path]:
     """Download GDC files into ``<dest>/<file_id>/<file_name>``.
 
     That layout is required: `import_tcga_gene_expression` recovers
@@ -236,12 +299,20 @@ def download_gdc_files(hits: list[dict],
     dest = Path(dest)
     dest.mkdir(parents=True, exist_ok=True)
 
-    pending = [h for h in hits
-               if not ((dest / h["file_id"] / h["file_name"]).exists()
-                       and (dest / h["file_id"] / h["file_name"])
-                       .stat().st_size == h["file_size"])]
-    logger.info("GDC download: %d of %d files to fetch",
-                len(pending), len(hits))
+    pending = [
+        h
+        for h in hits
+        if not (
+            (dest / h["file_id"] / h["file_name"]).exists()
+            and (dest / h["file_id"] / h["file_name"]).stat().st_size
+            == h["file_size"]
+        )
+    ]
+    logger.info(
+        "GDC download: %d of %d files to fetch",
+        len(pending),
+        len(hits),
+    )
     if not pending:
         return [dest / h["file_id"] / h["file_name"] for h in hits]
 
@@ -253,16 +324,30 @@ def download_gdc_files(hits: list[dict],
             manifest_path = dest / ".gdc_manifest.pending.tsv"
             write_gdc_manifest(pending, manifest_path)
         subprocess.run(
-            ["gdc-client", "download",
-             "-m", str(manifest_path), "-d", str(dest)],
-            check=True)
+            [
+                "gdc-client",
+                "download",
+                "-m",
+                str(manifest_path),
+                "-d",
+                str(dest),
+            ],
+            check=True,
+        )
     else:
         session = requests.Session()
         with ThreadPoolExecutor(max_workers=workers) as pool:
             futures = [
-                pool.submit(_download_one, h, dest, session=session,
-                            verify_md5=verify_md5, timeout=timeout)
-                for h in pending]
+                pool.submit(
+                    _download_one,
+                    h,
+                    dest,
+                    session=session,
+                    verify_md5=verify_md5,
+                    timeout=timeout,
+                )
+                for h in pending
+            ]
             for future in futures:
                 future.result()
 
