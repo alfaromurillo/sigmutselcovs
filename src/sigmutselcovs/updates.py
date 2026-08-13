@@ -12,12 +12,11 @@ as such.
 
 import json
 import logging
-from datetime import date
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
 import requests
-
 from gdcfetch import get_data_size, search_files
 
 from .covariates_locations import location_covariates_data
@@ -142,9 +141,9 @@ def check_updates(
                 f"Unknown check method {method!r} "
                 f"for source {name}"
             )
-        except (
-            Exception
-        ) as exc:  # noqa: BLE001 - network must not abort
+        # Any check failure (network, parsing, ...) is reported as
+        # "unreachable", not raised -- see module docstring.
+        except Exception as exc:  # noqa: BLE001
             rows.append(
                 {
                     "source": name,
@@ -175,7 +174,7 @@ def check_updates(
             entry["known"] = current
 
     if update_file:
-        raw["checked"] = date.today().isoformat()
+        raw["checked"] = datetime.now(tz=UTC).date().isoformat()
         sources_path.write_text(json.dumps(raw, indent=2) + "\n")
         logger.info("Updated known states in %s", sources_path)
 

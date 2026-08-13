@@ -6,11 +6,15 @@ Full data-source citations: `SOURCES.md`.
 ## Setup
 
 ```bash
-pip install -e ".[dev]"
-pip install -e ../sigmutsel   # until sigmutsel is on PyPI
-pip install -e ../gdcfetch    # until gdcfetch is on PyPI
+pip install -e ".[dev]"       # gdcfetch resolves from PyPI
 pytest                        # network-marked tests are skipped
 ```
+
+No sigmutsel install needed: this package has no dependency on it
+(GENCODE GTFs are fetched/cached directly, see
+`download.ensure_gencode_gtf`). Only install sigmutsel separately
+if you're also working on the PCA/Riemannian modeling path (see
+"Loader-specific gotchas" below).
 
 ## The generalized workflow
 
@@ -171,10 +175,13 @@ etc. Touches more of the codebase; budget a full pass through it.
   BigWig file (body + promoter each) — do not add separate
   per-sample handling for it.
 - PCA over a built covariate matrix: `from sigmutsel.utils import
-  run_pca_on_covariates` (this package depends on sigmutsel, not
-  the reverse, so the canonical implementation lives there -- an
-  unused duplicate in `covariates_utilities.py` was removed
-  2026-08-13).
+  run_pca_on_covariates` (sigmutsel needs to be installed
+  separately for this -- as of 2026-08-13 this package no longer
+  depends on sigmutsel for anything; an unused duplicate of this
+  function in `covariates_utilities.py` was also removed the same
+  day. Whether it belongs here instead, now that sigmutselcovs
+  wants to publish PCA-reduced matrices to Zenodo too, is an open
+  question -- see covs_TODO.md).
 - Chromatin loading requires `pyBigWig` (Linux/Mac only). Never
   open bigWigs from URLs — download first (`download.py` does).
 - GTF loading handles both gzip and plain text automatically.

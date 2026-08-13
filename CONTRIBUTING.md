@@ -16,10 +16,8 @@ python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 ```
 
-3. Install sigmutsel (not yet on PyPI) and this package in
-   development mode:
+3. Install this package in development mode:
 ```bash
-pip install "sigmutsel @ git+https://github.com/alfaromurillo/sigmutsel.git"
 pip install -e ".[dev]"
 ```
 

@@ -1,19 +1,19 @@
 """Chromatin covariate utilities."""
 
 import logging
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Mapping, Sequence
-
-import pyBigWig
 
 import pandas as pd
+import pyBigWig
 
-from .covariates_utilities import fetch_bigwig_stat
-from .covariates_utilities import load_gene_bodies_from_gtf
-from .covariates_utilities import normalize_chromosome_name
-from .covariates_utilities import sanitize_feature_label
-
+from .covariates_utilities import (
+    fetch_bigwig_stat,
+    load_gene_bodies_from_gtf,
+    normalize_chromosome_name,
+    sanitize_feature_label,
+)
 
 logger = logging.getLogger(__name__)
 

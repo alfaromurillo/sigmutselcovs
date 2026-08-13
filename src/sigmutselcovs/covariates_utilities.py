@@ -6,13 +6,12 @@ gene bodies and promoter regions. These utilities are used to build
 covariate matrices for mutation rate modeling.
 """
 
-import numpy as np
-import pandas as pd
-
+import logging
 from collections.abc import Sequence
 from pathlib import Path
 
-import logging
+import numpy as np
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -266,13 +265,13 @@ def load_gene_bodies_from_gtf(
                 continue
             (
                 chrom,
-                src,
+                _src,
                 feat,
                 start,
                 end,
-                score,
+                _score,
                 strand,
-                frame,
+                _frame,
                 attrs,
             ) = line.rstrip("\n").split("\t")
             if feat != "gene":
@@ -314,16 +313,12 @@ def load_gene_bodies_from_gtf(
         # Return an empty, correctly-shaped DataFrame with index set
         return df.set_index("ensembl_gene_id")
 
-    # Ensure 'chr' style to match typical RT bins if requested
-    if add_chr_prefix_if_needed:
-        # Add 'chr' only if the current values do not already start with it
-        if (
-            not df["Chromosome"]
-            .astype(str)
-            .str.startswith("chr")
-            .all()
-        ):
-            df["Chromosome"] = "chr" + df["Chromosome"].astype(str)
+    # Ensure 'chr' style to match typical RT bins if requested; add
+    # 'chr' only if the current values do not already start with it
+    if add_chr_prefix_if_needed and not (
+        df["Chromosome"].astype(str).str.startswith("chr").all()
+    ):
+        df["Chromosome"] = "chr" + df["Chromosome"].astype(str)
 
     if autosomes_only:
         autos = {f"chr{i}" for i in range(1, 23)}

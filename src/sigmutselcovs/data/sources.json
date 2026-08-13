@@ -52,6 +52,22 @@
       "check": {"method": "http_head",
                 "compare": ["content-length"]},
       "known": {}
+    },
+    "gencode_v19": {
+      "description": "GENCODE v19 (hg19) gene annotation GTF",
+      "version": "v19",
+      "url": "https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_19/gencode.v19.annotation.gtf.gz",
+      "check": {"method": "http_head",
+                "compare": ["content-length", "etag"]},
+      "known": {}
+    },
+    "gencode_v38": {
+      "description": "GENCODE v38 (hg38) gene annotation GTF",
+      "version": "v38",
+      "url": "https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_38/gencode.v38.annotation.gtf.gz",
+      "check": {"method": "http_head",
+                "compare": ["content-length", "etag"]},
+      "known": {}
     }
   }
 }

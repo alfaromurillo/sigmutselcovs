@@ -15,3 +15,15 @@ location_gtex_tcga_mapping = (
     / "gene_expression"
     / "gtex_tcga_mapping.json"
 )
+
+location_gencode19_gtf = (
+    location_covariates_data
+    / "gencode"
+    / "gencode.v19.annotation.gtf.gz"
+)
+
+location_gencode38_gtf = (
+    location_covariates_data
+    / "gencode"
+    / "gencode.v38.annotation.gtf.gz"
+)

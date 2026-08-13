@@ -41,7 +41,7 @@ _LAZY = {
     "print_update_report": "updates",
 }
 
-__all__ = [
+__all__ = [  # noqa: PLE0604 - _LAZY keys are all strings
     "check_all",
     "check_collinearity",
     "check_missingness",

@@ -5,7 +5,7 @@ import hashlib
 import pandas as pd
 import pytest
 
-import sigmutselcovs.fetch as fetch
+from sigmutselcovs import fetch
 from sigmutselcovs.fetch import (
     CovariateArtifactsUnavailable,
     fetch_covariate_artifacts,

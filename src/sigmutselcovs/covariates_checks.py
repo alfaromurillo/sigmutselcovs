@@ -89,15 +89,15 @@ def check_variance(
 
         if n == 0:
             records.append(
-                dict(
-                    column=col,
-                    variance=float("nan"),
-                    cv=float("nan"),
-                    pct_most_common=float("nan"),
-                    is_constant=False,
-                    is_near_constant=False,
-                    drop=False,
-                )
+                {
+                    "column": col,
+                    "variance": float("nan"),
+                    "cv": float("nan"),
+                    "pct_most_common": float("nan"),
+                    "is_constant": False,
+                    "is_near_constant": False,
+                    "drop": False,
+                }
             )
             continue
 
@@ -116,15 +116,15 @@ def check_variance(
         )
 
         records.append(
-            dict(
-                column=col,
-                variance=var,
-                cv=cv,
-                pct_most_common=pct_most_common,
-                is_constant=is_constant,
-                is_near_constant=is_near_constant,
-                drop=is_constant or is_near_constant,
-            )
+            {
+                "column": col,
+                "variance": var,
+                "cv": cv,
+                "pct_most_common": pct_most_common,
+                "is_constant": is_constant,
+                "is_near_constant": is_near_constant,
+                "drop": is_constant or is_near_constant,
+            }
         )
 
     return pd.DataFrame(records).set_index("column")
@@ -236,14 +236,14 @@ def check_skewness(
 
         if len(vals) == 0:
             records.append(
-                dict(
-                    column=col,
-                    skewness=float("nan"),
-                    max_median_ratio=float("nan"),
-                    all_nonneg=False,
-                    apply_log=False,
-                    pseudo_count=0.0,
-                )
+                {
+                    "column": col,
+                    "skewness": float("nan"),
+                    "max_median_ratio": float("nan"),
+                    "all_nonneg": False,
+                    "apply_log": False,
+                    "pseudo_count": 0.0,
+                }
             )
             continue
 
@@ -270,14 +270,14 @@ def check_skewness(
         )
 
         records.append(
-            dict(
-                column=col,
-                skewness=s,
-                max_median_ratio=mmr,
-                all_nonneg=all_nonneg,
-                apply_log=apply,
-                pseudo_count=pseudo_count,
-            )
+            {
+                "column": col,
+                "skewness": s,
+                "max_median_ratio": mmr,
+                "all_nonneg": all_nonneg,
+                "apply_log": apply,
+                "pseudo_count": pseudo_count,
+            }
         )
 
     return pd.DataFrame(records).set_index("column")
@@ -412,12 +412,12 @@ def check_missingness(
         n_missing = int(df[col].isna().sum())
         pct = n_missing / n_rows if n_rows > 0 else float("nan")
         records.append(
-            dict(
-                column=col,
-                n_missing=n_missing,
-                pct_missing=pct,
-                flag=pct > missing_threshold,
-            )
+            {
+                "column": col,
+                "n_missing": n_missing,
+                "pct_missing": pct,
+                "flag": pct > missing_threshold,
+            }
         )
 
     return pd.DataFrame(records).set_index("column")
@@ -477,7 +477,9 @@ def check_collinearity(
         for b in cols_list[i + 1 :]:
             r = float(corr.loc[a, b])
             if abs(r) > corr_threshold:
-                records.append(dict(col_a=a, col_b=b, correlation=r))
+                records.append(
+                    {"col_a": a, "col_b": b, "correlation": r}
+                )
 
     return (
         pd.DataFrame(records)

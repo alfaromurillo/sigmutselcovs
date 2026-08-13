@@ -241,7 +241,7 @@ def test_download_roadmap_tolerates_missing_marks(tmp_path):
         required_marks=("H3K27ac",),
         url_template=template,
     )
-    with pytest.raises(Exception):
+    with pytest.raises(OSError, match="HTTP 404"):
         dl.download_roadmap_tracks(required, paths, session=session)
 
 
@@ -408,6 +408,96 @@ def test_ensure_gtex_gct_downloads_to_cache(tmp_path, monkeypatch):
     again = dl.ensure_gtex_gct(session=session)
     assert again == got
     assert len(session.fetched) == 1
+
+
+def test_resolve_gencode_gtf_order(tmp_path, monkeypatch):
+    import sigmutselcovs.download as dl
+
+    packaged = tmp_path / "pkg" / "gencode.v19.annotation.gtf.gz"
+    monkeypatch.setattr(
+        "sigmutselcovs.covariates_locations.location_gencode19_gtf",
+        packaged,
+    )
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
+    monkeypatch.delenv("SIGMUTSEL_DATA_DIR", raising=False)
+    monkeypatch.setattr(dl, "_sigmutsel_data_dir", lambda: None)
+
+    # cache fallback when neither packaged nor sigmutsel has it
+    resolved = dl.resolve_gencode_gtf("hg19")
+    assert resolved == (
+        tmp_path
+        / "cache"
+        / "sigmutselcovs"
+        / "gencode"
+        / "gencode.v19.annotation.gtf.gz"
+    )
+    # sigmutsel's copy wins over the cache when sigmutsel has it
+    # (avoids downloading the same ~1 GB file twice)
+    sigmutsel_dir = tmp_path / "sigmutsel_data"
+    sigmutsel_dir.mkdir()
+    (sigmutsel_dir / "gencode.v19.annotation.gtf.gz").write_bytes(
+        b"gtf"
+    )
+    monkeypatch.setattr(
+        dl, "_sigmutsel_data_dir", lambda: sigmutsel_dir
+    )
+    assert dl.resolve_gencode_gtf("hg19") == (
+        sigmutsel_dir / "gencode.v19.annotation.gtf.gz"
+    )
+    # packaged file beats both
+    packaged.parent.mkdir(parents=True)
+    packaged.write_bytes(b"gtf")
+    assert dl.resolve_gencode_gtf("hg19") == packaged
+    # explicit beats everything
+    assert dl.resolve_gencode_gtf(
+        "hg19", "/somewhere/else.gtf.gz"
+    ) == Path("/somewhere/else.gtf.gz")
+    with pytest.raises(KeyError):
+        dl.resolve_gencode_gtf("bogus")
+
+
+def test_ensure_gencode_gtf_downloads_to_cache(tmp_path, monkeypatch):
+    import sigmutselcovs.download as dl
+
+    monkeypatch.setattr(
+        "sigmutselcovs.covariates_locations.location_gencode19_gtf",
+        tmp_path / "pkg" / "gencode.v19.annotation.gtf.gz",
+    )
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
+    monkeypatch.setattr(dl, "_sigmutsel_data_dir", lambda: None)
+    monkeypatch.setattr(
+        dl,
+        "_gencode_source",
+        lambda assembly: {
+            "url": "http://gencode/f.gtf.gz",
+            "version": "v19",
+        },
+    )
+    session = _URLSession({"http://gencode/f.gtf.gz": b"gtf content"})
+    got = dl.ensure_gencode_gtf("hg19", session=session)
+    assert got.read_bytes() == b"gtf content"
+    assert str(tmp_path / "cache") in str(got)  # never site-packages
+    # second call resolves without network
+    again = dl.ensure_gencode_gtf("hg19", session=session)
+    assert again == got
+    assert len(session.fetched) == 1
+
+
+def test_sigmutsel_data_dir_respects_env_override(
+    tmp_path, monkeypatch
+):
+    import sigmutselcovs.download as dl
+
+    monkeypatch.setenv("SIGMUTSEL_DATA_DIR", str(tmp_path / "custom"))
+    assert dl._sigmutsel_data_dir() == tmp_path / "custom"
+
+
+def test_sigmutsel_data_dir_none_when_not_installed(monkeypatch):
+    import sigmutselcovs.download as dl
+
+    monkeypatch.delenv("SIGMUTSEL_DATA_DIR", raising=False)
+    monkeypatch.setattr("importlib.util.find_spec", lambda name: None)
+    assert dl._sigmutsel_data_dir() is None
 
 
 def test_short_download_keeps_part_for_resume(tmp_path):

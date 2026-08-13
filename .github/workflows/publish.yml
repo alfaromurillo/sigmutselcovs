@@ -1,11 +1,10 @@
 name: Publish to PyPI
 
-# Dormant until sigmutsel is published to PyPI (this package
-# depends on it, and PyPI does not allow VCS dependencies in
-# uploaded distributions). Once sigmutsel is on PyPI, drop the
-# git+https install line from tests.yml, pin sigmutsel's floor
-# in pyproject.toml, and this workflow is ready to use as-is:
-# triggered by publishing a GitHub release.
+# No longer blocked on sigmutsel reaching PyPI first: this package
+# dropped its sigmutsel dependency 2026-08-13 (GENCODE GTFs are now
+# fetched/cached directly, see download.ensure_gencode_gtf, instead
+# of read from sigmutsel's bundled copy). Triggered by publishing a
+# GitHub release.
 
 on:
   release:

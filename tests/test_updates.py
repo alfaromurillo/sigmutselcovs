@@ -2,8 +2,7 @@
 
 import json
 
-
-import sigmutselcovs.updates as updates
+from sigmutselcovs import updates
 from sigmutselcovs.updates import check_updates, location_sources
 
 

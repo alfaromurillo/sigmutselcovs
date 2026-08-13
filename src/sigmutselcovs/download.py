@@ -13,12 +13,10 @@ import logging
 import os
 import shutil
 import tarfile
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import requests
-
-from dataclasses import dataclass, field
-
 from gdcfetch import (
     download_files,
     search_files,
@@ -112,8 +110,7 @@ def download_file(
             )
         response.raise_for_status()
         with open(part, mode) as fh:
-            for chunk in response.iter_content(chunk_size=_CHUNK):
-                fh.write(chunk)
+            fh.writelines(response.iter_content(chunk_size=_CHUNK))
 
     if (
         expected_size is not None
@@ -214,6 +211,120 @@ def ensure_gtex_gct(
     return resolved
 
 
+_GENCODE_SOURCE_KEYS = {"hg19": "gencode_v19", "hg38": "gencode_v38"}
+
+
+def _gencode_source(assembly: str) -> dict:
+    """GENCODE GTF url/version from the packaged sources.json."""
+    import json
+
+    from .covariates_locations import location_covariates_data
+
+    if assembly not in _GENCODE_SOURCE_KEYS:
+        raise ValueError(
+            f"Unknown assembly {assembly!r}; expected one of "
+            f"{sorted(_GENCODE_SOURCE_KEYS)}"
+        )
+    raw = json.loads(
+        (location_covariates_data / "sources.json").read_text()
+    )
+    return raw["sources"][_GENCODE_SOURCE_KEYS[assembly]]
+
+
+def _gencode_cache_dir() -> Path:
+    base = os.environ.get(
+        "XDG_CACHE_HOME", str(Path.home() / ".cache")
+    )
+    return Path(base) / "sigmutselcovs" / "gencode"
+
+
+def _sigmutsel_data_dir() -> Path | None:
+    """Best-effort locate sigmutsel's data dir, without importing it.
+
+    sigmutsel's ``__init__.py`` eagerly imports its modeling stack
+    (pymc, numpyro, ...), so a real ``import sigmutsel`` here would
+    be expensive just to check a path. ``find_spec`` locates the
+    installed package on disk without executing any of its code.
+    Returns None when sigmutsel isn't installed.
+    """
+    import importlib.util
+
+    override = os.environ.get("SIGMUTSEL_DATA_DIR")
+    if override:
+        return Path(override)
+    spec = importlib.util.find_spec("sigmutsel")
+    if spec is None or spec.origin is None:
+        return None
+    return Path(spec.origin).parent / "data"
+
+
+def resolve_gencode_gtf(
+    assembly: str, explicit: str | Path | None = None
+) -> Path:
+    """Resolve a GENCODE GTF path without downloading.
+
+    Order: explicit path, then this package's own data directory,
+    then -- if sigmutsel happens to be installed and already has it
+    -- sigmutsel's data directory (same filename convention, so a
+    user with both packages installed never downloads the same ~1 GB
+    GTF twice), then the user cache
+    (``$XDG_CACHE_HOME/sigmutselcovs/gencode/``). When none exists,
+    returns the cache path the GTF *would* have, so callers get a
+    meaningful FileNotFoundError (or can hand it to
+    `ensure_gencode_gtf`).
+    """
+    from .covariates_locations import (
+        location_gencode19_gtf,
+        location_gencode38_gtf,
+    )
+
+    packaged = {
+        "hg19": location_gencode19_gtf,
+        "hg38": location_gencode38_gtf,
+    }[assembly]
+    if explicit is not None:
+        return Path(explicit)
+    if packaged.exists():
+        return packaged
+    sigmutsel_dir = _sigmutsel_data_dir()
+    if sigmutsel_dir is not None:
+        candidate = sigmutsel_dir / packaged.name
+        if candidate.exists():
+            return candidate
+    return _gencode_cache_dir() / packaged.name
+
+
+def ensure_gencode_gtf(
+    assembly: str,
+    dest: str | Path | None = None,
+    *,
+    force: bool = False,
+    session: requests.Session | None = None,
+) -> Path:
+    """Return a usable GENCODE GTF path, downloading it if needed.
+
+    ``assembly`` is 'hg19' (GENCODE v19) or 'hg38' (GENCODE v38) --
+    the same two builds `build_covariate_matrix` already dispatches
+    on per registry source. Downloads go to the user cache (or
+    ``dest`` when given), never into site-packages. Cached gzipped,
+    same as GTF loading elsewhere in this package already handles
+    gzip transparently.
+    """
+    resolved = resolve_gencode_gtf(assembly, dest)
+    if resolved.exists() and not force:
+        return resolved
+    source = _gencode_source(assembly)
+    logger.info(
+        "Fetching GENCODE %s GTF to %s",
+        source.get("version", "?"),
+        resolved,
+    )
+    download_file(
+        source["url"], resolved, force=force, session=session
+    )
+    return resolved
+
+
 def download_gdc_gene_expression(
     spec: GexpSpec,
     paths: ProjectPaths,
@@ -239,12 +350,10 @@ def download_gdc_gene_expression(
         raise ValueError(
             "GDC returned no files for " f"{spec.tcga_project_id}"
         )
-    from datetime import date
+    from datetime import UTC, datetime
 
-    manifest = (
-        paths.gexp_tcga_dir
-        / f"gdc_manifest.{date.today().isoformat()}.txt"
-    )
+    today = datetime.now(tz=UTC).date().isoformat()
+    manifest = paths.gexp_tcga_dir / f"gdc_manifest.{today}.txt"
     write_manifest(hits, manifest)
     write_sample_sheet(hits, directory=paths.gexp_tcga_dir)
     download_files(hits, paths.gexp_star_dir, session=session)
@@ -494,9 +603,9 @@ def download_covariates(
                     source_spec, paths, force=force, session=session
                 )
                 report.add(source, "ok", n_files=len(files))
-        except (
-            Exception
-        ) as exc:  # noqa: BLE001 - keep other sources going
+        # One source's failure shouldn't abort the others; recorded
+        # in the report instead of raised.
+        except Exception as exc:  # noqa: BLE001
             logger.error("Download failed for %s: %s", source, exc)
             report.add(source, "failed", error=str(exc))
 

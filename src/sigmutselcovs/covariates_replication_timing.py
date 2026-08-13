@@ -7,27 +7,24 @@ sites. These features are used as covariates in mutation rate
 modeling.
 """
 
+import functools
+import logging
 import os
+import warnings
+from collections.abc import Sequence
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-from collections.abc import Sequence
-
-from .covariates_utilities import read_bed_file
-
-from .covariates_utilities import annotate_indicator_in_region
-from .covariates_utilities import annotate_with_binned_features
-from .covariates_utilities import fetch_bigwig_stat
-
-from .covariates_utilities import load_gene_bodies_from_gtf
-from .covariates_utilities import normalize_chromosome_name
-
-import functools
-import logging
-import warnings
-
+from .covariates_utilities import (
+    annotate_indicator_in_region,
+    annotate_with_binned_features,
+    fetch_bigwig_stat,
+    load_gene_bodies_from_gtf,
+    normalize_chromosome_name,
+    read_bed_file,
+)
 
 logger = logging.getLogger(__name__)
 

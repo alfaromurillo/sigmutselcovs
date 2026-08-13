@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-import sigmutselcovs.builder as builder
+from sigmutselcovs import builder
 from sigmutselcovs.builder import (
     CovariateMatrices,
     build_covariate_matrix,

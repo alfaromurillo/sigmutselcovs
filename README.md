@@ -33,13 +33,12 @@ and downloads the source data needed to build them.
 ```bash
 git clone https://github.com/alfaromurillo/sigmutselcovs.git
 cd sigmutselcovs
-pip install "sigmutsel @ git+https://github.com/alfaromurillo/sigmutsel.git"
 pip install -e ".[dev]"
 ```
 
-(`sigmutsel` is not yet on PyPI; install it from GitHub until it
-is. `gdcfetch` is on PyPI, so it installs normally as part of
-`pip install -e ".[dev]"` above.)
+No separate sigmutsel install needed — this package has no
+dependency on it. `gdcfetch` is on PyPI, so it installs normally as
+part of the command above.
 
 ## Quick start
 

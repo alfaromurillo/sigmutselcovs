@@ -26,7 +26,9 @@ def _healthy_matrix() -> pd.DataFrame:
     index = _index()
     # latent "activity" drives everything with the right signs
     activity = RNG.normal(size=N)
-    noise = lambda: RNG.normal(scale=0.4, size=N)  # noqa: E731
+
+    def noise():
+        return RNG.normal(scale=0.4, size=N)
 
     def expr_like(shift=0.0):
         return np.exp(activity + shift + noise())

@@ -107,11 +107,12 @@ reloads them and re-concatenates.
 BRCA's chromatin (Roadmap) and replication-timing (MCF-7) sources
 are hg19; its ATAC-seq and gene-expression sources are hg38. The
 builder picks the matching GENCODE GTF per source automatically
-(from `sigmutsel.locations` by default) — this is why the RT and
-Roadmap blocks of a BRCA matrix have a different (and typically
-higher) NaN rate than the ATAC/expression blocks: genes only in the
-hg19 GENCODE annotation but not hg38 (or vice versa) get NaN in the
-other blocks.
+(fetched and cached on first use, or reused from sigmutsel's copy
+if that's installed -- see `download.ensure_gencode_gtf`) -- this
+is why the RT and Roadmap blocks of a BRCA matrix have a different
+(and typically higher) NaN rate than the ATAC/expression blocks:
+genes only in the hg19 GENCODE annotation but not hg38 (or vice
+versa) get NaN in the other blocks.
 
 ## 4. Validate
 

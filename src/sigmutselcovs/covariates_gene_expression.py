@@ -14,7 +14,6 @@ import pandas as pd
 from .covariates_locations import location_gtex_tcga_mapping
 from .covariates_utilities import annotate_with_gene_features
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -102,7 +101,7 @@ def import_gtex(
             with open(mapping_path, "r") as fh:
                 mapping = json.load(fh)
             mapping = {str(k).upper(): v for k, v in mapping.items()}
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - translated below
             raise ValueError(
                 "Failed to load mapping "
                 f"from {mapping_path}: {exc}"

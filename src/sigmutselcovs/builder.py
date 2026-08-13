@@ -57,15 +57,15 @@ class CovariateMatrices(NamedTuple):
 
 
 def _default_gencode_gtfs() -> dict[str, Path]:
-    """GENCODE GTFs from sigmutsel (imported lazily: pulls in pymc)."""
-    from sigmutsel.locations import (
-        location_gencode19_annotation,
-        location_gencode38_annotation,
-    )
+    """GENCODE GTFs, downloading and caching them if not already
+    present (reusing sigmutsel's copy first if that happens to be
+    installed and already has them -- see `download.resolve_gencode_gtf`).
+    """
+    from .download import ensure_gencode_gtf
 
     return {
-        "hg19": location_gencode19_annotation,
-        "hg38": location_gencode38_annotation,
+        "hg19": ensure_gencode_gtf("hg19"),
+        "hg38": ensure_gencode_gtf("hg38"),
     }
 
 
