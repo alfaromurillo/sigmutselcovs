@@ -96,7 +96,9 @@ normalized bigWig release, one tarball per cancer type
 (`gdc_uuid` in the registry — e.g. COAD:
 `26b96cd9-dce0-4340-b15f-9e0afbb6312c`, BRCA:
 `f1c06cd3-cf35-41cc-bc75-6db273c94273`); 23 of the 33 TCGA cancer
-types are covered (see `tissues_TODO.md`).
+types are covered — see
+[gdcfetch's `supplementary` module](https://github.com/alfaromurillo/gdcfetch)
+for the full verified list.
 
 **Cite**:
 > Corces, M. R., Granja, J. M., Shams, S., Louie, B. H., Seoane,
