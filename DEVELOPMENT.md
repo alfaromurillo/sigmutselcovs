@@ -170,9 +170,11 @@ etc. Touches more of the codebase; budget a full pass through it.
   `average_by_assay=False` (the default) produces one column per
   BigWig file (body + promoter each) — do not add separate
   per-sample handling for it.
-- `run_pca_on_covariates` currently exists in BOTH
-  `sigmutsel.utils` and `covariates_utilities.py` — a known
-  duplication not yet resolved; until then change both or neither.
+- PCA over a built covariate matrix: `from sigmutsel.utils import
+  run_pca_on_covariates` (this package depends on sigmutsel, not
+  the reverse, so the canonical implementation lives there -- an
+  unused duplicate in `covariates_utilities.py` was removed
+  2026-08-13).
 - Chromatin loading requires `pyBigWig` (Linux/Mac only). Never
   open bigWigs from URLs — download first (`download.py` does).
 - GTF loading handles both gzip and plain text automatically.
