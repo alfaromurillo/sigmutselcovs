@@ -1,7 +1,6 @@
 # Developing sigmutselcovs
 
 Internals reference for anyone modifying this codebase.
-Task tracking for the generalization effort: `covs_TODO.md`.
 Full data-source citations: `SOURCES.md`.
 
 ## Setup
@@ -123,8 +122,7 @@ the ATAC tarballs) if you're touching anything GDC-related.
   per-sample handling for it.
 - `run_pca_on_covariates` currently exists in BOTH
   `sigmutsel.utils` and `covariates_utilities.py` — a known
-  duplication to be resolved (covs_TODO.md Phase 8); until then
-  change both or neither.
+  duplication not yet resolved; until then change both or neither.
 - Chromatin loading requires `pyBigWig` (Linux/Mac only). Never
   open bigWigs from URLs — download first (`download.py` does).
 - GTF loading handles both gzip and plain text automatically.

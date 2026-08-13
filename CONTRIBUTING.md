@@ -25,7 +25,7 @@ pip install -e ".[dev]"
 
 See `DEVELOPMENT.md` for the module map, the generalized
 download/build/validate workflow, and how to register a new cancer
-type. `covs_TODO.md` tracks the ongoing generalization work.
+type.
 
 ## Running Tests
 
