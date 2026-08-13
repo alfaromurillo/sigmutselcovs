@@ -149,18 +149,18 @@ Key design decisions (2026-08-12):
 
 ## Phase 6 — coad_analysis migration (regression on gauss)
 
-- [ ] Regression snapshot script: current build() → parquet +
+- [x] Regression snapshot script: current build() → parquet +
       columns JSON, BEFORE migration
-- [ ] covariates.py → thin build_covariate_matrix("COAD", …) call
-- [ ] Regression gate: identical columns (order), index, dtypes,
+- [x] covariates.py → thin build_covariate_matrix("COAD", …) call
+- [x] Regression gate: identical columns (order), index, dtypes,
       np.array_equal(equal_nan=True); no cache mtime changes
-- [ ] Trim locations.py (keep coad_data/results/figures/
+- [x] Trim locations.py (keep coad_data/results/figures/
       all_maf_files; note the five unused HCT116 RT-extras for a
       future repliseq.extras registry block)
-- [ ] setup scripts: keep MAF step, deprecation banner for the
+- [x] setup scripts: keep MAF step, deprecation banner for the
       covariate sections
-- [ ] Diff API-generated manifest vs checked-in before removing it
-- [ ] Update coad_analysis CLAUDE.md
+- [x] Diff API-generated manifest vs checked-in before removing it
+- [x] Update coad_analysis CLAUDE.md
 
 ## Phase 7 — BRCA bring-up (on gauss; code via scp, no GitHub auth)
 
