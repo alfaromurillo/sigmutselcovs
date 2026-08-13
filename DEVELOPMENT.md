@@ -2,6 +2,8 @@
 
 Internals reference for anyone modifying this codebase.
 Task tracking for the generalization effort: `covs_TODO.md`.
+Full data-source citations (needed for the article's methods and
+acknowledgments): `SOURCES.md`.
 
 ## Setup
 
