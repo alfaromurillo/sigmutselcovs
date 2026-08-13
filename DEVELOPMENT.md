@@ -88,6 +88,56 @@ the ATAC tarballs) if you're touching anything GDC-related.
 3. `pytest tests/test_registry.py` validates the row; then
    download, build, and `validate`.
 
+## Adding a new covariate source
+
+Different from "adding a new cancer type" above, which wires a new
+*tissue* into the five existing source kinds (gtex, gexp, repliseq,
+roadmap, atac). This is for a genuinely new *kind* of data — DNA
+methylation, Hi-C compartments, a ChIP mark Roadmap doesn't cover,
+etc. Touches more of the codebase; budget a full pass through it.
+
+1. **Registry** (`registry.py`): add a frozen dataclass for the
+   source's parameters (mirror `RoadmapSpec`/`AtacSpec`), add it as
+   an `Optional[YourSpec] = None` field on `ProjectSpec`, and wire
+   it through `load_registry()`'s `source(...)` helper. If it needs
+   required sub-fields, validate them in `validate_registry()`
+   (mirror the `repliseq.type` checks).
+2. **Paths** (`paths.py`): add the source's directory/cache-file
+   paths to `ProjectPaths` (mirror `roadmap_covs_csv` /
+   `roadmap_bigwig_files()`).
+3. **Download** (`download.py`): add a downloader function, and add
+   the source's key to `_WHICH` so `sigmutselcovs download PROJECT
+   --which yoursource` and the `download_covariates()` orchestrator
+   both pick it up.
+4. **Per-gene loader**: add a new `covariates_yoursource.py` module
+   with a `load_or_generate_...()` function following the
+   cache-first pattern in `covariates_chromatin.py` /
+   `covariates_replication_timing.py` — check for a cached
+   CSV/parquet first, else compute from the raw downloaded files and
+   write the cache.
+5. **Builder wiring** (`builder.py`): add the source's key to
+   `_SOURCES`; add a block in `build_covariate_matrix()` following
+   the `if "roadmap" in selected: ...` pattern (skip-with-warning
+   when the spec is `None` or files are missing, append to `frames`
+   and to `blocks` for the column dictionary); add a case to
+   `_describe_block()` so the column dictionary gets a real
+   description/units instead of the generic fallback.
+6. **Validation** (`validate.py`): if the source has a natural value
+   range, add a check to `_sanity_tier`. More importantly, add a
+   `_check_direction(...)` call in `_biology_tier()` stating which
+   way the new source should correlate with expression (or `mrt`, or
+   another block) — this is what turns a broken download or a wrong
+   sign into a validation failure instead of a silently wrong
+   number.
+7. **Docs**: cite the source in `SOURCES.md` (new `##` section,
+   following the existing pattern: what it is, exact accession/
+   version, license, how to cite) and add it to `README.md`'s data
+   sources table.
+8. **Tests**: the registry dataclass + `validate_registry` case
+   (`test_registry.py`), the per-gene loader against a tiny
+   synthetic file, and the builder's skip-with-warning + column-
+   dictionary behavior for the new source (`test_builder.py`).
+
 ## External data notes
 
 - GTEx GCT (v10) resolves explicit → packaged → user cache and is
