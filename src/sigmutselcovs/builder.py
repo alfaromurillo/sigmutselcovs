@@ -57,9 +57,8 @@ class CovariateMatrices(NamedTuple):
 
 
 def _default_gencode_gtfs() -> dict[str, Path]:
-    """GENCODE GTFs, downloading and caching them if not already
-    present (reusing sigmutsel's copy first if that happens to be
-    installed and already has them -- see `download.resolve_gencode_gtf`).
+    """GENCODE GTFs, downloading them to a shared external location
+    if not already present there (see `download.ensure_gencode_gtf`).
     """
     from .download import ensure_gencode_gtf
 

@@ -231,31 +231,26 @@ def _gencode_source(assembly: str) -> dict:
     return raw["sources"][_GENCODE_SOURCE_KEYS[assembly]]
 
 
-def _gencode_cache_dir() -> Path:
-    base = os.environ.get(
-        "XDG_CACHE_HOME", str(Path.home() / ".cache")
-    )
-    return Path(base) / "sigmutselcovs" / "gencode"
-
-
-def _sigmutsel_data_dir() -> Path | None:
-    """Best-effort locate sigmutsel's data dir, without importing it.
-
-    sigmutsel's ``__init__.py`` eagerly imports its modeling stack
-    (pymc, numpyro, ...), so a real ``import sigmutsel`` here would
-    be expensive just to check a path. ``find_spec`` locates the
-    installed package on disk without executing any of its code.
-    Returns None when sigmutsel isn't installed.
+def _gencode_data_home() -> Path:
+    """Shared, tool-agnostic GENCODE location -- not namespaced under
+    this package. GENCODE GTFs are a universal reference (sigmutsel
+    uses them directly too, independent of covariates), not data
+    specific to sigmutselcovs, so this deliberately isn't
+    ``.../sigmutselcovs/gencode``. ``GENCODE_DATA_HOME`` overrides;
+    otherwise ``$XDG_DATA_HOME/gencode`` (data, not cache -- these
+    files are worth keeping, not disposable the way an HTTP cache
+    is; matches genomepy's choice of XDG_DATA_HOME for the same
+    reason). sigmutsel's own downloader checks the same location
+    (see its setup.py), so whichever package downloads first, the
+    other reuses it instead of fetching its own copy.
     """
-    import importlib.util
-
-    override = os.environ.get("SIGMUTSEL_DATA_DIR")
+    override = os.environ.get("GENCODE_DATA_HOME")
     if override:
         return Path(override)
-    spec = importlib.util.find_spec("sigmutsel")
-    if spec is None or spec.origin is None:
-        return None
-    return Path(spec.origin).parent / "data"
+    xdg_data_home = os.environ.get(
+        "XDG_DATA_HOME", str(Path.home() / ".local" / "share")
+    )
+    return Path(xdg_data_home) / "gencode"
 
 
 def resolve_gencode_gtf(
@@ -264,13 +259,10 @@ def resolve_gencode_gtf(
     """Resolve a GENCODE GTF path without downloading.
 
     Order: explicit path, then this package's own data directory,
-    then -- if sigmutsel happens to be installed and already has it
-    -- sigmutsel's data directory (same filename convention, so a
-    user with both packages installed never downloads the same ~1 GB
-    GTF twice), then the user cache
-    (``$XDG_CACHE_HOME/sigmutselcovs/gencode/``). When none exists,
-    returns the cache path the GTF *would* have, so callers get a
-    meaningful FileNotFoundError (or can hand it to
+    then the shared external location (``GENCODE_DATA_HOME`` or
+    ``$XDG_DATA_HOME/gencode``, see `_gencode_data_home`). When none
+    exists, returns the path the GTF *would* have there, so callers
+    get a meaningful FileNotFoundError (or can hand it to
     `ensure_gencode_gtf`).
     """
     from .covariates_locations import (
@@ -286,12 +278,7 @@ def resolve_gencode_gtf(
         return Path(explicit)
     if packaged.exists():
         return packaged
-    sigmutsel_dir = _sigmutsel_data_dir()
-    if sigmutsel_dir is not None:
-        candidate = sigmutsel_dir / packaged.name
-        if candidate.exists():
-            return candidate
-    return _gencode_cache_dir() / packaged.name
+    return _gencode_data_home() / packaged.name
 
 
 def ensure_gencode_gtf(
@@ -305,10 +292,10 @@ def ensure_gencode_gtf(
 
     ``assembly`` is 'hg19' (GENCODE v19) or 'hg38' (GENCODE v38) --
     the same two builds `build_covariate_matrix` already dispatches
-    on per registry source. Downloads go to the user cache (or
-    ``dest`` when given), never into site-packages. Cached gzipped,
-    same as GTF loading elsewhere in this package already handles
-    gzip transparently.
+    on per registry source. Downloads go to the shared external
+    location (or ``dest`` when given), never into site-packages.
+    Stored gzipped, same as GTF loading elsewhere in this package
+    already handles gzip transparently.
     """
     resolved = resolve_gencode_gtf(assembly, dest)
     if resolved.exists() and not force:

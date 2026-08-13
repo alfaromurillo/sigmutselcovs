@@ -418,33 +418,18 @@ def test_resolve_gencode_gtf_order(tmp_path, monkeypatch):
         "sigmutselcovs.covariates_locations.location_gencode19_gtf",
         packaged,
     )
-    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
-    monkeypatch.delenv("SIGMUTSEL_DATA_DIR", raising=False)
-    monkeypatch.setattr(dl, "_sigmutsel_data_dir", lambda: None)
+    monkeypatch.delenv("GENCODE_DATA_HOME", raising=False)
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
 
-    # cache fallback when neither packaged nor sigmutsel has it
+    # shared external location when packaged is absent
     resolved = dl.resolve_gencode_gtf("hg19")
     assert resolved == (
         tmp_path
-        / "cache"
-        / "sigmutselcovs"
+        / "data"
         / "gencode"
         / "gencode.v19.annotation.gtf.gz"
     )
-    # sigmutsel's copy wins over the cache when sigmutsel has it
-    # (avoids downloading the same ~1 GB file twice)
-    sigmutsel_dir = tmp_path / "sigmutsel_data"
-    sigmutsel_dir.mkdir()
-    (sigmutsel_dir / "gencode.v19.annotation.gtf.gz").write_bytes(
-        b"gtf"
-    )
-    monkeypatch.setattr(
-        dl, "_sigmutsel_data_dir", lambda: sigmutsel_dir
-    )
-    assert dl.resolve_gencode_gtf("hg19") == (
-        sigmutsel_dir / "gencode.v19.annotation.gtf.gz"
-    )
-    # packaged file beats both
+    # packaged file beats the shared location
     packaged.parent.mkdir(parents=True)
     packaged.write_bytes(b"gtf")
     assert dl.resolve_gencode_gtf("hg19") == packaged
@@ -456,15 +441,34 @@ def test_resolve_gencode_gtf_order(tmp_path, monkeypatch):
         dl.resolve_gencode_gtf("bogus")
 
 
-def test_ensure_gencode_gtf_downloads_to_cache(tmp_path, monkeypatch):
+def test_gencode_data_home_env_overrides(tmp_path, monkeypatch):
+    import sigmutselcovs.download as dl
+
+    monkeypatch.setenv("GENCODE_DATA_HOME", str(tmp_path / "shared"))
+    assert dl._gencode_data_home() == tmp_path / "shared"
+
+
+def test_gencode_data_home_defaults_to_xdg_data_home(
+    tmp_path, monkeypatch
+):
+    import sigmutselcovs.download as dl
+
+    monkeypatch.delenv("GENCODE_DATA_HOME", raising=False)
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    assert dl._gencode_data_home() == tmp_path / "data" / "gencode"
+
+
+def test_ensure_gencode_gtf_downloads_to_shared_location(
+    tmp_path, monkeypatch
+):
     import sigmutselcovs.download as dl
 
     monkeypatch.setattr(
         "sigmutselcovs.covariates_locations.location_gencode19_gtf",
         tmp_path / "pkg" / "gencode.v19.annotation.gtf.gz",
     )
-    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
-    monkeypatch.setattr(dl, "_sigmutsel_data_dir", lambda: None)
+    monkeypatch.delenv("GENCODE_DATA_HOME", raising=False)
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
     monkeypatch.setattr(
         dl,
         "_gencode_source",
@@ -476,28 +480,11 @@ def test_ensure_gencode_gtf_downloads_to_cache(tmp_path, monkeypatch):
     session = _URLSession({"http://gencode/f.gtf.gz": b"gtf content"})
     got = dl.ensure_gencode_gtf("hg19", session=session)
     assert got.read_bytes() == b"gtf content"
-    assert str(tmp_path / "cache") in str(got)  # never site-packages
+    assert str(tmp_path / "data") in str(got)  # never site-packages
     # second call resolves without network
     again = dl.ensure_gencode_gtf("hg19", session=session)
     assert again == got
     assert len(session.fetched) == 1
-
-
-def test_sigmutsel_data_dir_respects_env_override(
-    tmp_path, monkeypatch
-):
-    import sigmutselcovs.download as dl
-
-    monkeypatch.setenv("SIGMUTSEL_DATA_DIR", str(tmp_path / "custom"))
-    assert dl._sigmutsel_data_dir() == tmp_path / "custom"
-
-
-def test_sigmutsel_data_dir_none_when_not_installed(monkeypatch):
-    import sigmutselcovs.download as dl
-
-    monkeypatch.delenv("SIGMUTSEL_DATA_DIR", raising=False)
-    monkeypatch.setattr("importlib.util.find_spec", lambda name: None)
-    assert dl._sigmutsel_data_dir() is None
 
 
 def test_short_download_keeps_part_for_resume(tmp_path):
