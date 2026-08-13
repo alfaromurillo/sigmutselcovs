@@ -34,12 +34,12 @@ and downloads the source data needed to build them.
 git clone https://github.com/alfaromurillo/sigmutselcovs.git
 cd sigmutselcovs
 pip install "sigmutsel @ git+https://github.com/alfaromurillo/sigmutsel.git"
-pip install "gdcfetch @ git+https://github.com/alfaromurillo/gdcfetch.git"
 pip install -e ".[dev]"
 ```
 
-(`sigmutsel` and `gdcfetch` are not yet on PyPI; install them from
-GitHub until they are.)
+(`sigmutsel` is not yet on PyPI; install it from GitHub until it
+is. `gdcfetch` is on PyPI, so it installs normally as part of
+`pip install -e ".[dev]"` above.)
 
 ## Quick start
 
