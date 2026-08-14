@@ -17,7 +17,7 @@ from sigmutselcovs.registry import (
 
 
 def test_available_projects():
-    assert available_projects() == ["BRCA", "COAD"]
+    assert available_projects() == ["BRCA", "COAD", "UCEC"]
 
 
 def test_get_project_unknown_lists_available():
@@ -101,11 +101,30 @@ def test_brca_row():
     )
 
 
+def test_ucec_row():
+    """UCEC has no matching Roadmap epigenome or repliseq cell line;
+    both sources are disabled rather than using a mismatched proxy."""
+    ucec = get_project("UCEC")
+    assert ucec.gtex.mapping_key == "UCEC"
+    assert ucec.gtex.representative_column == "gtex_uterus"
+    assert ucec.gexp.tcga_project_id == "TCGA-UCEC"
+    assert (
+        ucec.atac.gdc_uuid == "e447195b-eeb9-459f-83db-9c748aafe395"
+    )
+    assert ucec.atac.column_prefix == "ucec"
+    assert ucec.roadmap is None
+    assert ucec.repliseq is None
+    assert ucec.simple_matrix.gtex_column == "gtex_uterus"
+
+
 def test_defaults_merge():
     """Roadmap marks and gexp defaults come from the defaults block."""
     raw = json.loads(location_projects_registry.read_text())
-    # neither project row spells out roadmap marks
+    # no project row spells out roadmap marks (a project may disable
+    # roadmap entirely with a null row, e.g. UCEC -- nothing to merge)
     for row in raw["projects"].values():
+        if row["roadmap"] is None:
+            continue
         assert "marks" not in row["roadmap"]
     brca = get_project("BRCA")
     assert brca.roadmap.marks == tuple(

@@ -81,6 +81,22 @@
         "n_fractions": 6,
         "include_clr_fractions": true
       }
+    },
+    "UCEC": {
+      "description": "Uterine Corpus Endometrial Carcinoma",
+      "gtex": {
+        "mapping_key": "UCEC",
+        "representative_column": "gtex_uterus"
+      },
+      "gexp": {
+        "tcga_project_id": "TCGA-UCEC"
+      },
+      "atac": {
+        "gdc_uuid": "e447195b-eeb9-459f-83db-9c748aafe395",
+        "column_prefix": "ucec"
+      },
+      "roadmap": null,
+      "repliseq": null
     }
   }
 }
