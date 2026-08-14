@@ -1,16 +1,16 @@
 # sigmutselcovs
 
-**Tissue-specific covariate matrices for mutation rate modeling**
+**Cohort-specific covariate matrices for mutation rate modeling**
 
 ## Overview
 
 `sigmutselcovs` is a companion package to
 [sigmutsel](https://github.com/alfaromurillo/sigmutsel) that builds
 per-gene covariate matrices — replication timing, gene expression,
-and chromatin accessibility — for any registered TCGA cancer type,
+and chromatin accessibility — for any registered TCGA cohort,
 and downloads the source data needed to build them.
 
-- **Registry-driven**: a per-cancer-type registry
+- **Registry-driven**: a per-cohort registry
   (`data/projects.json`) maps a TCGA study code (e.g. `COAD`,
   `BRCA`) to its GTEx tissue, TCGA gene expression, TCGA ATAC-seq,
   Roadmap Epigenomics chromatin tracks, and replication-timing
@@ -78,13 +78,13 @@ console command (`download`, `build`, `validate`, `fetch`,
 | `check_updates()` | Compare each external source (GTEx, GDC, ENCODE, Roadmap, GEO) against its last-known state; run every few months to catch upstream data releases. |
 
 `load_registry()` / `available_projects()` / `get_project(code)`
-inspect the per-project source registry (`data/projects.json`)
+inspect the per-cohort source registry (`data/projects.json`)
 without touching the network.
 
-## Supported cancer types
+## Supported cohorts
 
-Currently registered: `COAD`, `BRCA`. Adding a new type is a
-registry entry — see `DEVELOPMENT.md` § "Adding a new cancer type".
+Currently registered: `COAD`, `BRCA`. Adding a new cohort is a
+registry entry — see `DEVELOPMENT.md` § "Adding a new cohort".
 
 ## Data sources and citations
 

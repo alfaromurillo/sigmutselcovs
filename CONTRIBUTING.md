@@ -22,7 +22,7 @@ pip install -e ".[dev]"
 ```
 
 See `DEVELOPMENT.md` for the module map, the generalized
-download/build/validate workflow, how to register a new cancer type,
+download/build/validate workflow, how to register a new cohort,
 and how to add a genuinely new *kind* of covariate source (e.g.
 methylation, Hi-C) beyond the five currently supported.
 

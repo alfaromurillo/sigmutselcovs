@@ -1,8 +1,8 @@
 # Tutorial: building covariates for BRCA
 
-This walks through the full workflow for a cancer type that isn't
+This walks through the full workflow for a cohort that isn't
 COAD, using BRCA (breast invasive carcinoma) as the worked example
-— the first cancer type added after COAD.
+— the first cohort added after COAD.
 
 ## 1. List what's registered
 
@@ -134,7 +134,7 @@ matrix:
   panel (GAPDH, ACTB, RPL13A, B2M) should be highly expressed and
   early-replicating.
 
-A single failed direction is a warning (a tissue can be genuinely
+A single failed direction is a warning (a cohort can be genuinely
 unusual); three or more together fail the run, since that usually
 means an assembly or column-mapping bug. `build_covariate_matrix`
 runs this automatically at the end of every build (log-only by

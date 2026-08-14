@@ -74,7 +74,7 @@ sigmutselcovs. See its `DEVELOPMENT.md` for the "two kinds of GDC
 UUID" distinction (indexed files vs. publication-pinned blobs like
 the ATAC tarballs) if you're touching anything GDC-related.
 
-## Adding a new cancer type
+## Adding a new cohort
 
 1. Add a row to `data/projects.json`: GTEx mapping key (must exist
    in `gtex_tcga_mapping.json`), the TCGA project id, the ATAC
@@ -94,8 +94,8 @@ the ATAC tarballs) if you're touching anything GDC-related.
 
 ## Adding a new covariate source
 
-Different from "adding a new cancer type" above, which wires a new
-*tissue* into the five existing source kinds (gtex, gexp, repliseq,
+Different from "adding a new cohort" above, which wires a new
+*cohort* into the five existing source kinds (gtex, gexp, repliseq,
 roadmap, atac). This is for a genuinely new *kind* of data — DNA
 methylation, Hi-C compartments, a ChIP mark Roadmap doesn't cover,
 etc. Touches more of the codebase; budget a full pass through it.
