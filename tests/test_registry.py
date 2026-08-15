@@ -17,7 +17,7 @@ from sigmutselcovs.registry import (
 
 
 def test_available_projects():
-    assert available_projects() == ["BRCA", "COAD", "UCEC"]
+    assert available_projects() == ["BRCA", "COAD", "STAD", "UCEC"]
 
 
 def test_get_project_unknown_lists_available():
@@ -115,6 +115,23 @@ def test_ucec_row():
     assert ucec.roadmap is None
     assert ucec.repliseq is None
     assert ucec.simple_matrix.gtex_column == "gtex_uterus"
+
+
+def test_stad_row():
+    """STAD has real Roadmap coverage (Gastric + Stomach Mucosa) but
+    no matching repliseq cell line in either ENCODE cohort or GEO
+    GSE137764."""
+    stad = get_project("STAD")
+    assert stad.gtex.mapping_key == "STAD"
+    assert stad.gtex.representative_column == "gtex_stomach_mucosa"
+    assert stad.gexp.tcga_project_id == "TCGA-STAD"
+    assert (
+        stad.atac.gdc_uuid == "a59a7128-62ff-44f9-8f35-497fda8b0beb"
+    )
+    assert stad.atac.column_prefix == "stad"
+    assert stad.roadmap.eids == ("E094", "E110")
+    assert stad.repliseq is None
+    assert stad.simple_matrix.gtex_column == "gtex_stomach_mucosa"
 
 
 def test_defaults_merge():

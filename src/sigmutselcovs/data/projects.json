@@ -97,6 +97,24 @@
       },
       "roadmap": null,
       "repliseq": null
+    },
+    "STAD": {
+      "description": "Stomach Adenocarcinoma",
+      "gtex": {
+        "mapping_key": "STAD",
+        "representative_column": "gtex_stomach_mucosa"
+      },
+      "gexp": {
+        "tcga_project_id": "TCGA-STAD"
+      },
+      "atac": {
+        "gdc_uuid": "a59a7128-62ff-44f9-8f35-497fda8b0beb",
+        "column_prefix": "stad"
+      },
+      "roadmap": {
+        "eids": ["E094", "E110"]
+      },
+      "repliseq": null
     }
   }
 }
