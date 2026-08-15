@@ -17,7 +17,13 @@ from sigmutselcovs.registry import (
 
 
 def test_available_projects():
-    assert available_projects() == ["BRCA", "COAD", "STAD", "UCEC"]
+    assert available_projects() == [
+        "BRCA",
+        "COAD",
+        "STAD",
+        "TGCT",
+        "UCEC",
+    ]
 
 
 def test_get_project_unknown_lists_available():
@@ -132,6 +138,23 @@ def test_stad_row():
     assert stad.roadmap.eids == ("E094", "E110")
     assert stad.repliseq is None
     assert stad.simple_matrix.gtex_column == "gtex_stomach_mucosa"
+
+
+def test_tgct_row():
+    """TGCT has ATAC and GTEx coverage but no matching Roadmap
+    epigenome (no testis anatomy in the standard 127-panel) and no
+    matching repliseq cell line."""
+    tgct = get_project("TGCT")
+    assert tgct.gtex.mapping_key == "TGCT"
+    assert tgct.gtex.representative_column == "gtex_testis"
+    assert tgct.gexp.tcga_project_id == "TCGA-TGCT"
+    assert (
+        tgct.atac.gdc_uuid == "2f27b5c3-73ce-4ddc-9c04-eb6187875788"
+    )
+    assert tgct.atac.column_prefix == "tgct"
+    assert tgct.roadmap is None
+    assert tgct.repliseq is None
+    assert tgct.simple_matrix.gtex_column == "gtex_testis"
 
 
 def test_defaults_merge():

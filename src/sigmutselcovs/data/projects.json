@@ -115,6 +115,22 @@
         "eids": ["E094", "E110"]
       },
       "repliseq": null
+    },
+    "TGCT": {
+      "description": "Testicular Germ Cell Tumors",
+      "gtex": {
+        "mapping_key": "TGCT",
+        "representative_column": "gtex_testis"
+      },
+      "gexp": {
+        "tcga_project_id": "TCGA-TGCT"
+      },
+      "atac": {
+        "gdc_uuid": "2f27b5c3-73ce-4ddc-9c04-eb6187875788",
+        "column_prefix": "tgct"
+      },
+      "roadmap": null,
+      "repliseq": null
     }
   }
 }
