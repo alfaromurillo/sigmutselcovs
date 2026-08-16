@@ -21,6 +21,7 @@ def test_available_projects():
         "BRCA",
         "COAD",
         "OV",
+        "SKCM",
         "STAD",
         "TGCT",
         "UCEC",
@@ -171,6 +172,31 @@ def test_ov_row():
     assert ov.roadmap.eids == ("E097",)
     assert ov.repliseq is None
     assert ov.simple_matrix.gtex_column == "gtex_ovary"
+
+
+def test_skcm_row():
+    """SKCM has real ATAC and Roadmap coverage (primary melanocyte
+    cultures E059/E061, melanoma's cell of origin) but no matching
+    repliseq cell line (no melanoma/melanocyte line in ENCODE's
+    Repli-seq experiment set or GEO GSE137764, which remains
+    H1/H9/HCT116-only)."""
+    skcm = get_project("SKCM")
+    assert skcm.gtex.mapping_key == "SKCM"
+    assert (
+        skcm.gtex.representative_column
+        == "gtex_skin_sun_exposed_lower_leg"
+    )
+    assert skcm.gexp.tcga_project_id == "TCGA-SKCM"
+    assert (
+        skcm.atac.gdc_uuid == "9b87d207-8c8e-47da-b56b-333bcf85856d"
+    )
+    assert skcm.atac.column_prefix == "skcm"
+    assert skcm.roadmap.eids == ("E059", "E061")
+    assert skcm.repliseq is None
+    assert (
+        skcm.simple_matrix.gtex_column
+        == "gtex_skin_sun_exposed_lower_leg"
+    )
 
 
 def test_defaults_merge():

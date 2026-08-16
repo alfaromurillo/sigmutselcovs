@@ -146,6 +146,24 @@
         "eids": ["E097"]
       },
       "repliseq": null
+    },
+    "SKCM": {
+      "description": "Skin Cutaneous Melanoma; GTEx representative column is sun-exposed skin (lower leg) since cutaneous melanoma is predominantly associated with sun-exposed body sites, not sun-shielded ones -- not-sun-exposed skin is also GTEx-mapped for the full covariate matrix. Roadmap eids are primary melanocyte cultures (E059, E061), matching melanoma's cell of origin rather than the broader skin fibroblast/keratinocyte epigenomes (E126/E127) also in the 127-panel.",
+      "gtex": {
+        "mapping_key": "SKCM",
+        "representative_column": "gtex_skin_sun_exposed_lower_leg"
+      },
+      "gexp": {
+        "tcga_project_id": "TCGA-SKCM"
+      },
+      "atac": {
+        "gdc_uuid": "9b87d207-8c8e-47da-b56b-333bcf85856d",
+        "column_prefix": "skcm"
+      },
+      "roadmap": {
+        "eids": ["E059", "E061"]
+      },
+      "repliseq": null
     }
   }
 }
