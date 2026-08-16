@@ -88,15 +88,23 @@ def check_variance(
         n = len(vals)
 
         if n == 0:
+            # Zero non-NaN values is the extreme case of "at most one
+            # unique non-NaN value" from this function's own
+            # docstring -- an all-missing column carries no signal
+            # and must be dropped like any other constant column.
+            # Left un-dropped, it silently poisons a downstream
+            # dropna(how="any") into discarding every row (seen with
+            # TGCT's tpm_unstranded_normal, 2026-08-15: TCGA-TGCT has
+            # zero matched-normal RNA-seq samples).
             records.append(
                 {
                     "column": col,
                     "variance": float("nan"),
                     "cv": float("nan"),
                     "pct_most_common": float("nan"),
-                    "is_constant": False,
+                    "is_constant": True,
                     "is_near_constant": False,
-                    "drop": False,
+                    "drop": True,
                 }
             )
             continue
