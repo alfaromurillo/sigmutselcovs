@@ -20,6 +20,7 @@ def test_available_projects():
     assert available_projects() == [
         "BRCA",
         "COAD",
+        "OV",
         "STAD",
         "TGCT",
         "UCEC",
@@ -155,6 +156,21 @@ def test_tgct_row():
     assert tgct.roadmap is None
     assert tgct.repliseq is None
     assert tgct.simple_matrix.gtex_column == "gtex_testis"
+
+
+def test_ov_row():
+    """OV has no TCGA ATAC-seq coverage (Corces et al. 2018 didn't
+    profile ovarian cancer) and no matching repliseq cell line (no
+    ovarian line in ENCODE's Repli-seq experiment set or GEO
+    GSE137764), but does have a real Roadmap match (E097 Ovary)."""
+    ov = get_project("OV")
+    assert ov.gtex.mapping_key == "OV"
+    assert ov.gtex.representative_column == "gtex_ovary"
+    assert ov.gexp.tcga_project_id == "TCGA-OV"
+    assert ov.atac is None
+    assert ov.roadmap.eids == ("E097",)
+    assert ov.repliseq is None
+    assert ov.simple_matrix.gtex_column == "gtex_ovary"
 
 
 def test_defaults_merge():

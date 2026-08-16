@@ -131,6 +131,21 @@
       },
       "roadmap": null,
       "repliseq": null
+    },
+    "OV": {
+      "description": "Ovarian Serous Cystadenocarcinoma",
+      "gtex": {
+        "mapping_key": "OV",
+        "representative_column": "gtex_ovary"
+      },
+      "gexp": {
+        "tcga_project_id": "TCGA-OV"
+      },
+      "atac": null,
+      "roadmap": {
+        "eids": ["E097"]
+      },
+      "repliseq": null
     }
   }
 }
