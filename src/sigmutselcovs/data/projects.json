@@ -164,6 +164,22 @@
         "eids": ["E059", "E061"]
       },
       "repliseq": null
+    },
+    "ACC": {
+      "description": "Adrenocortical Carcinoma. No adult adrenal/adrenocortical epigenome exists in Roadmap's 127-panel -- only E080 (Fetal Adrenal Gland), rejected as a tissue-stage mismatch, same rationale as UCEC/TGCT rejecting anatomically-close-but-wrong candidates. No adrenal/H295R cell line in ENCODE's ReplicationTimingSeries (22 series checked) or GEO GSE137764 (H1/H9/HCT116-only, confirmed).",
+      "gtex": {
+        "mapping_key": "ACC",
+        "representative_column": "gtex_adrenal_gland"
+      },
+      "gexp": {
+        "tcga_project_id": "TCGA-ACC"
+      },
+      "atac": {
+        "gdc_uuid": "507afbc0-4283-473a-aad0-0432a2d283f7",
+        "column_prefix": "acc"
+      },
+      "roadmap": null,
+      "repliseq": null
     }
   }
 }

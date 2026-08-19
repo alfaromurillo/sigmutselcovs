@@ -18,6 +18,7 @@ from sigmutselcovs.registry import (
 
 def test_available_projects():
     assert available_projects() == [
+        "ACC",
         "BRCA",
         "COAD",
         "OV",
