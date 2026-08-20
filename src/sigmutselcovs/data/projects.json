@@ -180,6 +180,22 @@
       },
       "roadmap": null,
       "repliseq": null
+    },
+    "BLCA": {
+      "description": "Bladder Urothelial Carcinoma. No bladder/urothelial/urinary anatomy category exists in Roadmap's standard 127-panel (checked the full EID_metadata.tab, not just a candidate shortlist). No bladder-derived cell line in ENCODE's ReplicationTimingSeries (28 series checked across both the UW 6-fraction and Gilbert wavelet cohorts) or GEO GSE137764 (H1/H9/HCT116-only, confirmed).",
+      "gtex": {
+        "mapping_key": "BLCA",
+        "representative_column": "gtex_bladder"
+      },
+      "gexp": {
+        "tcga_project_id": "TCGA-BLCA"
+      },
+      "atac": {
+        "gdc_uuid": "6db531a0-293c-433a-ad45-ab709af987b7",
+        "column_prefix": "blca"
+      },
+      "roadmap": null,
+      "repliseq": null
     }
   }
 }
