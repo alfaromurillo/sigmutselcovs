@@ -21,6 +21,7 @@ def test_available_projects():
         "ACC",
         "BLCA",
         "BRCA",
+        "CESC",
         "COAD",
         "OV",
         "SKCM",
@@ -31,7 +32,7 @@ def test_available_projects():
 
 
 def test_get_project_unknown_lists_available():
-    with pytest.raises(ValueError, match="BRCA, COAD"):
+    with pytest.raises(ValueError, match="BRCA, CESC, COAD"):
         get_project("LUAD")
 
 

@@ -196,6 +196,58 @@
       },
       "roadmap": null,
       "repliseq": null
+    },
+    "CESC": {
+      "description": "Cervical Squamous Cell Carcinoma and Endocervical Adenocarcinoma. GTEx representative column is Cervix_Ectocervix (squamous epithelium) since squamous carcinoma is the majority histology in this cohort. Roadmap's only cervix entry is E117 (HeLa-S3), a cervical cancer cell line rather than primary tissue -- same rationale as using K562 for LAML, the best available match when no normal-tissue epigenome exists for this anatomy. HeLa-S3 is also in ENCODE's UW 6-fraction Repli-seq cohort, so both roadmap and repliseq use the same cell line here.",
+      "gtex": {
+        "mapping_key": "CESC",
+        "representative_column": "gtex_cervix_ectocervix"
+      },
+      "gexp": {
+        "tcga_project_id": "TCGA-CESC"
+      },
+      "atac": {
+        "gdc_uuid": "7f648efd-5737-409e-b6c3-1cd6d027fbfb",
+        "column_prefix": "cesc"
+      },
+      "roadmap": {
+        "eids": [
+          "E117"
+        ]
+      },
+      "repliseq": {
+        "type": "fraction_bigwigs",
+        "assembly": "hg19",
+        "cell_line": "HeLa-S3",
+        "tracks": [
+          {
+            "label": "g1b",
+            "accession": "ENCFF001GOH"
+          },
+          {
+            "label": "s1",
+            "accession": "ENCFF001GON"
+          },
+          {
+            "label": "s2",
+            "accession": "ENCFF001GOQ"
+          },
+          {
+            "label": "s3",
+            "accession": "ENCFF001GOS"
+          },
+          {
+            "label": "s4",
+            "accession": "ENCFF001GOW"
+          },
+          {
+            "label": "g2",
+            "accession": "ENCFF001GOJ"
+          }
+        ],
+        "n_fractions": 6,
+        "include_clr_fractions": true
+      }
     }
   }
 }
