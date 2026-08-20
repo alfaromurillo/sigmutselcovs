@@ -248,6 +248,59 @@
         "n_fractions": 6,
         "include_clr_fractions": true
       }
+    },
+    "CHOL": {
+      "description": "Cholangiocarcinoma. GTEx maps to Liver/Liver_Portal_Tract; Roadmap and repliseq both use liver-tissue/liver-cell-line sources (E066 primary liver, E118/HepG2 hepatocellular line) since no bile-duct-specific epigenome or cell line exists in either resource -- HepG2 is a hepatocyte line, not cholangiocyte, so this is the best available organ-level proxy rather than a cell-type match, same caveat pattern as CESC's HeLa-S3 use. HepG2 is also in ENCODE's UW 6-fraction Repli-seq cohort (same assay family as MCF-7/HeLa-S3), all 6 fractions present.",
+      "gtex": {
+        "mapping_key": "CHOL",
+        "representative_column": "gtex_liver"
+      },
+      "gexp": {
+        "tcga_project_id": "TCGA-CHOL"
+      },
+      "atac": {
+        "gdc_uuid": "78b6baeb-8b9b-486b-ae07-d9094cadaaa2",
+        "column_prefix": "chol"
+      },
+      "roadmap": {
+        "eids": [
+          "E066",
+          "E118"
+        ]
+      },
+      "repliseq": {
+        "type": "fraction_bigwigs",
+        "assembly": "hg19",
+        "cell_line": "HepG2",
+        "tracks": [
+          {
+            "label": "g1b",
+            "accession": "ENCFF001GPC"
+          },
+          {
+            "label": "s1",
+            "accession": "ENCFF001GPK"
+          },
+          {
+            "label": "s2",
+            "accession": "ENCFF001GPO"
+          },
+          {
+            "label": "s3",
+            "accession": "ENCFF001GPU"
+          },
+          {
+            "label": "s4",
+            "accession": "ENCFF001GPX"
+          },
+          {
+            "label": "g2",
+            "accession": "ENCFF001GPF"
+          }
+        ],
+        "n_fractions": 6,
+        "include_clr_fractions": true
+      }
     }
   }
 }

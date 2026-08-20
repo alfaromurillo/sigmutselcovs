@@ -22,6 +22,7 @@ def test_available_projects():
         "BLCA",
         "BRCA",
         "CESC",
+        "CHOL",
         "COAD",
         "OV",
         "SKCM",
@@ -32,7 +33,7 @@ def test_available_projects():
 
 
 def test_get_project_unknown_lists_available():
-    with pytest.raises(ValueError, match="BRCA, CESC, COAD"):
+    with pytest.raises(ValueError, match="BRCA, CESC, CHOL, COAD"):
         get_project("LUAD")
 
 
@@ -110,6 +111,30 @@ def test_brca_row():
     assert (
         brca.simple_matrix.gtex_column == "gtex_breast_mammary_tissue"
     )
+
+
+def test_chol_row():
+    """CHOL has no bile-duct-specific epigenome or cell line; both
+    Roadmap and repliseq fall back to liver (organ-level proxy, not
+    a cholangiocyte match -- see the row's description)."""
+    chol = get_project("CHOL")
+    assert chol.gtex.representative_column == "gtex_liver"
+    assert (
+        chol.atac.gdc_uuid == "78b6baeb-8b9b-486b-ae07-d9094cadaaa2"
+    )
+    assert chol.roadmap.eids == ("E066", "E118")
+    assert chol.repliseq.type == "fraction_bigwigs"
+    assert chol.repliseq.assembly == "hg19"
+    assert chol.repliseq.cell_line == "HepG2"
+    assert [t.label for t in chol.repliseq.tracks] == [
+        "g1b",
+        "s1",
+        "s2",
+        "s3",
+        "s4",
+        "g2",
+    ]
+    assert chol.repliseq.tracks[0].accession == "ENCFF001GPC"
 
 
 def test_ucec_row():
