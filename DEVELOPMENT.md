@@ -23,9 +23,9 @@ Everything is keyed on a TCGA study code registered in
 
 ```bash
 sigmutselcovs projects
-sigmutselcovs download BRCA --data-dir brca_data
-sigmutselcovs build    BRCA --data-dir brca_data
-sigmutselcovs validate BRCA --data-dir brca_data
+sigmutselcovs download BRCA --data-dir data/BRCA
+sigmutselcovs build    BRCA --data-dir data/BRCA
+sigmutselcovs validate BRCA --data-dir data/BRCA
 sigmutselcovs fetch    BRCA          # pre-built from Zenodo (once published)
 sigmutselcovs check-updates          # run every ~6 months
 sigmutselcovs download-gtex
@@ -35,15 +35,17 @@ or from Python:
 
 ```python
 from sigmutselcovs import download_covariates, build_covariate_matrix
-download_covariates("BRCA", "brca_data")
-full, simple, tcga = build_covariate_matrix("BRCA", "brca_data",
+download_covariates("BRCA", "data/BRCA")
+full, simple, tcga = build_covariate_matrix("BRCA", "data/BRCA",
                                             cache_matrices=True)
 ```
 
-`build_covariate_matrix` reproduces the historical COAD pipeline
-exactly (same loaders, caches, and concatenation order), so running
-it over an existing `coad_data/` tree is bit-for-bit identical to
-the old `coad_analysis/code/covariates.py` `build()`.
+`--data-dir` accepts any path; `data/<CODE>` is `tcga_analysis`'s
+convention (see its `CLAUDE.md`), not something this package
+enforces. `build_covariate_matrix` reproduces the historical COAD
+pipeline exactly (same loaders, caches, and concatenation order), so
+running it over an existing `coad_data/`-layout tree is bit-for-bit
+identical to the old `coad_analysis/code/covariates.py` `build()`.
 
 ## Module map
 
