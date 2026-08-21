@@ -351,6 +351,26 @@
         "n_fractions": 6,
         "include_clr_fractions": true
       }
+    },
+    "ESCA": {
+      "description": "Esophageal Carcinoma. GTEx maps to Esophagus_Mucosa/Esophagus_Muscularis/Esophagus_Gastroesophageal_Junction; representative column is Mucosa (the epithelial layer, tumor cell-of-origin). Note the cohort itself mixes two genomically distinct histologies (squamous cell carcinoma and adenocarcinoma, the latter overlapping gastric/GEJ biology) -- a caveat for interpreting results, not something the covariate matrix can resolve. TCGA ATAC-seq covered (1 UUID, live-verified via GDC /data GET -- /files metadata 404s for this UUID the same way it does for CHOL's, a known GDC quirk, not a bad UUID). Roadmap uses E079 (Esophagus, the direct organ match, 6/7 marks -- H3K9ac 404s). No esophageal, gastric, or GI-tract cell line exists in ENCODE's Repli-seq experiment set or GEO GSE137764's MAT set (H1/H9/HCT116 only) -- repliseq is null, same as OV.",
+      "gtex": {
+        "mapping_key": "ESCA",
+        "representative_column": "gtex_esophagus_mucosa"
+      },
+      "gexp": {
+        "tcga_project_id": "TCGA-ESCA"
+      },
+      "atac": {
+        "gdc_uuid": "fa18db6a-00fe-410f-982a-04d14d029812",
+        "column_prefix": "esca"
+      },
+      "roadmap": {
+        "eids": [
+          "E079"
+        ]
+      },
+      "repliseq": null
     }
   }
 }

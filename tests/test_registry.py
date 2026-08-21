@@ -25,6 +25,7 @@ def test_available_projects():
         "CHOL",
         "COAD",
         "DLBC",
+        "ESCA",
         "OV",
         "SKCM",
         "STAD",
@@ -161,6 +162,21 @@ def test_dlbc_row():
         "g2",
     ]
     assert dlbc.repliseq.tracks[0].accession == "ENCFF001GNK"
+
+
+def test_esca_row():
+    """ESCA has real ATAC and Roadmap coverage (E079 Esophagus) but
+    no matching repliseq cell line anywhere (no esophageal/gastric/
+    GI-tract line in ENCODE's Repli-seq set or GEO GSE137764) --
+    see the row's description for the squamous/adenocarcinoma
+    histology-mix caveat."""
+    esca = get_project("ESCA")
+    assert esca.gtex.representative_column == "gtex_esophagus_mucosa"
+    assert (
+        esca.atac.gdc_uuid == "fa18db6a-00fe-410f-982a-04d14d029812"
+    )
+    assert esca.roadmap.eids == ("E079",)
+    assert esca.repliseq is None
 
 
 def test_ucec_row():
