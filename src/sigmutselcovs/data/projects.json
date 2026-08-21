@@ -301,6 +301,56 @@
         "n_fractions": 6,
         "include_clr_fractions": true
       }
+    },
+    "DLBC": {
+      "description": "Diffuse large B-cell lymphoma. GTEx maps to Whole_Blood/Spleen (no lymph-node column in GTEx). No TCGA ATAC-seq coverage (atac: null). Roadmap uses E032 (primary B cells from peripheral blood, the direct cell-of-origin match, 6/7 marks -- H3K9ac 404s) plus E062 (primary PBMCs, broader immune mix, 7/7 marks) for fuller coverage, same two-epigenome pattern as CHOL/CESC. Repliseq uses GM12878 (EBV-transformed lymphoblastoid B-cell line), the standard ENCODE UW 6-fraction Repli-seq series, hg19, all 6 fractions live-verified -- the closest available cell-type match for a B-cell malignancy, analogous to CHOL's HepG2/BRCA's MCF-7 choices.",
+      "gtex": {
+        "mapping_key": "DLBC",
+        "representative_column": "gtex_whole_blood"
+      },
+      "gexp": {
+        "tcga_project_id": "TCGA-DLBC"
+      },
+      "atac": null,
+      "roadmap": {
+        "eids": [
+          "E032",
+          "E062"
+        ]
+      },
+      "repliseq": {
+        "type": "fraction_bigwigs",
+        "assembly": "hg19",
+        "cell_line": "GM12878",
+        "tracks": [
+          {
+            "label": "g1b",
+            "accession": "ENCFF001GNK"
+          },
+          {
+            "label": "s1",
+            "accession": "ENCFF001GNR"
+          },
+          {
+            "label": "s2",
+            "accession": "ENCFF001GNT"
+          },
+          {
+            "label": "s3",
+            "accession": "ENCFF001GNX"
+          },
+          {
+            "label": "s4",
+            "accession": "ENCFF001GOA"
+          },
+          {
+            "label": "g2",
+            "accession": "ENCFF001GNN"
+          }
+        ],
+        "n_fractions": 6,
+        "include_clr_fractions": true
+      }
     }
   }
 }

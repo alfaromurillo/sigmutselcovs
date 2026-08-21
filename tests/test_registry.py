@@ -24,6 +24,7 @@ def test_available_projects():
         "CESC",
         "CHOL",
         "COAD",
+        "DLBC",
         "OV",
         "SKCM",
         "STAD",
@@ -135,6 +136,31 @@ def test_chol_row():
         "g2",
     ]
     assert chol.repliseq.tracks[0].accession == "ENCFF001GPC"
+
+
+def test_dlbc_row():
+    """DLBC has no lymph-node GTEx column (falls back to
+    Whole_Blood/Spleen) and no TCGA ATAC-seq coverage; Roadmap uses
+    the direct cell-of-origin match (E032 primary B cells) plus a
+    broader-coverage epigenome (E062 PBMCs), and repliseq uses
+    GM12878, the standard lymphoblastoid line -- see the row's
+    description."""
+    dlbc = get_project("DLBC")
+    assert dlbc.gtex.representative_column == "gtex_whole_blood"
+    assert dlbc.atac is None
+    assert dlbc.roadmap.eids == ("E032", "E062")
+    assert dlbc.repliseq.type == "fraction_bigwigs"
+    assert dlbc.repliseq.assembly == "hg19"
+    assert dlbc.repliseq.cell_line == "GM12878"
+    assert [t.label for t in dlbc.repliseq.tracks] == [
+        "g1b",
+        "s1",
+        "s2",
+        "s3",
+        "s4",
+        "g2",
+    ]
+    assert dlbc.repliseq.tracks[0].accession == "ENCFF001GNK"
 
 
 def test_ucec_row():
