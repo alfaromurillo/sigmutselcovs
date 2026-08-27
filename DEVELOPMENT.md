@@ -181,9 +181,24 @@ etc. Touches more of the codebase; budget a full pass through it.
   separately for this -- as of 2026-08-13 this package no longer
   depends on sigmutsel for anything; an unused duplicate of this
   function in `covariates_utilities.py` was also removed the same
-  day. Whether it belongs here instead, now that sigmutselcovs
-  wants to publish PCA-reduced matrices to Zenodo too, is an open
-  question -- see covs_TODO.md).
+  day).
+- **Resolved (2026-08-27): sizing the published PCA artifact does
+  live here now**, via `pca_artifact.build_pca_artifact` /
+  `save_pca_artifact`. `sigmutsel` stays an optional dependency
+  (the `pca` extra, `pip install sigmutselcovs[pca]`), imported
+  lazily inside `build_pca_artifact` only -- the core
+  covariate-building path still doesn't need it. The sizing
+  criterion is deliberately *not* tied to any downstream fitting
+  task: cumulative explained variance (99% default) computed from
+  the covariate matrix alone, since PCA never sees a fitting
+  outcome and a task-tuned component count would understate the
+  resource for any other downstream use. 95% was considered and
+  rejected -- across every TCGA cohort checked, it fell at or below
+  the component count a specific downstream regression already
+  found useful on its own cross-validation, which would have
+  understated the resource for exactly that use; 99% clears every
+  checked cohort's task-specific optimum with substantial headroom
+  instead. See `build_pca_artifact`'s docstring for the mechanism.
 - Chromatin loading requires `pyBigWig` (Linux/Mac only). Never
   open bigWigs from URLs — download first (`download.py` does).
 - GTF loading handles both gzip and plain text automatically.

@@ -167,6 +167,14 @@ class ProjectPaths:
         return self.matrices_dir / "build_manifest.json"
 
     @property
+    def matrix_pca_parquet(self) -> Path:
+        return self.matrices_dir / "cov_matrix_pca.parquet"
+
+    @property
+    def pca_manifest_json(self) -> Path:
+        return self.matrices_dir / "pca_manifest.json"
+
+    @property
     def column_dictionary_csv(self) -> Path:
         return self.matrices_dir / "cov_matrix_columns.csv"
 
