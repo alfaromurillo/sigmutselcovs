@@ -46,8 +46,14 @@ def test_download_subset_choice_enforced(tmp_path):
 def test_fetch_unpublished_raises(tmp_path):
     from sigmutselcovs.fetch import CovariateArtifactsUnavailable
 
+    # An unregistered project code is never in the packaged
+    # zenodo.json's `records`, so this raises before any network
+    # call -- matching this file's own "no network" contract. Using
+    # a real TCGA code here would depend on whether that project
+    # happens to be published on Zenodo at test-run time, which this
+    # file must not assume either way.
     with pytest.raises(CovariateArtifactsUnavailable):
-        main(["fetch", "BRCA", "--dest", str(tmp_path)])
+        main(["fetch", "ZZZZ", "--dest", str(tmp_path)])
 
 
 def test_command_required():

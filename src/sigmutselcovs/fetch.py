@@ -96,6 +96,22 @@ def zenodo_record(
     api_url = config.get("api_url", "https://zenodo.org/api/records")
     session = session or requests.Session()
     response = session.get(f"{api_url}/{record_id}", timeout=timeout)
+    if response.status_code == 404:
+        # A record id in `records` isn't necessarily published yet --
+        # publishing a Zenodo deposition is a separate, deliberate
+        # step from creating/uploading to it (see publish.py), so a
+        # configured id can genuinely 404 on the public records API
+        # for a while. Same clean error as "not configured at all"
+        # rather than a raw HTTPError, since the caller can't do
+        # anything different either way.
+        raise CovariateArtifactsUnavailable(
+            f"Covariate artifacts for {project} are configured "
+            f"(record id {record_id}) but not published yet (404 "
+            f"from the Zenodo API).\n"
+            "Build locally instead:\n"
+            f"    sigmutselcovs download {project} --data-dir <dir>\n"
+            f"    sigmutselcovs build {project} --data-dir <dir>"
+        )
     response.raise_for_status()
     return response.json()
 

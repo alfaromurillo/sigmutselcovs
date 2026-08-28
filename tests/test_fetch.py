@@ -26,6 +26,42 @@ def test_unconfigured_project_raises_actionable_error():
     assert not zenodo_available("COAD", config={"records": {}})
 
 
+class _NotFoundResponse:
+    status_code = 404
+
+    def raise_for_status(self):
+        raise AssertionError(
+            "zenodo_record must check status_code == 404 before "
+            "calling raise_for_status, not rely on it"
+        )
+
+
+class _NotFoundSession:
+    def get(self, url, headers=None, timeout=None):
+        return _NotFoundResponse()
+
+
+def test_configured_but_unpublished_record_raises_actionable_error():
+    """A record id can be wired into zenodo.json before the
+    deposition is actually published (creating/uploading to a
+    deposition and publishing it are separate steps) -- that should
+    give the same clean, actionable error as an unconfigured
+    project, not a raw HTTPError leaking the Zenodo API's 404."""
+    config = {
+        "api_url": "http://zenodo/api/records",
+        "records": {"COAD": 21923082},
+    }
+    with pytest.raises(
+        CovariateArtifactsUnavailable, match="not published yet"
+    ):
+        fetch.zenodo_record(
+            "COAD", config=config, session=_NotFoundSession()
+        )
+    assert not zenodo_available(
+        "COAD", config=config, session=_NotFoundSession()
+    )
+
+
 class _Response:
     def __init__(self, payload=None, content=b""):
         self._payload = payload
