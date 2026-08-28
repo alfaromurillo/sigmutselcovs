@@ -3,5 +3,19 @@
   "base_url": "https://zenodo.org",
   "api_url": "https://zenodo.org/api/records",
   "layout_version": "v1",
-  "records": {}
+  "records": {
+    "ACC": 22136039,
+    "BLCA": 22136095,
+    "BRCA": 21923084,
+    "CESC": 22136293,
+    "CHOL": 22136375,
+    "COAD": 21923082,
+    "DLBC": 22136420,
+    "ESCA": 22136453,
+    "OV": 22136516,
+    "SKCM": 22136585,
+    "STAD": 22136653,
+    "TGCT": 22137069,
+    "UCEC": 22137150
+  }
 }
