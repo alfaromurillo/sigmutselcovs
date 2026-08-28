@@ -42,6 +42,9 @@ _LAZY = {
     "build_pca_artifact": "pca_artifact",
     "save_pca_artifact": "pca_artifact",
     "DEFAULT_VARIANCE_THRESHOLD": "pca_artifact",
+    "get_deposition": "publish",
+    "upload_artifact_files": "publish",
+    "publish_deposition": "publish",
 }
 
 __all__ = [  # noqa: PLE0604 - _LAZY keys are all strings
