@@ -51,8 +51,20 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--which",
         nargs="+",
-        choices=["gexp", "repliseq", "roadmap", "atac"],
-        default=["gexp", "repliseq", "roadmap", "atac"],
+        choices=[
+            "gexp",
+            "repliseq",
+            "roadmap",
+            "atac",
+            "encode_chromatin",
+        ],
+        default=[
+            "gexp",
+            "repliseq",
+            "roadmap",
+            "atac",
+            "encode_chromatin",
+        ],
     )
     p.add_argument("--force", action="store_true")
     p.add_argument("--dry-run", action="store_true")
@@ -69,13 +81,27 @@ def build_parser() -> argparse.ArgumentParser:
         "--include",
         nargs="+",
         default=None,
-        choices=["gtex", "gexp", "repliseq", "roadmap", "atac"],
+        choices=[
+            "gtex",
+            "gexp",
+            "repliseq",
+            "roadmap",
+            "atac",
+            "encode_chromatin",
+        ],
     )
     p.add_argument(
         "--exclude",
         nargs="+",
         default=(),
-        choices=["gtex", "gexp", "repliseq", "roadmap", "atac"],
+        choices=[
+            "gtex",
+            "gexp",
+            "repliseq",
+            "roadmap",
+            "atac",
+            "encode_chromatin",
+        ],
     )
     p.add_argument(
         "--no-cache",
