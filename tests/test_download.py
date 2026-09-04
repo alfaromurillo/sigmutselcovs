@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from sigmutselcovs.download import download_file
+from sigmutselcovs.download import _assembly_mismatch, download_file
 
 
 class _FakeResponse:
@@ -509,3 +509,25 @@ def test_short_download_keeps_part_for_resume(tmp_path):
         expected_size=len(PAYLOAD),
     )
     assert dest.read_bytes() == PAYLOAD
+
+
+# --- _assembly_mismatch (encode_chromatin, GENERIC pool 2026-09-04) ---
+
+
+def test_assembly_mismatch_normalizes_encode_naming():
+    """ENCODE reports 'GRCh38'/'GRCh37', not the registry's 'hg38'/
+    'hg19' -- a real GRCh38 track must not spuriously warn against a
+    registry assembly of 'hg38'. Hit while downloading GENERIC's
+    encode_chromatin DNase pool (every track warned, even though
+    nothing was actually wrong)."""
+    assert not _assembly_mismatch("GRCh38", "hg38")
+    assert not _assembly_mismatch("GRCh37", "hg19")
+
+
+def test_assembly_mismatch_none_is_not_a_mismatch():
+    assert not _assembly_mismatch(None, "hg38")
+
+
+def test_assembly_mismatch_detects_real_mismatch():
+    assert _assembly_mismatch("GRCh38", "hg19")
+    assert _assembly_mismatch("GRCh37", "hg38")
