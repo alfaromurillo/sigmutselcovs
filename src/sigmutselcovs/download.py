@@ -41,6 +41,23 @@ logger = logging.getLogger(__name__)
 
 _CHUNK = 1 << 20  # 1 MiB
 
+# ENCODE's `assembly` field uses its own naming ("GRCh38", "GRCh37"),
+# not the UCSC-style names ("hg38", "hg19") this registry uses
+# elsewhere -- normalize before comparing so a real GRCh38 track
+# doesn't spuriously warn against a registry `assembly: "hg38"`.
+_ENCODE_ASSEMBLY_ALIASES = {"GRCh38": "hg38", "GRCh37": "hg19"}
+
+
+def _assembly_mismatch(
+    encode_assembly: str | None, registry_assembly: str
+) -> bool:
+    if encode_assembly is None:
+        return False
+    normalized = _ENCODE_ASSEMBLY_ALIASES.get(
+        encode_assembly, encode_assembly
+    )
+    return normalized != registry_assembly
+
 
 def _md5(path: Path) -> str:
     digest = hashlib.md5()
@@ -402,7 +419,9 @@ def download_repliseq(
                 url = meta["url"]
                 md5 = meta["md5sum"]
                 size = meta["file_size"]
-                if meta.get("assembly") not in (None, spec.assembly):
+                if _assembly_mismatch(
+                    meta.get("assembly"), spec.assembly
+                ):
                     logger.warning(
                         "ENCODE %s assembly %s != registry %s",
                         track.accession,
