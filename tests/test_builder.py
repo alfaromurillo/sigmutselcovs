@@ -450,3 +450,148 @@ def test_wavelet_uses_cached_csv(stubbed, monkeypatch):
     assert len(frames) == 1
     assert list(frames[0].columns) == ["rt_wavelet"]
     assert called["args"][0] == paths.rt_wavelet_csv
+
+
+# --- encode_chromatin (new source, expanded-covariate-sources) ---
+
+
+def _registry_with_encode_chromatin(tmp_path):
+    """A COAD row extended with encode_chromatin tracks, written to
+    its own registry JSON (mirrors test_registry.py's tmp_path
+    pattern) -- no shipped cohort has this source yet."""
+    import json
+
+    from sigmutselcovs.registry import location_projects_registry
+
+    raw = json.loads(location_projects_registry.read_text())
+    raw["projects"]["COAD"]["encode_chromatin"] = {
+        "tracks": [
+            {"label": "H3K23ac", "accession": "ENCFF000DDD"},
+            {"label": "DNase", "accession": "ENCFF000EEE"},
+        ]
+    }
+    path = tmp_path / "projects.json"
+    path.write_text(json.dumps(raw))
+    return path
+
+
+def test_encode_chromatin_block_appends_after_roadmap(
+    stubbed, monkeypatch
+):
+    """encode_chromatin is skipped for the shipped COAD row (no
+    tracks registered); with a synthetic row that has tracks, its
+    columns land last, after Roadmap -- same append-only ordering
+    documented in build_covariate_matrix's concatenation comment."""
+    registry_path = _registry_with_encode_chromatin(stubbed)
+    paths = project_paths(stubbed)
+    paths.encode_chromatin_dir.mkdir(parents=True)
+    (
+        paths.encode_chromatin_dir
+        / "H3K23ac_fc_signal_ENCFF000DDD.bigWig"
+    ).touch()
+    (
+        paths.encode_chromatin_dir
+        / "DNase_fc_signal_ENCFF000EEE.bigWig"
+    ).touch()
+
+    encode_chromatin = _frame(
+        [
+            "h3k23ac_fc_signal_encff000ddd_body",
+            "dnase_fc_signal_encff000eee_body",
+        ],
+        offset=40,
+    )
+
+    def fake_chromatin(location_df, tracks, gtf_path, **kw):
+        if "roadmap" in str(location_df):
+            return _frame(
+                [
+                    "e075_h3k4me3_fc_signal_body",
+                    "e075_h3k9me3_fc_signal_promoter",
+                ],
+                offset=30,
+            )
+        if "encode" in str(location_df):
+            return encode_chromatin.copy()
+        return _frame(
+            [
+                "coad_abc_t1_insertions_body",
+                "coad_abc_t1_insertions_promoter",
+            ],
+            offset=20,
+        )
+
+    monkeypatch.setattr(
+        builder,
+        "load_or_generate_chromatin_covariates",
+        fake_chromatin,
+    )
+
+    matrices = build_covariate_matrix(
+        "COAD",
+        stubbed,
+        gencode_gtfs=GTFS,
+        apply_fixes=False,
+        registry_path=registry_path,
+    )
+    assert list(matrices.full.columns)[-2:] == [
+        "h3k23ac_fc_signal_encff000ddd_body",
+        "dnase_fc_signal_encff000eee_body",
+    ]
+
+
+def test_encode_chromatin_skipped_when_not_in_registry(stubbed):
+    """The shipped COAD row has no encode_chromatin -- unchanged
+    behavior, no new columns, no error."""
+    matrices = build_covariate_matrix(
+        "COAD", stubbed, gencode_gtfs=GTFS, apply_fixes=False
+    )
+    assert not any(
+        "fc_signal" in c and "encff" in c.lower()
+        for c in matrices.full.columns
+    )
+
+
+def test_encode_chromatin_skipped_when_files_missing(stubbed, caplog):
+    """Registry entry present but no bigWigs downloaded yet and no
+    cache -- skip with a warning, same as any other chromatin source
+    (mirrors test_missing_repliseq_data_skips)."""
+    registry_path = _registry_with_encode_chromatin(stubbed)
+    with caplog.at_level(logging.WARNING):
+        matrices = build_covariate_matrix(
+            "COAD",
+            stubbed,
+            gencode_gtfs=GTFS,
+            apply_fixes=False,
+            registry_path=registry_path,
+        )
+    assert not any(
+        "encff" in c.lower() for c in matrices.full.columns
+    )
+    assert any(
+        "Skipping encode_chromatin" in m for m in caplog.messages
+    )
+
+
+# --- combine_with_generic ---
+
+
+def test_combine_with_generic_outer_joins_on_gene_index():
+    cohort = pd.DataFrame(
+        {"cohort_col": [1.0, 2.0]},
+        index=pd.Index(["ENSG_A", "ENSG_B"], name="ensembl_gene_id"),
+    )
+    generic = pd.DataFrame(
+        {"generic_col": [10.0, 20.0]},
+        index=pd.Index(["ENSG_B", "ENSG_C"], name="ensembl_gene_id"),
+    )
+    combined = builder.combine_with_generic(cohort, generic)
+
+    assert list(combined.columns) == ["cohort_col", "generic_col"]
+    assert set(combined.index) == {"ENSG_A", "ENSG_B", "ENSG_C"}
+    # ENSG_A has no generic data, ENSG_C has no cohort data -- outer
+    # join means NaN, not a dropped row.
+    assert pd.isna(combined.loc["ENSG_A", "generic_col"])
+    assert pd.isna(combined.loc["ENSG_C", "cohort_col"])
+    assert combined.loc["ENSG_B", "cohort_col"] == 2.0
+    assert combined.loc["ENSG_B", "generic_col"] == 10.0

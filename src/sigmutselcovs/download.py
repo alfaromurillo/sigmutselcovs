@@ -28,6 +28,7 @@ from .encode import resolve_encode_file
 from .paths import ProjectPaths, bigwig_files, project_paths
 from .registry import (
     AtacSpec,
+    EncodeChromatinSpec,
     GexpSpec,
     RepliseqSpec,
     RoadmapSpec,
@@ -510,7 +511,7 @@ class DownloadReport:
         return "\n".join(lines)
 
 
-_WHICH = ("gexp", "repliseq", "roadmap", "atac")
+_WHICH = ("gexp", "repliseq", "roadmap", "atac", "encode_chromatin")
 
 
 def download_covariates(
@@ -533,7 +534,8 @@ def download_covariates(
         Project data directory (created as needed) laid out per
         `ProjectPaths`.
     which : tuple[str, ...]
-        Sources to fetch, any of gexp, repliseq, roadmap, atac.
+        Sources to fetch, any of gexp, repliseq, roadmap, atac,
+        encode_chromatin.
     dry_run : bool
         Only report what would be fetched.
 
@@ -590,6 +592,16 @@ def download_covariates(
                     source_spec, paths, force=force, session=session
                 )
                 report.add(source, "ok", n_files=len(files))
+            elif source == "encode_chromatin":
+                files = download_encode_chromatin_tracks(
+                    source_spec, paths, force=force, session=session
+                )
+                report.add(
+                    source,
+                    "ok",
+                    n_files=len(files),
+                    expected=len(source_spec.tracks),
+                )
         # One source's failure shouldn't abort the others; recorded
         # in the report instead of raised.
         except Exception as exc:  # noqa: BLE001
@@ -634,4 +646,66 @@ def download_roadmap_tracks(
                 if mark in spec.required_marks:
                     raise
                 logger.warning("Skipping %s: %s", name, exc)
+    return out
+
+
+def download_encode_chromatin_tracks(
+    spec: EncodeChromatinSpec,
+    paths: ProjectPaths,
+    *,
+    force: bool = False,
+    session: requests.Session | None = None,
+) -> list[Path]:
+    """Download ENCODE-native histone/DNase bigWigs (one per track).
+
+    Same accession -> bigWig resolution as the ``fraction_bigwigs``/
+    ``wavelet`` branch of `download_repliseq` (portal metadata via
+    `encode.resolve_encode_file`, md5-verified download), just to
+    ``chromatin/encode/<ACCESSION>.bigWig`` instead of
+    ``replication_timing/encode/``.
+    """
+    session = session or requests.Session()
+    out: list[Path] = []
+    for track in spec.tracks:
+        # "_fc_signal_" is a naming convention, not a literal claim
+        # about DNase-seq's signal representation -- it lets the
+        # resulting column reuse validate.py's existing "fc_signal"
+        # chromatin-signal marker and _mark_mean's substring lookup
+        # by track.label (e.g. "h3k23ac", "dnase") the same way
+        # Roadmap's "{eid}-{mark}.fc.signal.bigwig" naming already
+        # does, without a parallel source-specific validation path.
+        dest = (
+            paths.encode_chromatin_dir
+            / f"{track.label}_fc_signal_{track.accession}.bigWig"
+        )
+        if dest.exists() and not force:
+            logger.info("Track already present: %s", dest.name)
+            out.append(dest)
+            continue
+        if track.url is not None:
+            url, md5, size = track.url, None, None
+        else:
+            meta = resolve_encode_file(
+                track.accession, session=session
+            )
+            url = meta["url"]
+            md5 = meta["md5sum"]
+            size = meta["file_size"]
+            if meta.get("assembly") not in (None, spec.assembly):
+                logger.warning(
+                    "ENCODE %s assembly %s != registry %s",
+                    track.accession,
+                    meta["assembly"],
+                    spec.assembly,
+                )
+        out.append(
+            download_file(
+                url,
+                dest,
+                expected_md5=md5,
+                expected_size=size,
+                force=force,
+                session=session,
+            )
+        )
     return out

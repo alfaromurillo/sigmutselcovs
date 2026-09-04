@@ -23,6 +23,7 @@ def import_gtex(
     columns: str | list[str] | None = None,
     mapping_path: str | Path | None = None,
     strip_gene_id_version: bool = True,
+    reduce: str | None = None,
 ) -> pd.DataFrame:
     """Import GTEx expression data.
 
@@ -67,6 +68,18 @@ def import_gtex(
         ENSG00000123456`). This helps matching to variant annotations
         that typically use versionless IDs. Only relevant when
         `variants`_df is None
+    reduce : str | None
+        Gene mode only (``variants_df is None``). When multiple
+        columns are selected (``columns`` a study code mapping to
+        several tissues, or an explicit list), collapse them into one
+        column instead of keeping each tissue separately. Currently
+        only ``"median"`` is supported, producing a single
+        ``gtex_pantissue_median`` column -- intended for a
+        tissue-agnostic pseudo-project (e.g. ``GENERIC``) whose GTEx
+        mapping resolves to every tissue rather than one
+        representative column. ``None`` (default) keeps today's
+        per-tissue-column behavior unchanged, including the single-
+        column case.
 
     Returns
     -------
@@ -143,6 +156,14 @@ def import_gtex(
         out = out[cols]
         # rename columns to gtex_* in gene mode too
         out = out.rename(columns={c: _label_for(c) for c in cols})
+
+        if reduce is not None:
+            if reduce != "median":
+                raise ValueError(
+                    f"Unsupported reduce {reduce!r}; only 'median' "
+                    "is implemented"
+                )
+            out = out.median(axis=1).to_frame("gtex_pantissue_median")
 
     else:
         # Variant case

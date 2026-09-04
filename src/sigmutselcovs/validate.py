@@ -27,6 +27,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from .covariates_utilities import sanitize_feature_label
 from .registry import ProjectSpec, get_project
 
 logger = logging.getLogger(__name__)
@@ -39,7 +40,22 @@ HOUSEKEEPING_GENES = {
     "B2M": "ENSG00000166710",
 }
 
-_ACTIVE_MARKS = ("h3k4me3", "h3k27ac", "h3k9ac")
+_ACTIVE_MARKS = (
+    "h3k4me3",
+    "h3k27ac",
+    "h3k9ac",
+    # ENCODE-sourced marks (encode_chromatin) beyond Roadmap's
+    # default 7 -- see mutation_rates' covariates.md research on
+    # dNdScv's 10 original marks. All three are activation-associated
+    # acetylation marks, same expected direction as h3k27ac/h3k9ac.
+    "h3k23ac",
+    "h3k14ac",
+    "h2ak9ac",
+    # DNase-seq (open chromatin): same "_fc_signal_" naming
+    # convention as the marks above (see download.py), and the same
+    # expected direction as ATAC's open-chromatin check.
+    "dnase",
+)
 _REPRESSIVE_MARKS = ("h3k9me3", "h3k27me3")
 _DIRECTION_RHO = 0.05  # |rho| below this counts as "no clear signal"
 
@@ -302,6 +318,25 @@ def _sanity_tier(
                 "roadmap",
                 "pass" if len(roadmap_cols) <= maximum else "fail",
                 value=len(roadmap_cols),
+                threshold=f"<= {maximum}",
+            )
+    if spec.encode_chromatin is not None:
+        encode_cols = [
+            c
+            for c in df.columns
+            if "fc_signal" in c
+            and any(
+                sanitize_feature_label(t.accession) in c
+                for t in spec.encode_chromatin.tracks
+            )
+        ]
+        maximum = 2 * len(spec.encode_chromatin.tracks)
+        if encode_cols:
+            report.add(
+                "encode_chromatin_column_count",
+                "encode_chromatin",
+                "pass" if len(encode_cols) <= maximum else "fail",
+                value=len(encode_cols),
                 threshold=f"<= {maximum}",
             )
 

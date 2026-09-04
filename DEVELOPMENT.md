@@ -19,7 +19,9 @@ if you're also working on the PCA/Riemannian modeling path (see
 ## The generalized workflow
 
 Everything is keyed on a TCGA study code registered in
-`src/sigmutselcovs/data/projects.json` (currently COAD and BRCA):
+`src/sigmutselcovs/data/projects.json` (13 TCGA cohorts as of
+2026-09, plus the tissue-agnostic `GENERIC` pseudo-project -- see
+"Generic (pan-tissue) covariates" below):
 
 ```bash
 sigmutselcovs projects
@@ -82,7 +84,11 @@ the ATAC tarballs) if you're touching anything GDC-related.
    in `gtex_tcga_mapping.json`), the TCGA project id, the ATAC
    tarball UUID from
    https://gdc.cancer.gov/about-data/publications/ATACseq-AWG,
-   Roadmap EIDs, and a repliseq spec.
+   Roadmap EIDs, a repliseq spec, and (when no matched Roadmap
+   epigenome exists for the tissue, or to add DNase-seq or a mark
+   Roadmap's default panel doesn't cover) `encode_chromatin` tracks
+   -- see "Generic (pan-tissue) covariates" below for the ENCODE
+   portal search pattern used to find these.
 2. Replication timing source types:
    - `mat` — 16-fraction transposed table (GEO GSE137764: HCT116,
      H1, H9 only)
@@ -97,10 +103,14 @@ the ATAC tarballs) if you're touching anything GDC-related.
 ## Adding a new covariate source
 
 Different from "adding a new cohort" above, which wires a new
-*cohort* into the five existing source kinds (gtex, gexp, repliseq,
-roadmap, atac). This is for a genuinely new *kind* of data — DNA
-methylation, Hi-C compartments, a ChIP mark Roadmap doesn't cover,
-etc. Touches more of the codebase; budget a full pass through it.
+*cohort* into the six existing source kinds (gtex, gexp, repliseq,
+roadmap, atac, encode_chromatin). This is for a genuinely new *kind*
+of data — DNA methylation, Hi-C compartments, a new track catalog
+entirely, etc. Touches more of the codebase; budget a full pass
+through it. (A ChIP mark or DNase track Roadmap doesn't cover is
+*not* a new kind — that's `encode_chromatin`, an existing source; see
+"Adding a new cohort" above and "Generic (pan-tissue) covariates"
+below.)
 
 1. **Registry** (`registry.py`): add a frozen dataclass for the
    source's parameters (mirror `RoadmapSpec`/`AtacSpec`), add it as
@@ -143,6 +153,71 @@ etc. Touches more of the codebase; budget a full pass through it.
    (`test_registry.py`), the per-gene loader against a tiny
    synthetic file, and the builder's skip-with-warning + column-
    dictionary behavior for the new source (`test_builder.py`).
+
+## Generic (pan-tissue) covariates
+
+`GENERIC` is a pseudo-project code (not a real TCGA study) registered
+the same way as any cohort, with three differences:
+
+- `gtex.mapping_key` resolves (via `gtex_tcga_mapping.json`, same
+  mechanism as any code) to *every* GTEx tissue column rather than
+  one representative tissue, and `gtex.reduce: "median"` collapses
+  them into a single `gtex_pantissue_median` column — see
+  `GtexSpec.reduce` and `import_gtex`'s `reduce` parameter. `None`
+  (the default for every real cohort) keeps today's one-column
+  behavior.
+- `gexp`, `atac`, `repliseq` are `null` — these are TCGA-tumor-
+  specific data types with no tissue-agnostic equivalent.
+- `roadmap`/`encode_chromatin` are populated with a large pool of
+  epigenomes/tracks spanning many tissues (rather than one matched
+  tissue), pooled through the same PCA/concatenation machinery as
+  any cohort's matrix.
+
+`combine_with_generic(cov_matrix_full, generic_matrix)` (in
+`builder.py`, exported from the package root) concatenates a
+cohort's own `cov_matrix_full` with `GENERIC`'s (outer join on
+`ensembl_gene_id`, same as any other source block) — this is the
+supported way to get a matrix combining tissue-specific and
+pan-tissue signal; it is not automatic, since not every downstream
+use wants both.
+
+**Finding tracks for `encode_chromatin`** (used for both a cohort's
+own registry row and `GENERIC`'s pool): search the ENCODE portal for
+released, GRCh38, bigWig files —
+`https://www.encodeproject.org/search/?type=File&status=released&assembly=GRCh38&file_format=bigWig&assay_title=Histone+ChIP-seq&target.label=<MARK>`
+(swap `target.label` per mark; DNase-seq uses
+`assay_title=DNase-seq` with no `target.label`). Cross-check against
+EpiMap's metadata table
+(https://personal.broadinstitute.org/cboix/epimap/metadata/main_metadata_table.tsv)
+for biosample coverage before committing to a track. Not every
+mark has broad tissue coverage on native GRCh38 — some are cell-line/
+differentiated-cell only, in which case they belong in `GENERIC`'s
+pool (any coverage helps a pooled estimate) but not in a specific
+cohort's matched-tissue row (a poor tissue match is worse than no
+data for that source).
+
+**Version/refit policy.** `GENERIC`'s precision comes from the
+number of pooled epigenomes/tracks, so it should be rebuilt whenever
+a meaningful number of new tracks become available (e.g. after
+bringing up several new cohorts' `encode_chromatin` rows) — but a
+rebuild changes `GENERIC`'s columns for every cohort that concatenates
+it, which is a consequential enough change to need its own
+before/after check, not silent regeneration. Every
+`build_covariate_matrix(..., cache_matrices=True)` call already
+stamps `registry_sha256_16` (a hash of the whole `projects.json` at
+build time) into `build_manifest.json` — for `GENERIC` specifically,
+this hash *is* its version identifier: it changes exactly when
+`GENERIC`'s registry row (or the shared `defaults` block) changes, so
+two `GENERIC` builds sharing a `registry_sha256_16` are guaranteed to
+carry the same pooled tracks. Anyone concatenating `GENERIC` into a
+cohort's matrix (`combine_with_generic`) should keep the
+`registry_sha256_16` from the `GENERIC` build they used alongside the
+result, so a later `GENERIC` rebuild is a visible, deliberate
+version change rather than a silent difference. Treat a `GENERIC`
+rebuild the same as any other source-data version bump affecting a
+published/production matrix: revalidate downstream fits against the
+previous version before adopting the new one, rather than assuming a
+richer pool is automatically better.
 
 ## External data notes
 

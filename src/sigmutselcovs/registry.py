@@ -43,15 +43,32 @@ location_projects_registry = (
 )
 
 _REPLISEQ_TYPES = ("mat", "fraction_bigwigs", "wavelet")
-_OPTIONAL_SOURCES = ("gexp", "atac", "roadmap", "repliseq")
+_OPTIONAL_SOURCES = (
+    "gexp",
+    "atac",
+    "roadmap",
+    "repliseq",
+    "encode_chromatin",
+)
+_GTEX_REDUCE_METHODS = ("median",)
 
 
 @dataclass(frozen=True, slots=True)
 class GtexSpec:
-    """GTEx gene expression source (always required)."""
+    """GTEx gene expression source (always required).
+
+    ``reduce`` is for pseudo-projects with no single representative
+    tissue (e.g. a pan-tissue ``GENERIC`` covariate pool): when set,
+    every column ``mapping_key`` resolves to (via the JSON mapping
+    file, same as any other code) is collapsed into one column via
+    that reduction instead of being kept as separate per-tissue
+    columns. ``None`` (the default) keeps today's one-cohort-one-
+    column behavior unchanged.
+    """
 
     mapping_key: str
     representative_column: str
+    reduce: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,12 +108,41 @@ class RoadmapSpec:
 
 @dataclass(frozen=True, slots=True)
 class TrackRef:
-    """One replication-timing fraction track (ENCODE accession)."""
+    """One replication-timing fraction track (ENCODE accession).
+
+    Also reused by `EncodeChromatinSpec` below, where ``label`` holds
+    the mark name (e.g. ``"H3K23ac"``, ``"DNase"``) rather than a
+    fraction name.
+    """
 
     label: str
     accession: str
     source: str = "encode"
     url: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class EncodeChromatinSpec:
+    """ENCODE-native chromatin tracks (histone marks or DNase-seq).
+
+    Structurally identical to `RoadmapSpec` -- one bigWig per
+    biosample x mark, averaged over gene body/promoter -- but sourced
+    from the ENCODE portal's native-GRCh38 processed tracks instead of
+    Roadmap's hg19 fold-change-signal URL template. This is the
+    mechanism for: tissues Roadmap's 127-panel never covered (no
+    matched Roadmap epigenome exists), additional matched epigenomes
+    for a tissue Roadmap does cover, DNase-seq (Roadmap's consolidated
+    signal set doesn't include it), and the pooled tracks behind a
+    tissue-agnostic ``GENERIC`` covariate matrix.
+
+    ``tracks``' ``TrackRef.label`` holds the mark name (e.g.
+    ``"H3K23ac"``, ``"DNase"``); the built matrix has two columns per
+    track (body, promoter), same convention as `RoadmapSpec`/
+    `AtacSpec`.
+    """
+
+    tracks: tuple[TrackRef, ...]
+    assembly: str = "hg38"
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,6 +183,7 @@ class ProjectSpec:
     atac: AtacSpec | None = None
     roadmap: RoadmapSpec | None = None
     repliseq: RepliseqSpec | None = None
+    encode_chromatin: EncodeChromatinSpec | None = None
 
 
 def _tupled(value):
@@ -155,7 +202,9 @@ def _build_spec(cls, raw: dict):
             f"Unknown keys for {cls.__name__}: {sorted(unknown)}"
         )
     kwargs = {k: _tupled(v) for k, v in raw.items()}
-    if cls is RepliseqSpec and kwargs.get("tracks"):
+    if cls in (RepliseqSpec, EncodeChromatinSpec) and kwargs.get(
+        "tracks"
+    ):
         kwargs["tracks"] = tuple(
             TrackRef(**dict(t)) if isinstance(t, dict) else t
             for t in raw["tracks"]
@@ -201,6 +250,22 @@ def validate_registry(raw: dict) -> None:
             raise ValueError(
                 f"{code}: gtex.mapping_key {mapping_key!r} not in "
                 f"{location_gtex_tcga_mapping.name}"
+            )
+        gtex_reduce = row["gtex"].get("reduce")
+        if (
+            gtex_reduce is not None
+            and gtex_reduce not in _GTEX_REDUCE_METHODS
+        ):
+            raise ValueError(
+                f"{code}: gtex.reduce {gtex_reduce!r} not one of "
+                f"{_GTEX_REDUCE_METHODS}"
+            )
+        encode_chromatin = row.get("encode_chromatin")
+        if encode_chromatin is not None and not encode_chromatin.get(
+            "tracks"
+        ):
+            raise ValueError(
+                f"{code}: encode_chromatin needs at least one track"
             )
         repliseq = row.get("repliseq")
         if repliseq is not None:
@@ -278,6 +343,9 @@ def load_registry(
             atac=source("atac", AtacSpec),
             roadmap=source("roadmap", RoadmapSpec),
             repliseq=source("repliseq", RepliseqSpec),
+            encode_chromatin=source(
+                "encode_chromatin", EncodeChromatinSpec
+            ),
         )
     return registry
 

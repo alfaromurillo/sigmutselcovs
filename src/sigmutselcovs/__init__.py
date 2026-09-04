@@ -23,6 +23,7 @@ except Exception:  # noqa: BLE001 - version is informational only
 _LAZY = {
     "build_covariate_matrix": "builder",
     "CovariateMatrices": "builder",
+    "combine_with_generic": "builder",
     "load_registry": "registry",
     "available_projects": "registry",
     "get_project": "registry",

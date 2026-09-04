@@ -140,6 +140,17 @@ class ProjectPaths:
     def atac_covs_csv(self) -> Path:
         return self.atac_dir / "chromatin_covs_tcga.csv"
 
+    @property
+    def encode_chromatin_dir(self) -> Path:
+        """Downloaded ENCODE histone/DNase bigWigs (not repli-seq --
+        see rt_encode_dir for those, which live under a separate
+        replication_timing/encode/ tree)."""
+        return self.root / "chromatin" / "encode"
+
+    @property
+    def encode_chromatin_covs_csv(self) -> Path:
+        return self.encode_chromatin_dir / "chromatin_covs_encode.csv"
+
     # --- MAF files (downloaded by sigmutsel, not this package) ---
     @property
     def maf_dir(self) -> Path:
@@ -183,6 +194,9 @@ class ProjectPaths:
 
     def atac_bigwig_files(self) -> list[Path]:
         return bigwig_files(self.atac_dir)
+
+    def encode_chromatin_bigwig_files(self) -> list[Path]:
+        return bigwig_files(self.encode_chromatin_dir)
 
 
 def project_paths(data_dir: str | Path) -> ProjectPaths:

@@ -5,9 +5,12 @@ import json
 import pytest
 
 from sigmutselcovs.registry import (
+    EncodeChromatinSpec,
     GexpSpec,
+    GtexSpec,
     ProjectSpec,
     RepliseqSpec,
+    TrackRef,
     available_projects,
     get_project,
     load_registry,
@@ -361,3 +364,64 @@ def test_repliseq_bin_size_default():
         ).bin_size
         == 50_000
     )
+
+
+# --- encode_chromatin (new source, expanded-covariate-sources) ---
+
+
+def test_gtex_spec_reduce_defaults_to_none():
+    spec = GtexSpec(mapping_key="COAD", representative_column="x")
+    assert spec.reduce is None
+
+
+def test_encode_chromatin_spec_defaults():
+    spec = EncodeChromatinSpec(
+        tracks=(TrackRef(label="DNase", accession="ENCFF000AAA"),)
+    )
+    assert spec.assembly == "hg38"
+    assert spec.tracks[0].label == "DNase"
+
+
+def test_golden_row_with_encode_chromatin_and_generic_gtex(tmp_path):
+    """A synthetic row exercising both new mechanisms together: a
+    GENERIC-style tissue-agnostic gtex.reduce, plus encode_chromatin
+    tracks -- no real cohort has encode_chromatin yet (Objective A/B
+    of the covariate-expansion task adds those), so this is the
+    registry-level contract test until then."""
+    raw = json.loads(location_projects_registry.read_text())
+    raw["projects"]["COAD"]["gtex"]["reduce"] = "median"
+    raw["projects"]["COAD"]["encode_chromatin"] = {
+        "tracks": [
+            {"label": "H3K23ac", "accession": "ENCFF000AAA"},
+            {"label": "DNase", "accession": "ENCFF000BBB"},
+        ]
+    }
+    path = tmp_path / "projects.json"
+    path.write_text(json.dumps(raw))
+    coad = load_registry(path)["COAD"]
+
+    assert coad.gtex.reduce == "median"
+    assert coad.encode_chromatin.assembly == "hg38"
+    assert [t.label for t in coad.encode_chromatin.tracks] == [
+        "H3K23ac",
+        "DNase",
+    ]
+    assert coad.encode_chromatin.tracks[1].accession == "ENCFF000BBB"
+
+
+def test_encode_chromatin_defaults_to_none():
+    assert get_project("COAD").encode_chromatin is None
+
+
+def test_validate_rejects_bad_gtex_reduce(tmp_path):
+    raw = json.loads(location_projects_registry.read_text())
+    raw["projects"]["COAD"]["gtex"]["reduce"] = "mean"
+    with pytest.raises(ValueError, match="gtex.reduce"):
+        validate_registry(raw)
+
+
+def test_validate_rejects_empty_encode_chromatin_tracks(tmp_path):
+    raw = json.loads(location_projects_registry.read_text())
+    raw["projects"]["COAD"]["encode_chromatin"] = {"tracks": []}
+    with pytest.raises(ValueError, match="encode_chromatin"):
+        validate_registry(raw)

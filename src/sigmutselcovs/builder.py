@@ -45,7 +45,14 @@ from .registry import (
 
 logger = logging.getLogger(__name__)
 
-_SOURCES = ("gtex", "gexp", "repliseq", "roadmap", "atac")
+_SOURCES = (
+    "gtex",
+    "gexp",
+    "repliseq",
+    "roadmap",
+    "atac",
+    "encode_chromatin",
+)
 
 
 class CovariateMatrices(NamedTuple):
@@ -54,6 +61,29 @@ class CovariateMatrices(NamedTuple):
     full: pd.DataFrame
     simple: pd.DataFrame
     tcga: pd.DataFrame
+
+
+def combine_with_generic(
+    cov_matrix_full: pd.DataFrame, generic_matrix: pd.DataFrame
+) -> pd.DataFrame:
+    """Concatenate a cohort's ``cov_matrix_full`` with a tissue-
+    agnostic pool (e.g. the ``GENERIC`` pseudo-project's
+    ``cov_matrix_full``, built the same way via
+    ``build_covariate_matrix("GENERIC", ...)``).
+
+    Both matrices are indexed by ``ensembl_gene_id``; the join is
+    outer, same as every other source block in
+    `build_covariate_matrix` -- a gene present in one matrix but not
+    the other gets NaN in the missing matrix's columns, not a dropped
+    row. Column name collisions between the two matrices are not
+    checked here; callers combining matrices from unrelated registry
+    rows are expected to have distinct column-naming conventions
+    (verified for the shipped sources), same as within a single
+    `build_covariate_matrix` call.
+    """
+    return pd.concat(
+        [cov_matrix_full, generic_matrix], axis=1, join="outer"
+    )
 
 
 def _default_gencode_gtfs() -> dict[str, Path]:
@@ -289,6 +319,23 @@ def _describe_block(
             "assembly": spec.roadmap.assembly if spec.roadmap else "",
             "units": "fold-change signal",
         }
+    if source == "encode_chromatin":
+        ec = spec.encode_chromatin
+        return {
+            "description": "ENCODE-native histone ChIP-seq or "
+            "DNase-seq signal, mean over gene body or promoter "
+            "window",
+            "cell_line_or_epigenome": "ENCODE tracks "
+            + (
+                ", ".join(
+                    f"{t.label}:{t.accession}" for t in ec.tracks
+                )
+                if ec
+                else ""
+            ),
+            "assembly": ec.assembly if ec else "",
+            "units": "signal",
+        }
     return {
         "description": source,
         "cell_line_or_epigenome": "",
@@ -298,7 +345,7 @@ def _describe_block(
 
 
 def _column_detail(source: str, column: str) -> str:
-    if source in ("atac", "roadmap"):
+    if source in ("atac", "roadmap", "encode_chromatin"):
         if column.endswith("_body"):
             return "gene body [TSS+200, TES]"
         if column.endswith("_promoter"):
@@ -472,7 +519,10 @@ def build_covariate_matrix(
 
     # Concatenation order must stay identical to the historical
     # covariates.py: gtex, mean tumor, mean normal, per-sample, mrt,
-    # clr fractions, ATAC, Roadmap.
+    # clr fractions, ATAC, Roadmap, ENCODE chromatin (this last block
+    # added after the historical pipeline, so it is appended rather
+    # than interleaved -- order among the new source only matters for
+    # column ordering, not correctness).
     frames: list[pd.DataFrame] = []
     included: set[str] = set()
     blocks: list[tuple[str, list[str]]] = []
@@ -484,6 +534,7 @@ def build_covariate_matrix(
             resolve_gtex_gct(gtex_gct),
             mapping_path=location_gtex_tcga_mapping,
             columns=spec.gtex.mapping_key,
+            reduce=spec.gtex.reduce,
         )
         frames.append(gtex)
         blocks.append(("gtex", list(gtex.columns)))
@@ -597,6 +648,30 @@ def build_covariate_matrix(
                 frames.append(roadmap_covs)
                 blocks.append(("roadmap", list(roadmap_covs.columns)))
                 included.add("roadmap")
+
+    if "encode_chromatin" in selected:
+        if spec.encode_chromatin is None:
+            _skip(
+                "encode_chromatin",
+                "not defined in the registry for " f"{spec.code}",
+            )
+        else:
+            encode_chromatin_covs = _load_chromatin(
+                "encode_chromatin",
+                paths.encode_chromatin_covs_csv,
+                paths.encode_chromatin_bigwig_files(),
+                gtf_for(spec.encode_chromatin.assembly),
+                force_generation,
+            )
+            if encode_chromatin_covs is not None:
+                frames.append(encode_chromatin_covs)
+                blocks.append(
+                    (
+                        "encode_chromatin",
+                        list(encode_chromatin_covs.columns),
+                    )
+                )
+                included.add("encode_chromatin")
 
     if not frames:
         raise ValueError(
