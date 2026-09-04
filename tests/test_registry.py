@@ -276,10 +276,13 @@ def test_skcm_row():
 def test_defaults_merge():
     """Roadmap marks and gexp defaults come from the defaults block."""
     raw = json.loads(location_projects_registry.read_text())
-    # no project row spells out roadmap marks (a project may disable
-    # roadmap entirely with a null row, e.g. UCEC -- nothing to merge)
-    for row in raw["projects"].values():
-        if row["roadmap"] is None:
+    # No real-cohort row spells out roadmap marks (a project may
+    # disable roadmap entirely with a null row, e.g. UCEC -- nothing
+    # to merge). GENERIC is the deliberate exception: it adds DNase
+    # to the standard 7 marks, since Roadmap has native DNase-seq
+    # tracks for most EIDs via the same signal system.
+    for code, row in raw["projects"].items():
+        if row["roadmap"] is None or code == "GENERIC":
             continue
         assert "marks" not in row["roadmap"]
     brca = get_project("BRCA")
@@ -507,12 +510,22 @@ def test_dnase_only_encode_chromatin_rows():
 
 
 def test_generic_row():
-    """GENERIC (Objective B, 2026-09-03) is a tissue-agnostic pool,
-    not a real TCGA code -- gtex.reduce collapses every GTEx tissue
-    into one column instead of picking a representative, atac/gexp/
+    """GENERIC (Objective B, 2026-09-03, rebuilt 2026-09-04 with the
+    disk-bounded streaming path) is a tissue-agnostic pool, not a
+    real TCGA code -- gtex.reduce collapses every GTEx tissue into
+    one column instead of picking a representative, atac/gexp/
     repliseq are null (TCGA-specific, no tissue-agnostic
     equivalent), and simple_matrix.gtex_column defaults correctly
-    off representative_column without an explicit override."""
+    off representative_column without an explicit override.
+
+    roadmap.eids is the full 127-epigenome Roadmap consolidated
+    panel (E001-E129 excluding E060/E064, which genuinely don't
+    exist -- verified live); roadmap.marks adds DNase to the
+    standard 7 histone marks, since Roadmap has its own native
+    DNase-seq tracks via the same signal system for most EIDs.
+    encode_chromatin is 83 adult primary-tissue DNase-seq
+    experiments from the ENCODE portal, one per unique biosample
+    term, complementing Roadmap's own DNase coverage."""
     generic = get_project("GENERIC")
     assert generic.gtex.mapping_key == "GENERIC"
     assert generic.gtex.reduce == "median"
@@ -523,10 +536,26 @@ def test_generic_row():
     assert generic.gexp is None
     assert generic.repliseq is None
     assert generic.roadmap is not None
-    assert len(generic.roadmap.eids) == 14
-    assert len(set(generic.roadmap.eids)) == 14  # no duplicates
+    assert len(generic.roadmap.eids) == 127
+    assert len(set(generic.roadmap.eids)) == 127  # no duplicates
+    assert "E060" not in generic.roadmap.eids
+    assert "E064" not in generic.roadmap.eids
+    assert set(generic.roadmap.marks) == {
+        "H3K4me1",
+        "H3K4me3",
+        "H3K9ac",
+        "H3K9me3",
+        "H3K27ac",
+        "H3K27me3",
+        "H3K36me3",
+        "DNase",
+    }
     assert generic.encode_chromatin is not None
-    assert len(generic.encode_chromatin.tracks) == 10
+    assert len(generic.encode_chromatin.tracks) == 83
+    assert (
+        len({t.accession for t in generic.encode_chromatin.tracks})
+        == 83
+    )  # no duplicate accessions
     assert all(
         t.label == "DNase" for t in generic.encode_chromatin.tracks
     )
