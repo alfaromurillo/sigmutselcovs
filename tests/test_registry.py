@@ -410,7 +410,13 @@ def test_golden_row_with_encode_chromatin_and_generic_gtex(tmp_path):
 
 
 def test_encode_chromatin_defaults_to_none():
-    assert get_project("COAD").encode_chromatin is None
+    """SKCM/CESC are genuine negative results from the live
+    ENCODE-portal search (Objective A.4, 2026-09-03): no adult
+    melanocyte DNase-seq and no cervix DNase-seq at all exist there
+    -- see each row's description. Every other cohort in the shipped
+    registry now has at least a DNase encode_chromatin track."""
+    assert get_project("SKCM").encode_chromatin is None
+    assert get_project("CESC").encode_chromatin is None
 
 
 def test_validate_rejects_bad_gtex_reduce(tmp_path):
@@ -473,3 +479,27 @@ def test_zero_roadmap_cohorts_have_real_encode_chromatin_rows():
             t.accession.startswith("ENCFF")
             for t in spec.encode_chromatin.tracks
         ), code
+
+
+def test_dnase_only_encode_chromatin_rows():
+    """Objective A.3/A.4 (2026-09-03): DNase-seq added, on top of
+    each cohort's existing Roadmap/ATAC coverage, for every cohort
+    with a matched adult-tissue ENCODE DNase-seq experiment. OV/DLBC
+    substitute it for their missing TCGA ATAC; the rest add it
+    alongside their existing ATAC."""
+    expected_dnase = {
+        "COAD": "ENCFF013JSI",
+        "BRCA": "ENCFF874CNE",
+        "STAD": "ENCFF493HHP",
+        "CHOL": "ENCFF972AOH",
+        "ESCA": "ENCFF293DZU",
+        "OV": "ENCFF596SZA",
+        "DLBC": "ENCFF749AVF",
+    }
+    for code, accession in expected_dnase.items():
+        spec = get_project(code)
+        assert spec.encode_chromatin is not None, code
+        tracks = {
+            t.label: t.accession for t in spec.encode_chromatin.tracks
+        }
+        assert tracks == {"DNase": accession}, code
