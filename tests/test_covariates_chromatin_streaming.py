@@ -289,5 +289,46 @@ def test_stream_encode_chromatin_tracks_deletes_after_each_yield(
             spec, paths, session=session
         )
     )
-    assert [label for label, _ in out] == ["DNase", "H3K4me1"]
+    assert [label for label, _ in out] == [
+        "DNase_fc_signal_ENCFF000AAA",
+        "H3K4me1_fc_signal_ENCFF000BBB",
+    ]
     assert not list(paths.encode_chromatin_dir.glob("*.bigWig"))
+
+
+def test_stream_encode_chromatin_tracks_unique_labels_for_duplicate_marks(
+    tmp_path, monkeypatch
+):
+    """The actual bug this guards: GENERIC pools many tracks that
+    all share the same TrackRef.label (e.g. 83 tracks all labeled
+    "DNase") -- the yielded label must still be unique per track
+    (accession-qualified), or summarize_tracks_to_genes_streaming's
+    dict-keyed column assembly silently collapses them to one
+    column."""
+    monkeypatch.setattr(
+        dl,
+        "resolve_encode_file",
+        lambda acc, session=None: {
+            "accession": acc,
+            "url": f"http://s3/{acc}",
+            "md5sum": None,
+            "file_size": None,
+            "assembly": "GRCh38",
+        },
+    )
+    spec = EncodeChromatinSpec(
+        tracks=(
+            TrackRef(label="DNase", accession="ENCFF000AAA"),
+            TrackRef(label="DNase", accession="ENCFF000BBB"),
+        )
+    )
+    paths = project_paths(tmp_path)
+    session = _RoadmapSession()
+
+    out = list(
+        dl.stream_encode_chromatin_tracks(
+            spec, paths, session=session
+        )
+    )
+    labels = [label for label, _ in out]
+    assert len(labels) == len(set(labels)) == 2

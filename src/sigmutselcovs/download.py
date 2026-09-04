@@ -774,7 +774,14 @@ def stream_encode_chromatin_tracks(
             force=force,
             session=session,
         )
-        yield track.label, path
+        # dest.stem, not track.label: a pool like GENERIC's 83
+        # same-labeled ("DNase") tracks would otherwise collide on
+        # one dict key in summarize_tracks_to_genes_streaming and
+        # collapse to a single column. dest.stem embeds the
+        # accession, matching load_tracks()'s filename-derived label
+        # for the batch path (Path(item).stem), so streaming and
+        # batch builds of the same tracks produce identical columns.
+        yield dest.stem, path
         if not keep_files:
             path.unlink()
 
