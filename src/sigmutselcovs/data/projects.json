@@ -83,7 +83,7 @@
       }
     },
     "UCEC": {
-      "description": "Uterine Corpus Endometrial Carcinoma",
+      "description": "Uterine Corpus Endometrial Carcinoma. encode_chromatin added 2026-09-03 (expanded-covariate-sources task): ENCODE has adult primary uterus tissue for 5 of our 7 default marks plus DNase -- H3K4me1, H3K9me3, H3K36me3, H3K27ac, H3K27me3 and DNase (one of two available adult uterus DNase experiments used). Missing H3K4me3 and H3K9ac (not released for this biosample).",
       "gtex": {
         "mapping_key": "UCEC",
         "representative_column": "gtex_uterus"
@@ -96,7 +96,17 @@
         "column_prefix": "ucec"
       },
       "roadmap": null,
-      "repliseq": null
+      "repliseq": null,
+      "encode_chromatin": {
+        "tracks": [
+          {"label": "H3K4me1", "accession": "ENCFF183AON"},
+          {"label": "H3K9me3", "accession": "ENCFF267RUZ"},
+          {"label": "H3K36me3", "accession": "ENCFF142JQP"},
+          {"label": "H3K27ac", "accession": "ENCFF477FDT"},
+          {"label": "H3K27me3", "accession": "ENCFF789HLD"},
+          {"label": "DNase", "accession": "ENCFF931IYG"}
+        ]
+      }
     },
     "STAD": {
       "description": "Stomach Adenocarcinoma",
@@ -117,7 +127,7 @@
       "repliseq": null
     },
     "TGCT": {
-      "description": "Testicular Germ Cell Tumors",
+      "description": "Testicular Germ Cell Tumors. encode_chromatin added 2026-09-03 (expanded-covariate-sources task): ENCODE has adult primary testis tissue for 6 of our 7 default marks plus DNase -- H3K4me1, H3K27ac, H3K27me3, H3K9me3, H3K36me3 and DNase all from the same 37yo donor; H3K4me3 only exists from a different (54yo) donor, used anyway since it's the only adult testis H3K4me3 available (a documented donor mismatch, not a tissue mismatch). Missing only H3K9ac.",
       "gtex": {
         "mapping_key": "TGCT",
         "representative_column": "gtex_testis"
@@ -130,7 +140,18 @@
         "column_prefix": "tgct"
       },
       "roadmap": null,
-      "repliseq": null
+      "repliseq": null,
+      "encode_chromatin": {
+        "tracks": [
+          {"label": "H3K4me1", "accession": "ENCFF015KVF"},
+          {"label": "H3K4me3", "accession": "ENCFF665CXY"},
+          {"label": "H3K27ac", "accession": "ENCFF487SXN"},
+          {"label": "H3K27me3", "accession": "ENCFF910MGV"},
+          {"label": "H3K9me3", "accession": "ENCFF010BPD"},
+          {"label": "H3K36me3", "accession": "ENCFF229BGF"},
+          {"label": "DNase", "accession": "ENCFF078FKY"}
+        ]
+      }
     },
     "OV": {
       "description": "Ovarian Serous Cystadenocarcinoma",
@@ -166,7 +187,7 @@
       "repliseq": null
     },
     "ACC": {
-      "description": "Adrenocortical Carcinoma. No adult adrenal/adrenocortical epigenome exists in Roadmap's 127-panel -- only E080 (Fetal Adrenal Gland), rejected as a tissue-stage mismatch, same rationale as UCEC/TGCT rejecting anatomically-close-but-wrong candidates. No adrenal/H295R cell line in ENCODE's ReplicationTimingSeries (22 series checked) or GEO GSE137764 (H1/H9/HCT116-only, confirmed).",
+      "description": "Adrenocortical Carcinoma. No adult adrenal/adrenocortical epigenome exists in Roadmap's 127-panel -- only E080 (Fetal Adrenal Gland), rejected as a tissue-stage mismatch, same rationale as UCEC/TGCT rejecting anatomically-close-but-wrong candidates. No adrenal/H295R cell line in ENCODE's ReplicationTimingSeries (22 series checked) or GEO GSE137764 (H1/H9/HCT116-only, confirmed). encode_chromatin added 2026-09-03 (expanded-covariate-sources task): ENCODE's own native-GRCh38 experiments cover adult primary adrenal gland tissue directly (a female, 41yo donor) for 5 of our 7 default marks plus DNase -- a source Roadmap's 127-panel never had. H3K9ac and H3K27ac have no released adult adrenal gland experiment on ENCODE (checked via the full organ_slims=adrenal+gland Histone ChIP-seq listing, not a per-mark miss); left unfilled rather than substituting a cell line.",
       "gtex": {
         "mapping_key": "ACC",
         "representative_column": "gtex_adrenal_gland"
@@ -179,10 +200,20 @@
         "column_prefix": "acc"
       },
       "roadmap": null,
-      "repliseq": null
+      "repliseq": null,
+      "encode_chromatin": {
+        "tracks": [
+          {"label": "H3K4me1", "accession": "ENCFF096GQC"},
+          {"label": "H3K4me3", "accession": "ENCFF700TZZ"},
+          {"label": "H3K9me3", "accession": "ENCFF879SDR"},
+          {"label": "H3K27me3", "accession": "ENCFF586JAA"},
+          {"label": "H3K36me3", "accession": "ENCFF864QDA"},
+          {"label": "DNase", "accession": "ENCFF529VVE"}
+        ]
+      }
     },
     "BLCA": {
-      "description": "Bladder Urothelial Carcinoma. No bladder/urothelial/urinary anatomy category exists in Roadmap's standard 127-panel (checked the full EID_metadata.tab, not just a candidate shortlist). No bladder-derived cell line in ENCODE's ReplicationTimingSeries (28 series checked across both the UW 6-fraction and Gilbert wavelet cohorts) or GEO GSE137764 (H1/H9/HCT116-only, confirmed).",
+      "description": "Bladder Urothelial Carcinoma. No bladder/urothelial/urinary anatomy category exists in Roadmap's standard 127-panel (checked the full EID_metadata.tab, not just a candidate shortlist). No bladder-derived cell line in ENCODE's ReplicationTimingSeries (28 series checked across both the UW 6-fraction and Gilbert wavelet cohorts) or GEO GSE137764 (H1/H9/HCT116-only, confirmed). encode_chromatin added 2026-09-03 (expanded-covariate-sources task): ENCODE has adult primary urinary bladder tissue (same male donor) for 4 of our 7 default marks -- H3K4me1, H3K27ac, H3K4me3, H3K36me3. Missing H3K9ac, H3K9me3, H3K27me3 (not released for this biosample). The only bladder DNase-seq experiment on ENCODE (ENCSR813CKU) is embryonic, not adult -- rejected as a tissue-stage mismatch, same rationale ACC/UCEC/TGCT already use for rejecting Roadmap's fetal-only candidates.",
       "gtex": {
         "mapping_key": "BLCA",
         "representative_column": "gtex_bladder"
@@ -195,7 +226,15 @@
         "column_prefix": "blca"
       },
       "roadmap": null,
-      "repliseq": null
+      "repliseq": null,
+      "encode_chromatin": {
+        "tracks": [
+          {"label": "H3K4me1", "accession": "ENCFF545KUT"},
+          {"label": "H3K27ac", "accession": "ENCFF039NIU"},
+          {"label": "H3K4me3", "accession": "ENCFF089KQW"},
+          {"label": "H3K36me3", "accession": "ENCFF489NKI"}
+        ]
+      }
     },
     "CESC": {
       "description": "Cervical Squamous Cell Carcinoma and Endocervical Adenocarcinoma. GTEx representative column is Cervix_Ectocervix (squamous epithelium) since squamous carcinoma is the majority histology in this cohort. Roadmap's only cervix entry is E117 (HeLa-S3), a cervical cancer cell line rather than primary tissue -- same rationale as using K562 for LAML, the best available match when no normal-tissue epigenome exists for this anatomy. HeLa-S3 is also in ENCODE's UW 6-fraction Repli-seq cohort, so both roadmap and repliseq use the same cell line here.",
