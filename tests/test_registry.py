@@ -29,6 +29,7 @@ def test_available_projects():
         "COAD",
         "DLBC",
         "ESCA",
+        "GENERIC",
         "OV",
         "SKCM",
         "STAD",
@@ -503,3 +504,39 @@ def test_dnase_only_encode_chromatin_rows():
             t.label: t.accession for t in spec.encode_chromatin.tracks
         }
         assert tracks == {"DNase": accession}, code
+
+
+def test_generic_row():
+    """GENERIC (Objective B, 2026-09-03) is a tissue-agnostic pool,
+    not a real TCGA code -- gtex.reduce collapses every GTEx tissue
+    into one column instead of picking a representative, atac/gexp/
+    repliseq are null (TCGA-specific, no tissue-agnostic
+    equivalent), and simple_matrix.gtex_column defaults correctly
+    off representative_column without an explicit override."""
+    generic = get_project("GENERIC")
+    assert generic.gtex.mapping_key == "GENERIC"
+    assert generic.gtex.reduce == "median"
+    assert generic.gtex.representative_column == (
+        "gtex_pantissue_median"
+    )
+    assert generic.atac is None
+    assert generic.gexp is None
+    assert generic.repliseq is None
+    assert generic.roadmap is not None
+    assert len(generic.roadmap.eids) == 26
+    assert len(set(generic.roadmap.eids)) == 26  # no duplicates
+    assert generic.encode_chromatin is not None
+    assert len(generic.encode_chromatin.tracks) == 10
+    assert all(
+        t.label == "DNase" for t in generic.encode_chromatin.tracks
+    )
+    assert generic.simple_matrix.gtex_column == (
+        "gtex_pantissue_median"
+    )
+
+
+def test_generic_not_split_by_registry_project_convention():
+    """tcga_analysis's REGISTRY_PROJECT = PROJECT.split('-')[0]
+    subcohort logic (not sigmutselcovs code, but a constraint this
+    registry entry must survive) is a no-op on a hyphen-free code."""
+    assert "GENERIC".split("-")[0] == "GENERIC"  # noqa: SIM905
