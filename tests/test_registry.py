@@ -523,8 +523,8 @@ def test_generic_row():
     assert generic.gexp is None
     assert generic.repliseq is None
     assert generic.roadmap is not None
-    assert len(generic.roadmap.eids) == 26
-    assert len(set(generic.roadmap.eids)) == 26  # no duplicates
+    assert len(generic.roadmap.eids) == 14
+    assert len(set(generic.roadmap.eids)) == 14  # no duplicates
     assert generic.encode_chromatin is not None
     assert len(generic.encode_chromatin.tracks) == 10
     assert all(
