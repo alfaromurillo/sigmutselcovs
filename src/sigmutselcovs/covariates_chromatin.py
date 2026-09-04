@@ -283,6 +283,128 @@ def summarise_tracks_to_genes(
     return out
 
 
+def summarize_tracks_to_genes_streaming(
+    track_source: Iterable[tuple[str, str | Path]],
+    genes: pd.DataFrame,
+    *,
+    include_promoter: bool = True,
+    promoter_upstream: int = 2000,
+    promoter_downstream: int = 200,
+    statistic: str = "mean",
+) -> pd.DataFrame:
+    """Like :func:`summarise_tracks_to_genes`, but consumes tracks
+    lazily from an iterable of ``(label, path)`` pairs instead of a
+    pre-materialized list of already-downloaded files.
+
+    The point: pair this with a generator that downloads one track,
+    ``yield``s it, and deletes it once this function's loop resumes
+    (e.g. :func:`download.stream_roadmap_tracks`/
+    ``stream_encode_chromatin_tracks``) -- then disk usage never
+    exceeds ~1 bigwig regardless of how many tracks are pooled,
+    unlike the batch download-everything-then-summarize-everything
+    path :func:`load_or_generate_chromatin_covariates` normally
+    takes. Built for large pools (e.g. ``GENERIC``) where downloading
+    every track up front doesn't fit on disk.
+
+    Parameters
+    ----------
+    track_source : iterable of (str, str | pathlib.Path)
+        Yields ``(label, bigwig_path)`` one at a time. Each path must
+        still exist when this function reads it (the *caller's*
+        generator is responsible for deleting it only *after*
+        control returns here, not before).
+    genes, include_promoter, promoter_upstream, promoter_downstream,
+    statistic
+        Same as :func:`summarise_tracks_to_genes`.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Same shape/columns as ``summarise_tracks_to_genes`` would
+        produce from the same tracks pre-downloaded.
+    """
+    columns: dict[str, pd.Series] = {}
+    for label, path in track_source:
+        body_series = summarize_bigwig_over_genes(
+            path,
+            genes,
+            label=f"{label}_body",
+            statistic=statistic,
+        )
+        columns[body_series.name] = body_series
+
+        if include_promoter:
+            prom_series = summarize_promoter_signal(
+                path,
+                genes,
+                upstream=promoter_upstream,
+                downstream=promoter_downstream,
+                label=f"{label}_promoter",
+                statistic=statistic,
+            )
+            columns[prom_series.name] = prom_series
+
+    return pd.DataFrame(columns, index=genes.index)
+
+
+def _load_gene_bodies(
+    gtf_path: str | Path, biotypes: Iterable[str] | None
+) -> pd.DataFrame:
+    logger.info("Preparing gene coordinates from %s", gtf_path)
+    genes = load_gene_bodies_from_gtf(
+        str(gtf_path),
+        biotypes=list(biotypes) if biotypes is not None else None,
+        add_chr_prefix_if_needed=True,
+        autosomes_only=False,
+    )
+    if "start" not in genes.columns:
+        genes = genes.rename(
+            columns={"region_start": "start", "region_end": "end"}
+        )
+    return genes.loc[:, ["Chromosome", "start", "end", "strand"]]
+
+
+def _collapse_by_assay(cov_df: pd.DataFrame) -> pd.DataFrame:
+    """Average columns across tracks that share the same assay (e.g.
+    all tracks matching ``H3K27ac``), separately for gene body and
+    promoter summaries. Column names become, for example,
+    ``h3k27ac_body`` and ``h3k27ac_promoter``."""
+    if cov_df.empty:
+        return cov_df
+    import re
+
+    def assay_key(col: str) -> str:
+        base = col
+        if base.endswith("_body"):
+            suffix = "_body"
+            base = base[: -len("_body")]
+        elif base.endswith("_promoter"):
+            suffix = "_promoter"
+            base = base[: -len("_promoter")]
+        else:
+            suffix = ""
+
+        tokens = base.split("_")
+        pat = re.compile(r"^h[23]k\d+(?:ac|me\d)$")
+        hit = None
+        for t in tokens:
+            if pat.match(t):
+                hit = t
+                break
+        key = (hit or tokens[-1]) + suffix
+        return key
+
+    groups: dict[str, list[str]] = {}
+    for c in cov_df.columns:
+        k = assay_key(c)
+        groups.setdefault(k, []).append(c)
+
+    collapsed = {}
+    for k, cols in groups.items():
+        collapsed[k] = cov_df[cols].mean(axis=1)
+    return pd.DataFrame(collapsed, index=cov_df.index)
+
+
 def load_or_generate_chromatin_covariates(
     location_df: str | Path,
     tracks: (
@@ -341,19 +463,7 @@ def load_or_generate_chromatin_covariates(
             cached = cached.groupby(level=0).mean()
         return cached
 
-    logger.info("Preparing gene coordinates from %s", gtf_path)
-    genes = load_gene_bodies_from_gtf(
-        str(gtf_path),
-        biotypes=list(biotypes) if biotypes is not None else None,
-        add_chr_prefix_if_needed=True,
-        autosomes_only=False,
-    )
-
-    if "start" not in genes.columns:
-        genes = genes.rename(
-            columns={"region_start": "start", "region_end": "end"}
-        )
-    genes = genes.loc[:, ["Chromosome", "start", "end", "strand"]]
+    genes = _load_gene_bodies(gtf_path, biotypes)
 
     cov_df = summarise_tracks_to_genes(
         tracks,
@@ -365,41 +475,71 @@ def load_or_generate_chromatin_covariates(
     if not cov_df.index.is_unique:
         cov_df = cov_df.groupby(level=0).mean()
 
-    if average_by_assay and not cov_df.empty:
-        # Collapse columns by assay (e.g., h3k27ac) while preserving
-        # body vs promoter suffixes.
-        import re
+    if average_by_assay:
+        cov_df = _collapse_by_assay(cov_df)
 
-        def assay_key(col: str) -> str:
-            base = col
-            if base.endswith("_body"):
-                suffix = "_body"
-                base = base[: -len("_body")]
-            elif base.endswith("_promoter"):
-                suffix = "_promoter"
-                base = base[: -len("_promoter")]
-            else:
-                suffix = ""
+    cov_df.to_csv(location_df)
+    logger.info("Saved chromatin covariates to %s", location_df)
+    return cov_df
 
-            tokens = base.split("_")
-            pat = re.compile(r"^h[23]k\d+(?:ac|me\d)$")
-            hit = None
-            for t in tokens:
-                if pat.match(t):
-                    hit = t
-                    break
-            key = (hit or tokens[-1]) + suffix
-            return key
 
-        groups: dict[str, list[str]] = {}
-        for c in cov_df.columns:
-            k = assay_key(c)
-            groups.setdefault(k, []).append(c)
+def load_or_generate_chromatin_covariates_streaming(
+    location_df: str | Path,
+    track_source: Iterable[tuple[str, str | Path]],
+    gtf_path: str | Path,
+    *,
+    biotypes: Iterable[str] | None = ("protein_coding",),
+    include_promoter: bool = True,
+    promoter_upstream: int = 2000,
+    promoter_downstream: int = 200,
+    force_generation: bool = False,
+    average_by_assay: bool = False,
+) -> pd.DataFrame:
+    """Streaming counterpart of :func:`load_or_generate_chromatin_covariates`.
 
-        collapsed = {}
-        for k, cols in groups.items():
-            collapsed[k] = cov_df[cols].mean(axis=1)
-        cov_df = pd.DataFrame(collapsed, index=cov_df.index)
+    Same cache-check, gene-loading, and (optional) ``average_by_assay``
+    collapsing behavior, but builds the raw per-track columns via
+    :func:`summarize_tracks_to_genes_streaming` -- meant for a
+    ``track_source`` generator that downloads one bigwig at a time and
+    deletes it as this reads it (e.g. :func:`download.
+    stream_roadmap_tracks`/``stream_encode_chromatin_tracks``), so
+    building a covariate matrix from a large pool of tracks (e.g.
+    ``GENERIC``) never needs more than ~1 bigwig on disk at once,
+    regardless of how many are pooled.
+
+    ``track_source`` is consumed exactly once (it's a generator, not
+    a re-iterable collection) -- call this function again with a
+    fresh generator if you need to rebuild.
+
+    Parameters, return value: same as
+    :func:`load_or_generate_chromatin_covariates`, except ``tracks``
+    is replaced by ``track_source``.
+    """
+    location_df = Path(location_df)
+
+    if location_df.exists() and not force_generation:
+        logger.info(
+            "Loading chromatin covariates from %s", location_df
+        )
+        cached = pd.read_csv(location_df, index_col=0)
+        if not cached.index.is_unique:
+            cached = cached.groupby(level=0).mean()
+        return cached
+
+    genes = _load_gene_bodies(gtf_path, biotypes)
+
+    cov_df = summarize_tracks_to_genes_streaming(
+        track_source,
+        genes,
+        include_promoter=include_promoter,
+        promoter_upstream=promoter_upstream,
+        promoter_downstream=promoter_downstream,
+    )
+    if not cov_df.index.is_unique:
+        cov_df = cov_df.groupby(level=0).mean()
+
+    if average_by_assay:
+        cov_df = _collapse_by_assay(cov_df)
 
     cov_df.to_csv(location_df)
     logger.info("Saved chromatin covariates to %s", location_df)

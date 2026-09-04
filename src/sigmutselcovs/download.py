@@ -668,6 +668,117 @@ def download_roadmap_tracks(
     return out
 
 
+def stream_roadmap_tracks(
+    spec: RoadmapSpec,
+    paths: ProjectPaths,
+    *,
+    force: bool = False,
+    session: requests.Session | None = None,
+    keep_files: bool = False,
+):
+    """Generator: download one Roadmap track at a time and delete it
+    once the consumer resumes (unless ``keep_files``), instead of
+    ``download_roadmap_tracks``'s fetch-everything-first-then-return-
+    a-list. Bounds disk usage to ~1 bigwig regardless of how many
+    ``(eid, mark)`` pairs are requested -- built for pooling large
+    numbers of epigenomes (e.g. ``GENERIC``) where downloading them
+    all up front doesn't fit on disk (hit building the first,
+    26-EID-planned ``GENERIC`` pool, 2026-09-04: gauss filled to 45G
+    free partway through).
+
+    Meant to be driven together with
+    :func:`covariates_chromatin.summarize_tracks_to_genes_streaming`:
+    that function's ``for label, path in track_source`` loop calls
+    ``next()`` on this generator once per track, which resumes
+    execution right after this generator's own ``yield`` -- so the
+    ``unlink()`` below runs, and the *next* track's file exists on
+    disk, before the one after that is ever fetched.
+
+    Same 404-is-normal tolerance as ``download_roadmap_tracks``: a
+    missing ``(eid, mark)`` track is logged and skipped unless the
+    mark is in ``required_marks``.
+
+    Yields
+    ------
+    tuple[str, pathlib.Path]
+        ``(f"{eid}-{mark}", downloaded_path)`` per track that
+        resolved.
+    """
+    session = session or requests.Session()
+    for eid in spec.eids:
+        for mark in spec.marks:
+            name = f"{eid}-{mark}.fc.signal.bigwig"
+            dest = paths.roadmap_dir / name
+            label = f"{eid}-{mark}"
+            url = spec.url_template.format(eid=eid, mark=mark)
+            try:
+                path = download_file(
+                    url, dest, force=force, session=session
+                )
+            except Exception as exc:
+                if mark in spec.required_marks:
+                    raise
+                logger.warning("Skipping %s: %s", name, exc)
+                continue
+            yield label, path
+            if not keep_files:
+                path.unlink()
+
+
+def stream_encode_chromatin_tracks(
+    spec: EncodeChromatinSpec,
+    paths: ProjectPaths,
+    *,
+    force: bool = False,
+    session: requests.Session | None = None,
+    keep_files: bool = False,
+):
+    """Generator counterpart of ``download_encode_chromatin_tracks``,
+    same disk-bounded pattern as :func:`stream_roadmap_tracks` --
+    see its docstring for the mechanism and why it exists.
+
+    Yields
+    ------
+    tuple[str, pathlib.Path]
+        ``(track.label, downloaded_path)`` per track.
+    """
+    session = session or requests.Session()
+    for track in spec.tracks:
+        dest = (
+            paths.encode_chromatin_dir
+            / f"{track.label}_fc_signal_{track.accession}.bigWig"
+        )
+        if track.url is not None:
+            url, md5, size = track.url, None, None
+        else:
+            meta = resolve_encode_file(
+                track.accession, session=session
+            )
+            url = meta["url"]
+            md5 = meta["md5sum"]
+            size = meta["file_size"]
+            if _assembly_mismatch(
+                meta.get("assembly"), spec.assembly
+            ):
+                logger.warning(
+                    "ENCODE %s assembly %s != registry %s",
+                    track.accession,
+                    meta["assembly"],
+                    spec.assembly,
+                )
+        path = download_file(
+            url,
+            dest,
+            expected_md5=md5,
+            expected_size=size,
+            force=force,
+            session=session,
+        )
+        yield track.label, path
+        if not keep_files:
+            path.unlink()
+
+
 def download_encode_chromatin_tracks(
     spec: EncodeChromatinSpec,
     paths: ProjectPaths,
