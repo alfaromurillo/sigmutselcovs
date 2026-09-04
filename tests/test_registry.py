@@ -425,3 +425,51 @@ def test_validate_rejects_empty_encode_chromatin_tracks(tmp_path):
     raw["projects"]["COAD"]["encode_chromatin"] = {"tracks": []}
     with pytest.raises(ValueError, match="encode_chromatin"):
         validate_registry(raw)
+
+
+def test_zero_roadmap_cohorts_have_real_encode_chromatin_rows():
+    """ACC, BLCA, TGCT, UCEC had zero Roadmap epigenomes (Objective
+    A.1 of the covariate-expansion task, 2026-09-03) -- ENCODE-native
+    adult tissue coverage found via the portal search, real accessions
+    (no placeholders). BLCA has no adult tissue DNase-seq available
+    (only an embryonic experiment, rejected as a stage mismatch);
+    the other three do."""
+    expected_marks = {
+        "ACC": {
+            "H3K4me1",
+            "H3K4me3",
+            "H3K9me3",
+            "H3K27me3",
+            "H3K36me3",
+            "DNase",
+        },
+        "BLCA": {"H3K4me1", "H3K27ac", "H3K4me3", "H3K36me3"},
+        "TGCT": {
+            "H3K4me1",
+            "H3K4me3",
+            "H3K27ac",
+            "H3K27me3",
+            "H3K9me3",
+            "H3K36me3",
+            "DNase",
+        },
+        "UCEC": {
+            "H3K4me1",
+            "H3K9me3",
+            "H3K36me3",
+            "H3K27ac",
+            "H3K27me3",
+            "DNase",
+        },
+    }
+    for code, marks in expected_marks.items():
+        spec = get_project(code)
+        assert spec.roadmap is None, code  # still no Roadmap coverage
+        assert spec.encode_chromatin is not None, code
+        assert {
+            t.label for t in spec.encode_chromatin.tracks
+        } == marks
+        assert all(
+            t.accession.startswith("ENCFF")
+            for t in spec.encode_chromatin.tracks
+        ), code
