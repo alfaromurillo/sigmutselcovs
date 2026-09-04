@@ -43,6 +43,42 @@ def test_download_subset_choice_enforced(tmp_path):
         )
 
 
+def test_download_which_accepts_encode_chromatin(tmp_path):
+    """Regression: --which's choices list is separate from
+    download.py's _WHICH tuple and had drifted out of sync when
+    encode_chromatin was added there."""
+    args = build_parser().parse_args(
+        [
+            "download",
+            "ACC",
+            "--data-dir",
+            str(tmp_path),
+            "--which",
+            "encode_chromatin",
+        ]
+    )
+    assert args.which == ["encode_chromatin"]
+
+
+def test_build_include_exclude_accept_encode_chromatin(tmp_path):
+    for flag in ("--include", "--exclude"):
+        args = build_parser().parse_args(
+            [
+                "build",
+                "ACC",
+                "--data-dir",
+                str(tmp_path),
+                flag,
+                "encode_chromatin",
+            ]
+        )
+        assert (
+            args.include == ["encode_chromatin"]
+            if flag == "--include"
+            else args.exclude == ["encode_chromatin"]
+        )
+
+
 def test_fetch_unpublished_raises(tmp_path):
     from sigmutselcovs.fetch import CovariateArtifactsUnavailable
 
