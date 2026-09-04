@@ -445,6 +445,39 @@
           {"label": "DNase", "accession": "ENCFF293DZU"}
         ]
       }
+    },
+    "GENERIC": {
+      "description": "Tissue-agnostic pan-tissue covariate pool, not a TCGA study code -- see sigmutselcovs' DEVELOPMENT.md, 'Generic (pan-tissue) covariates'. Objective B of the expanded-covariate-sources task (2026-09-03). gtex.reduce='median' collapses all 68 GTEx tissue columns into one gtex_pantissue_median column instead of picking one representative tissue. roadmap.eids is 26 Roadmap epigenomes: the 18 already used across other cohorts' own rows (COAD/BRCA/STAD/SKCM/CESC/CHOL/DLBC/ESCA/OV) plus 8 more (E003, E017, E029, E037, E050, E071, E087, E112) picked for numeric/positional spread across the 127-panel as a proxy for tissue diversity (Roadmap's own metadata spreadsheet wasn't fetchable to pick by named tissue group). Sized for gauss's available disk (~50GB estimated at the time), well short of dNdScv's own 63 cell lines -- Objective C's numerosity sweep is the place to test larger N, not this permanent registry entry. encode_chromatin.tracks reuses the 10 DNase accessions already found for ACC/TGCT/UCEC/OV/DLBC/COAD/BRCA/STAD/CHOL/ESCA (zero new downloads, real tissue diversity for free). The 3 marks Roadmap's default panel and our per-cohort rows lack (H3K23ac, H3K14ac, H2AK9ac) were deliberately NOT added here after checking: ENCODE's only H3K23ac/H3K14ac experiments are on in-vitro-differentiated stem cells (not real tissue), and its one H2AK9ac experiment (IMR-90) carries quality-control flags (36bp reads, NRF=0.43) -- same 'don't substitute a bad proxy' principle used throughout this registry, not a search gap.",
+      "gtex": {
+        "mapping_key": "GENERIC",
+        "representative_column": "gtex_pantissue_median",
+        "reduce": "median"
+      },
+      "atac": null,
+      "gexp": null,
+      "repliseq": null,
+      "roadmap": {
+        "eids": [
+          "E003", "E017", "E027", "E028", "E029", "E032", "E037",
+          "E050", "E059", "E061", "E062", "E066", "E071", "E075",
+          "E079", "E087", "E094", "E097", "E101", "E102", "E106",
+          "E110", "E112", "E117", "E118", "E119"
+        ]
+      },
+      "encode_chromatin": {
+        "tracks": [
+          {"label": "DNase", "accession": "ENCFF529VVE"},
+          {"label": "DNase", "accession": "ENCFF078FKY"},
+          {"label": "DNase", "accession": "ENCFF931IYG"},
+          {"label": "DNase", "accession": "ENCFF596SZA"},
+          {"label": "DNase", "accession": "ENCFF749AVF"},
+          {"label": "DNase", "accession": "ENCFF013JSI"},
+          {"label": "DNase", "accession": "ENCFF874CNE"},
+          {"label": "DNase", "accession": "ENCFF493HHP"},
+          {"label": "DNase", "accession": "ENCFF972AOH"},
+          {"label": "DNase", "accession": "ENCFF293DZU"}
+        ]
+      }
     }
   }
 }
