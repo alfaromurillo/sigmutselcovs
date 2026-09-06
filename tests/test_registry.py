@@ -562,6 +562,28 @@ def test_generic_row():
     assert generic.simple_matrix.gtex_column == (
         "gtex_pantissue_median"
     )
+    assert generic.average_by_assay is True
+
+
+def test_average_by_assay_defaults_false():
+    """A real cohort row with no average_by_assay key defaults to
+    False -- collapsing must be opt-in, since it costs accuracy for
+    projects whose chromatin redundancy is per-sample, not
+    per-tissue (see registry.py's ProjectSpec docstring)."""
+    assert get_project("COAD").average_by_assay is False
+
+
+def test_average_by_assay_requires_a_chromatin_source():
+    """average_by_assay=True with no roadmap/atac/encode_chromatin
+    at all has nothing to collapse -- reject at registry load time,
+    not silently build an unaffected matrix."""
+    raw = json.loads(location_projects_registry.read_text())
+    raw["projects"]["COAD"]["average_by_assay"] = True
+    raw["projects"]["COAD"]["roadmap"] = None
+    raw["projects"]["COAD"]["atac"] = None
+    raw["projects"]["COAD"]["encode_chromatin"] = None
+    with pytest.raises(ValueError, match="average_by_assay"):
+        validate_registry(raw)
 
 
 def test_generic_not_split_by_registry_project_convention():

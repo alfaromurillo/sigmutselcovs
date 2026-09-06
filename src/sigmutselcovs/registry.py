@@ -173,7 +173,31 @@ class SimpleMatrixSpec:
 
 @dataclass(frozen=True, slots=True)
 class ProjectSpec:
-    """All covariate sources for one TCGA study code."""
+    """All covariate sources for one TCGA study code.
+
+    ``average_by_assay``: when True, the raw per-track columns from
+    ``roadmap``, ``atac``, and ``encode_chromatin`` are pooled
+    together and collapsed to one averaged column per mark (e.g.
+    ``h3k27ac_body``, ``dnase_body``) *before* assembly into
+    ``cov_matrix_full``, instead of each source contributing its own
+    per-track columns. Built for tissue-agnostic pools like
+    ``GENERIC``, where many different tissues/tracks measuring the
+    same mark carry mostly cross-tissue noise for the purpose of
+    estimating one generic reference level -- averaging keeps the
+    per-mark signal and discards that noise, cheaply outperforming
+    PCA over the full raw pool at the small nc a per-cohort model can
+    support. Do not set this for a normal per-cohort project: a
+    per-*sample* axis (per-patient expression/ATAC tracks) carries
+    real signal, not nuisance variation, and collapsing it costs
+    accuracy instead of buying it -- this only helps when the pooled
+    axis is itself mostly noise for the quantity being estimated.
+    Requires at least one
+    of roadmap/atac/encode_chromatin to be set; combining sources
+    this way is why it lives on the project row, not on each source's
+    own spec -- e.g. GENERIC's native-Roadmap DNase and ENCODE's
+    83 DNase tracks must collapse into *one* shared ``dnase_body``
+    column, not two separately-collapsed ones that would collide.
+    """
 
     code: str
     description: str
@@ -184,6 +208,7 @@ class ProjectSpec:
     roadmap: RoadmapSpec | None = None
     repliseq: RepliseqSpec | None = None
     encode_chromatin: EncodeChromatinSpec | None = None
+    average_by_assay: bool = False
 
 
 def _tupled(value):
@@ -267,6 +292,14 @@ def validate_registry(raw: dict) -> None:
             raise ValueError(
                 f"{code}: encode_chromatin needs at least one track"
             )
+        if row.get("average_by_assay") and not any(
+            row.get(k) is not None
+            for k in ("roadmap", "atac", "encode_chromatin")
+        ):
+            raise ValueError(
+                f"{code}: average_by_assay needs at least one of "
+                "roadmap/atac/encode_chromatin"
+            )
         repliseq = row.get("repliseq")
         if repliseq is not None:
             rtype = repliseq.get("type")
@@ -346,6 +379,7 @@ def load_registry(
             encode_chromatin=source(
                 "encode_chromatin", EncodeChromatinSpec
             ),
+            average_by_assay=bool(row.get("average_by_assay", False)),
         )
     return registry
 
