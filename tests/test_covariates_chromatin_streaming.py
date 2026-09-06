@@ -168,6 +168,28 @@ def test_streaming_average_by_assay(monkeypatch, tmp_path):
     assert list(out.columns) == ["h3k27ac_body", "h3k27ac_promoter"]
 
 
+def test_collapse_by_assay_merges_multiple_dnase_accessions():
+    """Regression test: assay_key used to fall through to
+    tokens[-1] for "dnase" columns (the regex only matched h3k.../
+    h2k... marks), and encode_chromatin's naming convention
+    ("dnase_fc_signal_<accession>_body") puts the accession last --
+    so multiple ENCODE DNase tracks (e.g. GENERIC's 83) each got
+    their own accession-keyed column instead of collapsing into one
+    "dnase_body"/"dnase_promoter" pair, silently defeating
+    average_by_assay for exactly the pool it matters most for."""
+    df = pd.DataFrame(
+        {
+            "dnase_fc_signal_encff001aaa_body": [1.0, 3.0],
+            "dnase_fc_signal_encff002bbb_body": [3.0, 5.0],
+            "h3k27ac_body": [10.0, 20.0],
+        },
+        index=["g1", "g2"],
+    )
+    out = cc._collapse_by_assay(df)
+    assert set(out.columns) == {"dnase_body", "h3k27ac_body"}
+    assert list(out["dnase_body"]) == [2.0, 4.0]
+
+
 # --- download.stream_roadmap_tracks ---
 
 

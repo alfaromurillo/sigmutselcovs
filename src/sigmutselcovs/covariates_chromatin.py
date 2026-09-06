@@ -385,7 +385,7 @@ def _collapse_by_assay(cov_df: pd.DataFrame) -> pd.DataFrame:
             suffix = ""
 
         tokens = base.split("_")
-        pat = re.compile(r"^h[23]k\d+(?:ac|me\d)$")
+        pat = re.compile(r"^h[23]k\d+(?:ac|me\d)$|^dnase$")
         hit = None
         for t in tokens:
             if pat.match(t):
