@@ -573,6 +573,99 @@ def test_encode_chromatin_skipped_when_files_missing(stubbed, caplog):
     )
 
 
+# --- average_by_assay (pooled collapsing across chromatin sources) ---
+
+
+def test_average_by_assay_pools_roadmap_and_encode_together(
+    stubbed, monkeypatch
+):
+    """average_by_assay=True must combine roadmap+encode_chromatin's
+    raw per-track pools BEFORE collapsing, not collapse each source
+    separately -- otherwise two sources sharing a mark (e.g. both
+    having a "dnase" track) would each produce their own
+    "dnase_body" column, colliding on the same name after concat
+    instead of averaging into one shared column (the exact bug
+    average_by_assay=True was built to avoid for GENERIC's native-
+    Roadmap DNase + ENCODE's 83 DNase tracks)."""
+    import json
+
+    from sigmutselcovs.registry import location_projects_registry
+
+    raw = json.loads(location_projects_registry.read_text())
+    raw["projects"]["COAD"]["average_by_assay"] = True
+    raw["projects"]["COAD"]["encode_chromatin"] = {
+        "tracks": [{"label": "DNase", "accession": "ENCFF000EEE"}]
+    }
+    registry_path = stubbed / "projects.json"
+    registry_path.write_text(json.dumps(raw))
+
+    paths = project_paths(stubbed)
+    paths.encode_chromatin_dir.mkdir(parents=True)
+    (
+        paths.encode_chromatin_dir
+        / "DNase_fc_signal_ENCFF000EEE.bigWig"
+    ).touch()
+
+    roadmap_frame = _frame(
+        ["e075_h3k4me3_fc_signal_body", "e075_dnase_body"], offset=30
+    )
+    encode_frame = _frame(
+        ["dnase_fc_signal_encff000eee_body"], offset=40
+    )
+
+    def fake_chromatin(location_df, tracks, gtf_path, **kw):
+        if "roadmap" in str(location_df):
+            return roadmap_frame.copy()
+        if "encode" in str(location_df):
+            return encode_frame.copy()
+        return _frame(
+            [
+                "coad_abc_t1_insertions_body",
+                "coad_abc_t1_insertions_promoter",
+            ],
+            offset=20,
+        )
+
+    monkeypatch.setattr(
+        builder,
+        "load_or_generate_chromatin_covariates",
+        fake_chromatin,
+    )
+
+    matrices = build_covariate_matrix(
+        "COAD",
+        stubbed,
+        gencode_gtfs=GTFS,
+        apply_fixes=False,
+        exclude=("atac",),
+        registry_path=registry_path,
+    )
+    full = matrices.full
+
+    assert list(full.columns).count("dnase_body") == 1
+    assert "h3k4me3_body" in full.columns
+    assert "e075_dnase_body" not in full.columns
+    assert "dnase_fc_signal_encff000eee_body" not in full.columns
+
+    expected_dnase = (
+        roadmap_frame["e075_dnase_body"]
+        + encode_frame["dnase_fc_signal_encff000eee_body"]
+    ) / 2
+    pd.testing.assert_series_equal(
+        full["dnase_body"], expected_dnase.rename("dnase_body")
+    )
+
+
+def test_average_by_assay_false_keeps_per_track_columns(stubbed):
+    """Default behavior (the shipped COAD row) is unaffected -- no
+    collapsing, per-track column names survive untouched."""
+    matrices = build_covariate_matrix(
+        "COAD", stubbed, gencode_gtfs=GTFS, apply_fixes=False
+    )
+    assert "e075_h3k4me3_fc_signal_body" in matrices.full.columns
+    assert "dnase_body" not in matrices.full.columns
+
+
 # --- combine_with_generic ---
 
 

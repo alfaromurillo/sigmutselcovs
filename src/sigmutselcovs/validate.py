@@ -339,6 +339,35 @@ def _sanity_tier(
                 value=len(encode_cols),
                 threshold=f"<= {maximum}",
             )
+    if spec.average_by_assay:
+        # roadmap_column_count/encode_chromatin_column_count above
+        # never fire here (collapsed columns no longer carry
+        # "fc_signal"/accession substrings) -- this is their
+        # equivalent for the collapsed shape: at most 2 columns
+        # (body+promoter) per distinct mark pooled across sources.
+        marks = set()
+        if spec.roadmap is not None:
+            marks.update(m.lower() for m in spec.roadmap.marks)
+        if spec.encode_chromatin is not None:
+            marks.update(
+                t.label.lower() for t in spec.encode_chromatin.tracks
+            )
+        if spec.atac is not None:
+            marks.add("atac")
+        collapsed_cols = [
+            c
+            for c in df.columns
+            if c.endswith(("_body", "_promoter"))
+        ]
+        maximum = 2 * len(marks)
+        if collapsed_cols and maximum:
+            report.add(
+                "chromatin_collapsed_column_count",
+                "chromatin_collapsed",
+                "pass" if len(collapsed_cols) <= maximum else "fail",
+                value=len(collapsed_cols),
+                threshold=f"<= {maximum}",
+            )
 
     # index integrity
     duplicated = int(df.index.duplicated().sum())

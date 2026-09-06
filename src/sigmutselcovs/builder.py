@@ -22,6 +22,7 @@ import pandas as pd
 
 from .covariates_checks import fix_all
 from .covariates_chromatin import (
+    _collapse_by_assay,
     load_or_generate_chromatin_covariates,
 )
 from .covariates_gene_expression import (
@@ -336,6 +337,26 @@ def _describe_block(
             "assembly": ec.assembly if ec else "",
             "units": "signal",
         }
+    if source == "chromatin_collapsed":
+        eids = spec.roadmap.eids if spec.roadmap else ()
+        tracks = (
+            spec.encode_chromatin.tracks
+            if spec.encode_chromatin
+            else ()
+        )
+        return {
+            "description": "One averaged column per chromatin mark, "
+            "pooled across every roadmap/atac/encode_chromatin track "
+            "and collapsed by average_by_assay -- see roadmap/atac/"
+            "encode_chromatin above for the pooled tracks' own "
+            "per-source description",
+            "cell_line_or_epigenome": (
+                f"{len(eids)} Roadmap epigenomes + {len(tracks)} "
+                "ENCODE tracks, averaged"
+            ),
+            "assembly": "",
+            "units": "mean signal",
+        }
     return {
         "description": source,
         "cell_line_or_epigenome": "",
@@ -345,7 +366,12 @@ def _describe_block(
 
 
 def _column_detail(source: str, column: str) -> str:
-    if source in ("atac", "roadmap", "encode_chromatin"):
+    if source in (
+        "atac",
+        "roadmap",
+        "encode_chromatin",
+        "chromatin_collapsed",
+    ):
         if column.endswith("_body"):
             return "gene body [TSS+200, TES]"
         if column.endswith("_promoter"):
@@ -611,6 +637,15 @@ def build_covariate_matrix(
                     blocks.append((kind, list(frame.columns)))
                 included.add("repliseq")
 
+    # When average_by_assay is set, roadmap/atac/encode_chromatin's
+    # raw per-track columns are pooled here and collapsed together
+    # (once, below) instead of each source contributing its own
+    # per-track columns -- e.g. GENERIC's native-Roadmap DNase and
+    # ENCODE's 83 DNase tracks must average into one shared
+    # "dnase_body" column, not two separately-collapsed ones that
+    # would collide on the same column name after concat.
+    chromatin_frames_to_collapse: list[pd.DataFrame] = []
+
     atac_covs = None
     if "atac" in selected:
         if spec.atac is None:
@@ -626,8 +661,11 @@ def build_covariate_matrix(
                 force_generation,
             )
             if atac_covs is not None:
-                frames.append(atac_covs)
-                blocks.append(("atac", list(atac_covs.columns)))
+                if spec.average_by_assay:
+                    chromatin_frames_to_collapse.append(atac_covs)
+                else:
+                    frames.append(atac_covs)
+                    blocks.append(("atac", list(atac_covs.columns)))
                 included.add("atac")
 
     if "roadmap" in selected:
@@ -645,8 +683,13 @@ def build_covariate_matrix(
                 force_generation,
             )
             if roadmap_covs is not None:
-                frames.append(roadmap_covs)
-                blocks.append(("roadmap", list(roadmap_covs.columns)))
+                if spec.average_by_assay:
+                    chromatin_frames_to_collapse.append(roadmap_covs)
+                else:
+                    frames.append(roadmap_covs)
+                    blocks.append(
+                        ("roadmap", list(roadmap_covs.columns))
+                    )
                 included.add("roadmap")
 
     if "encode_chromatin" in selected:
@@ -664,14 +707,31 @@ def build_covariate_matrix(
                 force_generation,
             )
             if encode_chromatin_covs is not None:
-                frames.append(encode_chromatin_covs)
-                blocks.append(
-                    (
-                        "encode_chromatin",
-                        list(encode_chromatin_covs.columns),
+                if spec.average_by_assay:
+                    chromatin_frames_to_collapse.append(
+                        encode_chromatin_covs
                     )
-                )
+                else:
+                    frames.append(encode_chromatin_covs)
+                    blocks.append(
+                        (
+                            "encode_chromatin",
+                            list(encode_chromatin_covs.columns),
+                        )
+                    )
                 included.add("encode_chromatin")
+
+    if chromatin_frames_to_collapse:
+        pooled = [
+            f if f.index.is_unique else f.groupby(level=0).mean()
+            for f in chromatin_frames_to_collapse
+        ]
+        combined = pd.concat(pooled, axis=1, join="outer")
+        collapsed = _collapse_by_assay(combined)
+        frames.append(collapsed)
+        blocks.append(
+            ("chromatin_collapsed", list(collapsed.columns))
+        )
 
     if not frames:
         raise ValueError(
