@@ -385,7 +385,13 @@ def _collapse_by_assay(cov_df: pd.DataFrame) -> pd.DataFrame:
             suffix = ""
 
         tokens = base.split("_")
-        pat = re.compile(r"^h[23]k\d+(?:ac|me\d)$|^dnase$")
+        # h2ak9ac (H2AK9ac) doesn't fit h[23]k... -- the histone
+        # subunit token is "2a", not a bare digit, unlike h3k*/h4k*
+        # marks. Found live when GENERIC picked up H2AK9ac tracks
+        # for the first time (2026-09-07): without this alternation
+        # it silently fell through to keying by accession instead of
+        # collapsing, the same failure mode "dnase" had before.
+        pat = re.compile(r"^h(?:2a|2b|[34])k\d+(?:ac|me\d)$|^dnase$")
         hit = None
         for t in tokens:
             if pat.match(t):

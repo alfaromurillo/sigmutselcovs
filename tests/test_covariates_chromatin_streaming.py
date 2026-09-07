@@ -190,6 +190,27 @@ def test_collapse_by_assay_merges_multiple_dnase_accessions():
     assert list(out["dnase_body"]) == [2.0, 4.0]
 
 
+def test_collapse_by_assay_merges_h2ak9ac_tracks():
+    """Regression test: assay_key's regex (h[23]k\\d+(?:ac|me\\d))
+    didn't match "h2ak9ac" -- the histone-subunit token is "2a", not
+    a bare digit, unlike every h3k*/h4k* mark the regex was written
+    for. Found live (2026-09-07) when GENERIC picked up H2AK9ac
+    tracks for the first time; without the "2a"/"2b" alternation
+    this silently fell through to keying by accession, the same
+    failure mode "dnase" had before."""
+    df = pd.DataFrame(
+        {
+            "h2ak9ac_fc_signal_encff001aaa_body": [2.0, 4.0],
+            "h2ak9ac_fc_signal_encff002bbb_body": [4.0, 6.0],
+            "h3k27ac_body": [10.0, 20.0],
+        },
+        index=["g1", "g2"],
+    )
+    out = cc._collapse_by_assay(df)
+    assert set(out.columns) == {"h2ak9ac_body", "h3k27ac_body"}
+    assert list(out["h2ak9ac_body"]) == [3.0, 5.0]
+
+
 # --- download.stream_roadmap_tracks ---
 
 
