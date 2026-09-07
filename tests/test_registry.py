@@ -413,14 +413,39 @@ def test_golden_row_with_encode_chromatin_and_generic_gtex(tmp_path):
     assert coad.encode_chromatin.tracks[1].accession == "ENCFF000BBB"
 
 
-def test_encode_chromatin_defaults_to_none():
-    """SKCM/CESC are genuine negative results from the live
-    ENCODE-portal search (Objective A.4, 2026-09-03): no adult
-    melanocyte DNase-seq and no cervix DNase-seq at all exist there
-    -- see each row's description. Every other cohort in the shipped
-    registry now has at least a DNase encode_chromatin track."""
-    assert get_project("SKCM").encode_chromatin is None
-    assert get_project("CESC").encode_chromatin is None
+def test_skcm_cesc_have_only_cell_line_encode_chromatin():
+    """SKCM/CESC had zero adult-tissue encode_chromatin as of
+    2026-09-03 (genuine negative: no adult melanocyte DNase-seq, no
+    cervix DNase-seq at all exist on ENCODE -- see each row's
+    description). Still true after the 2026-09-07 cell-line pass:
+    Martincorena et al. 2017's STAR Methods confirms dNdScv's own
+    matrix is cell-line-based, prompting an ENCODE
+    classification=cell+line search, which found real disease-matched
+    cell lines for both (SK-MEL-5/COLO829 melanoma DNase for SKCM,
+    HeLa-S3 cervical-cancer ChIP-seq/DNase for CESC) -- but still no
+    adult *tissue* match for either, so these are cell-line-only, not
+    the adult-tissue-DNase pattern every other cohort in the shipped
+    registry has."""
+    skcm = get_project("SKCM")
+    assert skcm.encode_chromatin is not None
+    assert {t.label for t in skcm.encode_chromatin.tracks} == {
+        "DNase"
+    }
+    assert len(skcm.encode_chromatin.tracks) == 2
+
+    cesc = get_project("CESC")
+    assert cesc.encode_chromatin is not None
+    assert {t.label for t in cesc.encode_chromatin.tracks} == {
+        "H3K9me3",
+        "H3K36me3",
+        "H3K27me3",
+        "H3K4me1",
+        "H3K4me3",
+        "H3K9ac",
+        "H3K27ac",
+        "DNase",
+    }
+    assert len(cesc.encode_chromatin.tracks) == 8
 
 
 def test_validate_rejects_bad_gtex_reduce(tmp_path):
@@ -443,7 +468,17 @@ def test_zero_roadmap_cohorts_have_real_encode_chromatin_rows():
     adult tissue coverage found via the portal search, real accessions
     (no placeholders). BLCA has no adult tissue DNase-seq available
     (only an embryonic experiment, rejected as a stage mismatch);
-    the other three do."""
+    the other three do.
+
+    2026-09-07 cell-line pass: BLCA gained a urothelium cell-line
+    DNase track (its first DNase of any kind), and TGCT gained NT2/D1
+    (a genuine testicular-embryonal-carcinoma line), which happens to
+    fill TGCT's one remaining mark gap, H3K9ac -- so TGCT's expected
+    set gains a label, not just a track count. ACC got no cell-line
+    match (no adrenal-cortex cell line exists on ENCODE at all, a
+    genuine negative -- see ACC's description); UCEC's new track
+    (Ishikawa) is DNase, already in its set, so its expected labels
+    are unchanged even though its track count grew."""
     expected_marks = {
         "ACC": {
             "H3K4me1",
@@ -453,7 +488,13 @@ def test_zero_roadmap_cohorts_have_real_encode_chromatin_rows():
             "H3K36me3",
             "DNase",
         },
-        "BLCA": {"H3K4me1", "H3K27ac", "H3K4me3", "H3K36me3"},
+        "BLCA": {
+            "H3K4me1",
+            "H3K27ac",
+            "H3K4me3",
+            "H3K36me3",
+            "DNase",
+        },
         "TGCT": {
             "H3K4me1",
             "H3K4me3",
@@ -461,6 +502,7 @@ def test_zero_roadmap_cohorts_have_real_encode_chromatin_rows():
             "H3K27me3",
             "H3K9me3",
             "H3K36me3",
+            "H3K9ac",
             "DNase",
         },
         "UCEC": {
@@ -490,15 +532,19 @@ def test_dnase_only_encode_chromatin_rows():
     each cohort's existing Roadmap/ATAC coverage, for every cohort
     with a matched adult-tissue ENCODE DNase-seq experiment. OV/DLBC
     substitute it for their missing TCGA ATAC; the rest add it
-    alongside their existing ATAC."""
+    alongside their existing ATAC.
+
+    STAD/ESCA/OV are still DNase-only after the 2026-09-07 cell-line
+    pass -- genuine negatives, no gastric/esophageal/ovarian cancer
+    cell line exists anywhere in ENCODE's classic ChIP-seq/DNase
+    panel (checked against all 211 distinct cell lines the panel-wide
+    search returned). COAD/BRCA/CHOL/DLBC did gain cell-line tracks
+    and moved to `test_cell_line_augmented_encode_chromatin_rows`
+    below -- they're intentionally no longer in this dict."""
     expected_dnase = {
-        "COAD": "ENCFF013JSI",
-        "BRCA": "ENCFF874CNE",
         "STAD": "ENCFF493HHP",
-        "CHOL": "ENCFF972AOH",
         "ESCA": "ENCFF293DZU",
         "OV": "ENCFF596SZA",
-        "DLBC": "ENCFF749AVF",
     }
     for code, accession in expected_dnase.items():
         spec = get_project(code)
@@ -507,6 +553,41 @@ def test_dnase_only_encode_chromatin_rows():
             t.label: t.accession for t in spec.encode_chromatin.tracks
         }
         assert tracks == {"DNase": accession}, code
+
+
+def test_cell_line_augmented_encode_chromatin_rows():
+    """2026-09-07: Martincorena et al. 2017's STAR Methods confirms
+    dNdScv's own 20-PC matrix is built from Roadmap *cell lines*, not
+    primary tissue -- prompting a fresh ENCODE
+    classification=cell+line search for disease-matched lines. COAD,
+    BRCA and DLBC moved off the DNase-only pattern as a result; each
+    keeps its original adult-tissue DNase track plus new multi-mark
+    cell-line tracks (real disease-matched lines, not arbitrary
+    additions -- see each row's description for the specific
+    rationale). CHOL's two new lines (HuH-7/HuH-7.5) only had
+    ENCODE DNase-seq, not the other marks, so it stays DNase-only
+    with more tracks rather than gaining new labels -- checked
+    separately below, not lumped in with the >1-label assertion."""
+    expected_min_tracks = {
+        "COAD": 19,  # 1 original DNase + 18 from 6 colon-cancer lines
+        "BRCA": 10,  # 1 original DNase + 9 from MCF-7/T47D
+        "DLBC": 35,  # 1 original DNase + 34 from 5 DLBCL lines
+    }
+    for code, n in expected_min_tracks.items():
+        spec = get_project(code)
+        assert spec.encode_chromatin is not None, code
+        assert len(spec.encode_chromatin.tracks) == n, code
+        # still has more than one label -- no longer DNase-only
+        assert (
+            len({t.label for t in spec.encode_chromatin.tracks}) > 1
+        ), code
+
+    chol = get_project("CHOL")
+    assert chol.encode_chromatin is not None
+    assert len(chol.encode_chromatin.tracks) == 3
+    assert {t.label for t in chol.encode_chromatin.tracks} == {
+        "DNase"
+    }
 
 
 def test_generic_row():
@@ -525,7 +606,15 @@ def test_generic_row():
     DNase-seq tracks via the same signal system for most EIDs.
     encode_chromatin is 83 adult primary-tissue DNase-seq
     experiments from the ENCODE portal, one per unique biosample
-    term, complementing Roadmap's own DNase coverage."""
+    term, complementing Roadmap's own DNase coverage. 2026-09-07:
+    Martincorena et al. 2017's STAR Methods (finally accessed this
+    session) confirms dNdScv's own matrix is built from 63 Roadmap
+    *cell lines* -- since GENERIC is tissue-agnostic, cell-line
+    identity isn't a rejection criterion here the way it is for a
+    per-cohort matrix, so all 211 distinct ENCODE cell lines found
+    (7 default marks + DNase, 548 track pairs, zero overlap with the
+    original 83) plus the 3 rare marks' full cell-line pool (7
+    biosamples, 12 more pairs) were added: 83 + 548 + 12 = 645."""
     generic = get_project("GENERIC")
     assert generic.gtex.mapping_key == "GENERIC"
     assert generic.gtex.reduce == "median"
@@ -551,14 +640,32 @@ def test_generic_row():
         "DNase",
     }
     assert generic.encode_chromatin is not None
-    assert len(generic.encode_chromatin.tracks) == 83
+    assert len(generic.encode_chromatin.tracks) == 645
     assert (
         len({t.accession for t in generic.encode_chromatin.tracks})
-        == 83
+        == 645
     )  # no duplicate accessions
-    assert all(
-        t.label == "DNase" for t in generic.encode_chromatin.tracks
-    )
+    # the 3 rare marks (unobtainable for any single tissue -- see
+    # per-cohort descriptions) exist only in GENERIC's cell-line pool
+    generic_labels = {
+        t.label for t in generic.encode_chromatin.tracks
+    }
+    assert {"H3K23ac", "H3K14ac", "H2AK9ac"} <= generic_labels
+    # no longer DNase-only after the 2026-09-07 cell-line pass --
+    # the pool now spans all 8 default marks plus the 3 rare ones
+    assert generic_labels == {
+        "H3K4me1",
+        "H3K4me3",
+        "H3K9ac",
+        "H3K9me3",
+        "H3K27ac",
+        "H3K27me3",
+        "H3K36me3",
+        "DNase",
+        "H3K23ac",
+        "H3K14ac",
+        "H2AK9ac",
+    }
     assert generic.simple_matrix.gtex_column == (
         "gtex_pantissue_median"
     )
