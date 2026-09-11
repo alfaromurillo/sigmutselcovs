@@ -42,12 +42,12 @@ full, simple, tcga = build_covariate_matrix("BRCA", "data/BRCA",
                                             cache_matrices=True)
 ```
 
-`--data-dir` accepts any path; `data/<CODE>` is `tcga_analysis`'s
-convention (see its `CLAUDE.md`), not something this package
-enforces. `build_covariate_matrix` reproduces the historical COAD
-pipeline exactly (same loaders, caches, and concatenation order), so
-running it over an existing `coad_data/`-layout tree is bit-for-bit
-identical to the old `coad_analysis/code/covariates.py` `build()`.
+`--data-dir` accepts any path; a downstream pipeline's own layout
+convention (e.g. `data/<CODE>`) is not enforced here. `build_covariate_matrix`
+reproduces the historical COAD pipeline exactly (same loaders, caches,
+and concatenation order), so running it over an existing
+`coad_data/`-layout tree reproduces the original pre-migration
+pipeline's `build()` output bit-for-bit.
 
 ## Module map
 

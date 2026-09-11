@@ -51,9 +51,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   packaged data directory, then a user cache
   (`$XDG_CACHE_HOME/sigmutselcovs/gtex/`) — downloads never write
   into the installed package anymore.
-- `coad_analysis/code/covariates.py`'s `build()` is now a thin
-  wrapper over `build_covariate_matrix("COAD", ...)`; verified
-  bit-for-bit identical to the pre-migration output.
+- The original per-cohort pipeline's `covariates.py` `build()` is
+  now a thin wrapper over `build_covariate_matrix("COAD", ...)`;
+  verified bit-for-bit identical to the pre-migration output.
 - `requires-python` raised to `>=3.12`; added `pyarrow` and
   `requests` dependencies; adopted black/ruff at 70-character line
   length (matching sigmutsel).
@@ -70,4 +70,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   replication timing (HCT116 MAT), chromatin (Roadmap and TCGA
   ATAC-seq bigWigs), data-quality checks (`fix_all` and friends),
   and shared genomic utilities. Downloading and per-project paths
-  lived in the downstream `coad_analysis` repository.
+  lived in a downstream, cohort-specific pipeline repository.
