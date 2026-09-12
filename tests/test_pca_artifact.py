@@ -13,6 +13,11 @@ from sigmutselcovs.pca_artifact import (
     save_pca_artifact,
 )
 
+# sigmutsel is an optional dependency (the `pca` extra) -- build_pca_artifact
+# imports it lazily, so skip this whole module instead of failing when it
+# isn't installed (a bare `pip install .[dev]` never pulls it in).
+pytest.importorskip("sigmutsel")
+
 
 def _synthetic_cov_matrix(n_genes=200, n_cols=12, seed=0):
     rng = np.random.default_rng(seed)
