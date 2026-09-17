@@ -363,7 +363,7 @@ def load_or_generate_mean_tcga_gexp(
         Filter samples by the 'Tissue Type' column in the GDC sample
         sheet before computing the mean.  Pass None to average over all
         tissue types.  The default ``'Tumor'`` excludes matched-normal
-        RNA-seq files so that the mean reflects tumour expression only.
+        RNA-seq files so that the mean reflects tumor expression only.
     strip_gene_id_version : bool
         Strip '.version' from Ensembl IDs during generation.
     force_generation : bool
