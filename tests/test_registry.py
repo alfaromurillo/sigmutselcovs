@@ -218,14 +218,19 @@ def test_stad_row():
 
 def test_tgct_row():
     """TGCT has ATAC and GTEx coverage but no matching Roadmap
-    epigenome (no testis anatomy in the standard 127-panel).
+    epigenome (no testis anatomy in the standard 127-panel) and no
+    repliseq block.
 
-    Its repliseq is H1 hESC (GSE137764, 16-fraction MAT, hg38): no
-    testis or germ-cell-tumor line exists in ENCODE's replication-
-    timing catalog, and embryonal carcinoma -- the stem-cell
-    component of nonseminomatous GCT -- is the malignant counterpart
-    of embryonic stem cells, the same reasoning behind this row's
-    NT2/D1 chromatin tracks. H1 is male, H9 female.
+    The repliseq null is now a *tested* negative rather than an
+    absence of candidates. H1 hESC was registered on 2026-09-18 on a
+    cell-of-origin argument -- embryonal carcinoma is the malignant
+    counterpart of embryonic stem cells -- and then dropped, because
+    on TGCT it measured as nothing: held-out R^2 -0.0003 at matched
+    n_components, ELPD within half a nat over 16852 genes, PIT
+    calibration unchanged, and residual spatial autocorrelation
+    identical with and without it. Adding it also costs every
+    chrX/chrY gene, since the MAT is autosome-only. Do not re-add it
+    without new evidence.
     """
     tgct = get_project("TGCT")
     assert tgct.gtex.mapping_key == "TGCT"
@@ -236,14 +241,7 @@ def test_tgct_row():
     )
     assert tgct.atac.column_prefix == "tgct"
     assert tgct.roadmap is None
-    assert tgct.repliseq.type == "mat"
-    assert tgct.repliseq.assembly == "hg38"
-    assert tgct.repliseq.cell_line == "H1"
-    assert tgct.repliseq.filename == (
-        "GSE137764_H1_GaussiansGSE137764_mooth_scaled_autosome.mat"
-    )
-    assert tgct.repliseq.n_fractions == 16
-    assert tgct.repliseq.include_clr_fractions is True
+    assert tgct.repliseq is None
     assert tgct.simple_matrix.gtex_column == "gtex_testis"
 
 
