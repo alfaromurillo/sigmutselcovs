@@ -218,8 +218,15 @@ def test_stad_row():
 
 def test_tgct_row():
     """TGCT has ATAC and GTEx coverage but no matching Roadmap
-    epigenome (no testis anatomy in the standard 127-panel) and no
-    matching repliseq cell line."""
+    epigenome (no testis anatomy in the standard 127-panel).
+
+    Its repliseq is H1 hESC (GSE137764, 16-fraction MAT, hg38): no
+    testis or germ-cell-tumor line exists in ENCODE's replication-
+    timing catalog, and embryonal carcinoma -- the stem-cell
+    component of nonseminomatous GCT -- is the malignant counterpart
+    of embryonic stem cells, the same reasoning behind this row's
+    NT2/D1 chromatin tracks. H1 is male, H9 female.
+    """
     tgct = get_project("TGCT")
     assert tgct.gtex.mapping_key == "TGCT"
     assert tgct.gtex.representative_column == "gtex_testis"
@@ -229,7 +236,14 @@ def test_tgct_row():
     )
     assert tgct.atac.column_prefix == "tgct"
     assert tgct.roadmap is None
-    assert tgct.repliseq is None
+    assert tgct.repliseq.type == "mat"
+    assert tgct.repliseq.assembly == "hg38"
+    assert tgct.repliseq.cell_line == "H1"
+    assert tgct.repliseq.filename == (
+        "GSE137764_H1_GaussiansGSE137764_mooth_scaled_autosome.mat"
+    )
+    assert tgct.repliseq.n_fractions == 16
+    assert tgct.repliseq.include_clr_fractions is True
     assert tgct.simple_matrix.gtex_column == "gtex_testis"
 
 

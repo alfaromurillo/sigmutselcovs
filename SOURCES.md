@@ -205,9 +205,15 @@ heatmaps — the richest replication-timing format this package
 supports (`mat` source type).
 
 **Dataset used**: COAD uses the HCT116 file from this series
-(`GSE137764_HCT_GaussiansGSE137764_mooth_scaled_autosome.mat`); the
-series also has H1 and H9 (plus mouse) but no other cancer-relevant
-cell lines as of 2026-08.
+(`GSE137764_HCT_GaussiansGSE137764_mooth_scaled_autosome.mat`) and
+TGCT the H1 one
+(`GSE137764_H1_GaussiansGSE137764_mooth_scaled_autosome.mat`); the
+series' only other human line is H9 (plus mouse), so these are all
+three of its human profiles.  H1 (WA01) is a male human embryonic
+stem cell line, used for TGCT because embryonal carcinoma -- the
+stem-cell component of nonseminomatous germ cell tumors -- is the
+malignant counterpart of embryonic stem cells; H9 is female and
+otherwise equivalent.  All three files are autosome-only.
 
 **Cite** (same paper as the GEO series, already in
 `article/references.bib` as `Zhao2020`):
@@ -230,7 +236,8 @@ promoter-window coordinates every other source is summarized
 over. Assembly/version is picked per covariate block by the
 registry's `assembly` field: `hg19` blocks (Roadmap, ENCODE-sourced
 replication timing) use GENCODE v19; `hg38` blocks (TCGA ATAC-seq,
-GDC gene expression, the COAD HCT116 MAT) use GENCODE v38. This is
+GDC gene expression, the COAD HCT116 and TGCT H1 MATs) use
+GENCODE v38. This is
 the source of the "extra NaN in hg19 blocks" pattern documented in
 `DEVELOPMENT.md`.
 
