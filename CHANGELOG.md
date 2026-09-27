@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `build_covariate_matrix` records the source block of every column
+  of the full matrix in `full.attrs["column_sources"]` (the same
+  sources as the column dictionary), and `combine_with_generic`
+  carries both matrices' records over.
+- `covariate_column_blocks(matrix)` groups those sources into kinds
+  of measurement (`SOURCE_BLOCKS`: gtex, expression, replication
+  timing, atac, chromatin), for callers that treat a gene's missing
+  covariates by block.
+
 ## [0.2.0] - 2026-08-12
 
 ### Added

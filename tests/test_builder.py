@@ -666,6 +666,40 @@ def test_average_by_assay_false_keeps_per_track_columns(stubbed):
     assert "dnase_body" not in matrices.full.columns
 
 
+def test_column_sources_recorded_and_grouped_into_blocks(stubbed):
+    from sigmutselcovs import covariate_column_blocks
+
+    matrices = build_covariate_matrix(
+        "COAD",
+        stubbed,
+        gencode_gtfs=GTFS,
+        apply_fixes=False,
+        cache_matrices=True,
+    )
+    sources = matrices.full.attrs["column_sources"]
+    dictionary = pd.read_csv(
+        project_paths(stubbed).column_dictionary_csv
+    ).set_index("column")
+    # the same answer the column dictionary gives, for every column
+    assert sources == dictionary["source"].to_dict()
+
+    blocks = covariate_column_blocks(matrices.full)
+    assert list(blocks.index) == list(matrices.full.columns)
+    assert blocks["gtex_colon_sigmoid"] == "gtex"
+    assert blocks["tpm_unstranded"] == "expression"
+    assert blocks["mrt"] == "replication_timing"
+    assert blocks["clr_rt_s1"] == "replication_timing"
+    assert blocks["coad_abc_t1_insertions_body"] == "atac"
+    assert blocks["e075_h3k9me3_fc_signal_promoter"] == "chromatin"
+
+
+def test_column_blocks_need_the_recorded_sources():
+    from sigmutselcovs import covariate_column_blocks
+
+    with pytest.raises(ValueError, match="column_sources"):
+        covariate_column_blocks(pd.DataFrame({"x": [1.0]}))
+
+
 # --- combine_with_generic ---
 
 
@@ -688,3 +722,15 @@ def test_combine_with_generic_outer_joins_on_gene_index():
     assert pd.isna(combined.loc["ENSG_C", "cohort_col"])
     assert combined.loc["ENSG_B", "cohort_col"] == 2.0
     assert combined.loc["ENSG_B", "generic_col"] == 10.0
+
+
+def test_combine_with_generic_keeps_both_column_sources():
+    cohort = pd.DataFrame({"c": [1.0]}, index=["ENSG_A"])
+    cohort.attrs["column_sources"] = {"c": "roadmap"}
+    generic = pd.DataFrame({"g": [2.0]}, index=["ENSG_A"])
+    generic.attrs["column_sources"] = {"g": "mrt"}
+    combined = builder.combine_with_generic(cohort, generic)
+    assert combined.attrs["column_sources"] == {
+        "c": "roadmap",
+        "g": "mrt",
+    }

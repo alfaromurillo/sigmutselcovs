@@ -24,6 +24,8 @@ _LAZY = {
     "build_covariate_matrix": "builder",
     "CovariateMatrices": "builder",
     "combine_with_generic": "builder",
+    "covariate_column_blocks": "builder",
+    "SOURCE_BLOCKS": "builder",
     "load_registry": "registry",
     "available_projects": "registry",
     "get_project": "registry",

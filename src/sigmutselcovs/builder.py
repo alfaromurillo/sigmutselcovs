@@ -82,8 +82,61 @@ def combine_with_generic(
     (verified for the shipped sources), same as within a single
     `build_covariate_matrix` call.
     """
-    return pd.concat(
+    combined = pd.concat(
         [cov_matrix_full, generic_matrix], axis=1, join="outer"
+    )
+    combined.attrs["column_sources"] = {
+        **cov_matrix_full.attrs.get("column_sources", {}),
+        **generic_matrix.attrs.get("column_sources", {}),
+    }
+    return combined
+
+
+# Which covariate block each source belongs to, for callers that treat
+# a gene's missing covariates by block (a gene missing its chromatin
+# columns is a different case from one missing its expression). The
+# block is the kind of measurement, so the three chromatin sources are
+# one block and the three replication-timing encodings another.
+SOURCE_BLOCKS = {
+    "gtex": "gtex",
+    "gexp_mean": "expression",
+    "gexp_per_sample": "expression",
+    "mrt": "replication_timing",
+    "clr": "replication_timing",
+    "wavelet": "replication_timing",
+    "atac": "atac",
+    "roadmap": "chromatin",
+    "encode_chromatin": "chromatin",
+    "chromatin_collapsed": "chromatin",
+}
+
+
+def covariate_column_blocks(matrix: pd.DataFrame) -> pd.Series:
+    """Map each column of a built ``full`` matrix to its block.
+
+    Reads the ``column_sources`` that `build_covariate_matrix` (and
+    `combine_with_generic`) record in ``matrix.attrs`` and groups the
+    sources by `SOURCE_BLOCKS`. A column with no recorded source is
+    ``"other"``.
+
+    Raises
+    ------
+    ValueError
+        If ``matrix`` carries no ``column_sources`` -- e.g. it was read
+        back from a parquet cache, which does not keep ``attrs``.
+    """
+    sources = matrix.attrs.get("column_sources")
+    if sources is None:
+        raise ValueError(
+            "matrix.attrs has no 'column_sources': pass the matrix "
+            "build_covariate_matrix returned, not a reloaded copy."
+        )
+    return pd.Series(
+        {
+            column: SOURCE_BLOCKS.get(sources.get(column), "other")
+            for column in matrix.columns
+        },
+        name="block",
     )
 
 
@@ -755,6 +808,18 @@ def build_covariate_matrix(
         cov_matrix_full, reports = fix_all(cov_matrix_full_raw)
     else:
         cov_matrix_full = cov_matrix_full_raw
+
+    # Where each surviving column came from, for callers that need it
+    # after the build (see `covariate_column_blocks`).
+    source_of = {
+        column: source
+        for source, columns in blocks
+        for column in columns
+    }
+    cov_matrix_full.attrs["column_sources"] = {
+        column: source_of.get(column, "other")
+        for column in cov_matrix_full.columns
+    }
 
     # Simple interpretable model: one variable per major covariate
     # type. H3K4me3 marks active transcription (lower mutation rate);
