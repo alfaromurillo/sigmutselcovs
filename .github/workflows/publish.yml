@@ -12,6 +12,9 @@ on:
 
 jobs:
   deploy:
+    # Only package releases (tags v*): a data-only release must not
+    # try to publish.
+    if: startsWith(github.event.release.tag_name, 'v')
     runs-on: ubuntu-latest
 
     steps:
