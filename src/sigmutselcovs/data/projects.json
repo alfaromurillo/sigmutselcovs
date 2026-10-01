@@ -536,6 +536,39 @@
         ]
       }
     },
+    "GBM": {
+      "description": "Glioblastoma multiforme. GTEx maps to the 13 Brain_* columns (representative Brain_Cortex). TCGA ATAC-seq covered (Corces et al. 2018). Roadmap uses E073 (dorsolateral prefrontal cortex) and E072 (inferior temporal lobe) -- GBM is supratentorial and commonest in the frontal and temporal lobes; both adult composite epigenomes from the same two donors (75Y/81Y), 7/7 marks each -- plus E125 (NH-A astrocytes, primary culture, 7/7, age unrecorded), the cell-of-origin match on the same reasoning as DLBC's E032. All 21 (EID, mark) pairs live-verified 200 on 2026-10-01 (of the brain epigenomes checked, only E071 hippocampus lacks H3K9ac). Fetal/neurosphere epigenomes (E053, E054, E070, E081, E082) rejected as non-adult. encode_chromatin: DNase-seq only, filling the open-chromatin gap Roadmap's 7-mark panel leaves -- adult DLPFC (ENCSR982XOK, 71y male, the youngest DLPFC donor without a cognitive-impairment or Alzheimer's diagnosis; a different donor from Roadmap's) and primary astrocyte (ENCSR000EPM, NH-A). ENCODE's native-GRCh38 brain histone tracks were not added: the donors with full mark coverage are Roadmap's own E067-E074 donors, so they would duplicate E073/E072 in another assembly, and the NH-A histone set is E125's cells. Cell lines: the five glioma lines in ENCODE's 211-line panel, all DNase only (no glioma line has histone ChIP-seq): U-87 MG, A172, M059J and H54 (glioblastoma) and H4 (neuroglioma); neuroblastoma (SK-N-SH, BE2C, SK-N-DZ), Ewing-family (SK-N-MC) and medulloblastoma (Daoy, D341Med, D721Med) lines rejected. repliseq null: no glioma, astrocyte or adult-brain replication-timing source exists; hESC-derived neural progenitor Repli-chip (ENCSR497CCF, wavelet, hg19) is a cell-of-origin candidate not yet measured. Assemblies: Roadmap hg19, encode_chromatin and ATAC GRCh38.",
+      "gtex": {
+        "mapping_key": "GBM",
+        "representative_column": "gtex_brain_cortex"
+      },
+      "gexp": {
+        "tcga_project_id": "TCGA-GBM"
+      },
+      "atac": {
+        "gdc_uuid": "ff11b5c0-5c43-443e-9cc7-dd7be60366f1",
+        "column_prefix": "gbm"
+      },
+      "roadmap": {
+        "eids": [
+          "E073",
+          "E072",
+          "E125"
+        ]
+      },
+      "repliseq": null,
+      "encode_chromatin": {
+        "tracks": [
+          {"label": "DNase", "accession": "ENCFF068WKK"},
+          {"label": "DNase", "accession": "ENCFF033FRL"},
+          {"label": "DNase", "accession": "ENCFF401ZAB"},
+          {"label": "DNase", "accession": "ENCFF928KLF"},
+          {"label": "DNase", "accession": "ENCFF551RSC"},
+          {"label": "DNase", "accession": "ENCFF336OBG"},
+          {"label": "DNase", "accession": "ENCFF165BXF"}
+        ]
+      }
+    },
     "GENERIC": {
       "description": "Tissue-agnostic pan-tissue covariate pool, not a TCGA study code -- see sigmutselcovs' DEVELOPMENT.md, 'Generic (pan-tissue) covariates'. Objective B of the expanded-covariate-sources task (2026-09-03), rebuilt 2026-09-04 using the disk-bounded streaming download path (covariates_chromatin.py/download.py) after the original 26-EID plan hit gauss's disk limit. roadmap.eids is the full 127-epigenome Roadmap consolidated panel (E001-E129 excluding E060/E064, which genuinely don't exist -- verified live, not assumed); roadmap.marks adds DNase to the standard 7 histone marks, since Roadmap has its own native DNase-seq tracks via the same egg2.wustl.edu signal system for most EIDs (found while checking E121-E129's coverage), not just histone ChIP. encode_chromatin.tracks is 83 adult primary-tissue DNase-seq experiments from the ENCODE portal (one per unique biosample term, live-queried and life-stage-filtered to exclude embryonic/fetal/newborn/cell-line samples), complementing Roadmap's own DNase coverage with tissues Roadmap's panel doesn't reach. Still excludes H3K23ac/H3K14ac/H2AK9ac: no usable ENCODE coverage exists for any of the three (in-vitro-differentiated stem cells or one QC-flagged experiment only) -- unrelated to disk, a genuine data-availability gap. average_by_assay is true (2026-09-06): the raw per-track columns (roadmap's ~850 real tracks + encode_chromatin's 83) are pooled and collapsed to one averaged column per mark before assembly, rather than PCA-reduced as ~1860 separate per-track columns -- collapsing first cheaply outperforms PCA at the small component counts a per-cohort model can support, confirmed by 5-fold gene-CV against several TCGA cohorts' own covariate matrices. Cell lines added 2026-09-07: Martincorena et al. 2017's own STAR Methods (the primary paper, not just the dndscv package/GitHub repo, finally accessed this session) states plainly that dNdScv's 169-track/20-PC matrix came from '63 cell lines' in the Roadmap Epigenomics Project, not primary tissue -- a real, previously-unverified gap in GENERIC's own pool (which until now was 127 Roadmap epigenomes, mostly primary tissue/cells, plus 83 ENCODE adult-tissue DNase tracks, deliberately life-stage-filtered to EXCLUDE cell lines). Queried ENCODE's own portal restricted to biosample_ontology.classification=cell+line for all 7 default histone marks plus DNase (output_type 'fold change over control' for histone, 'read-depth normalized signal' for DNase, GRCh38): 211 distinct cell lines, 548 (line, mark) track pairs, zero overlap with GENERIC's existing 83 tissue-only DNase accessions. All 548 added here, unfiltered by tissue -- GENERIC is tissue-agnostic by design, so cell-line identity (unlike the per-cohort matrices' tissue-matching requirement) is not a rejection criterion here. Also added the 3 rare marks' full cell-line pool (H3K23ac/H3K14ac/H2AK9ac -- 7 biosamples: IMR-90, mesenchymal stem cell, H1, H9, trophoblast cell, neuronal stem cell, mesendoderm; 12 track pairs), the only place in this registry these 3 marks now appear at all, since no per-cohort tissue match exists for them (checked: IMR-90/H1/trophoblast/H9/mesenchymal-stem-cell/neuronal-stem-cell/mesendoderm match none of our 13 registered cohort tissues). average_by_assay's collapsing means this addition changes the resulting ~17-18 columns' underlying sample composition and precision, not their count -- consistent with why the mechanism was adopted in the first place (2026-09-06).",
       "gtex": {

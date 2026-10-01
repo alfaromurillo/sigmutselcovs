@@ -29,6 +29,7 @@ def test_available_projects():
         "COAD",
         "DLBC",
         "ESCA",
+        "GBM",
         "GENERIC",
         "OV",
         "SKCM",
