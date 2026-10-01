@@ -828,7 +828,9 @@ def download_encode_chromatin_tracks(
             url = meta["url"]
             md5 = meta["md5sum"]
             size = meta["file_size"]
-            if meta.get("assembly") not in (None, spec.assembly):
+            if _assembly_mismatch(
+                meta.get("assembly"), spec.assembly
+            ):
                 logger.warning(
                     "ENCODE %s assembly %s != registry %s",
                     track.accession,
