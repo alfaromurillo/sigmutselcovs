@@ -322,6 +322,11 @@ def test_download_covariates_orchestration(tmp_path, monkeypatch):
         "download_roadmap_tracks",
         lambda spec, paths, **kw: ["a"] * 27,
     )
+    monkeypatch.setattr(
+        dl,
+        "download_encode_chromatin_tracks",
+        lambda spec, paths, **kw: ["a"] * len(spec.tracks),
+    )
 
     def boom(spec, paths, **kw):
         raise OSError("tarball exploded")
@@ -336,6 +341,7 @@ def test_download_covariates_orchestration(tmp_path, monkeypatch):
     # one source failing does not abort the others
     assert report.sources["atac"]["status"] == "failed"
     assert "tarball exploded" in report.sources["atac"]["error"]
+    assert report.sources["encode_chromatin"]["status"] == "ok"
     assert "COAD" in report.summary()
 
 
