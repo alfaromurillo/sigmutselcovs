@@ -33,6 +33,7 @@ def test_available_projects():
         "GENERIC",
         "HNSC",
         "KICH",
+        "KIRC",
         "OV",
         "SKCM",
         "STAD",
