@@ -615,6 +615,31 @@
         ]
       }
     },
+    "KICH": {
+      "description": "Kidney chromophobe renal cell carcinoma (arises from intercalated cells of the distal nephron / collecting duct). GTEx maps to Kidney_Cortex/Kidney_Medulla; representative column is Kidney_Cortex. No TCGA ATAC-seq coverage (atac: null; Corces et al. 2018 covers KIRC and KIRP, not KICH). roadmap null: Roadmap's only kidney epigenome is E086 Fetal Kidney (17 gestational weeks), rejected as fetal, and HEK293 is not in the panel (and is embryonic). encode_chromatin: one adult ENCODE kidney donor (ENCDO646IOH, 50y) for six histone marks -- H3K4me1, H3K4me3, H3K9ac, H3K9me3, H3K27ac, H3K36me3; no adult kidney H3K27me3 exists on ENCODE -- plus adult DNase-seq from whole kidney (47y) and cortex of kidney (70y), newest GRCh38 files, single replicate as those donors have. Rejected: the many embryonic kidney tissues, single-cell-type primary cultures (proximal tubule, glomerular, tubule, renal cortical epithelium) and HK-2. Cell lines: none -- no chromophobe RCC line exists on ENCODE; Caki2 and RCC 7860 (786-O) are clear-cell RCC, ACHN a papillary-like renal adenocarcinoma, 'RCC' (EFO:0000681) an unsubtyped renal cell carcinoma of unknown source, G401 a pediatric rhabdoid tumor, HEK293/HEK293T embryonic -- all different diseases or life stages. repliseq null: the human replication-timing universe has no intercalated-cell, collecting-duct or chromophobe source; Caki2's Gilbert wavelet is clear-cell RCC (proximal-tubule origin), an organ-level proxy declined on the same grounds as SKCM's keratinocyte. Assemblies: encode_chromatin GRCh38.",
+      "gtex": {
+        "mapping_key": "KICH",
+        "representative_column": "gtex_kidney_cortex"
+      },
+      "gexp": {
+        "tcga_project_id": "TCGA-KICH"
+      },
+      "atac": null,
+      "roadmap": null,
+      "repliseq": null,
+      "encode_chromatin": {
+        "tracks": [
+          {"label": "H3K9me3", "accession": "ENCFF344RCN"},
+          {"label": "H3K9ac", "accession": "ENCFF005OBL"},
+          {"label": "H3K36me3", "accession": "ENCFF191CJN"},
+          {"label": "H3K4me1", "accession": "ENCFF992BPB"},
+          {"label": "H3K4me3", "accession": "ENCFF929KNV"},
+          {"label": "H3K27ac", "accession": "ENCFF354FYC"},
+          {"label": "DNase", "accession": "ENCFF388GJA"},
+          {"label": "DNase", "accession": "ENCFF492QDU"}
+        ]
+      }
+    },
     "GENERIC": {
       "description": "Tissue-agnostic pan-tissue covariate pool, not a TCGA study code -- see sigmutselcovs' DEVELOPMENT.md, 'Generic (pan-tissue) covariates'. Objective B of the expanded-covariate-sources task (2026-09-03), rebuilt 2026-09-04 using the disk-bounded streaming download path (covariates_chromatin.py/download.py) after the original 26-EID plan hit gauss's disk limit. roadmap.eids is the full 127-epigenome Roadmap consolidated panel (E001-E129 excluding E060/E064, which genuinely don't exist -- verified live, not assumed); roadmap.marks adds DNase to the standard 7 histone marks, since Roadmap has its own native DNase-seq tracks via the same egg2.wustl.edu signal system for most EIDs (found while checking E121-E129's coverage), not just histone ChIP. encode_chromatin.tracks is 83 adult primary-tissue DNase-seq experiments from the ENCODE portal (one per unique biosample term, live-queried and life-stage-filtered to exclude embryonic/fetal/newborn/cell-line samples), complementing Roadmap's own DNase coverage with tissues Roadmap's panel doesn't reach. Still excludes H3K23ac/H3K14ac/H2AK9ac: no usable ENCODE coverage exists for any of the three (in-vitro-differentiated stem cells or one QC-flagged experiment only) -- unrelated to disk, a genuine data-availability gap. average_by_assay is true (2026-09-06): the raw per-track columns (roadmap's ~850 real tracks + encode_chromatin's 83) are pooled and collapsed to one averaged column per mark before assembly, rather than PCA-reduced as ~1860 separate per-track columns -- collapsing first cheaply outperforms PCA at the small component counts a per-cohort model can support, confirmed by 5-fold gene-CV against several TCGA cohorts' own covariate matrices. Cell lines added 2026-09-07: Martincorena et al. 2017's own STAR Methods (the primary paper, not just the dndscv package/GitHub repo, finally accessed this session) states plainly that dNdScv's 169-track/20-PC matrix came from '63 cell lines' in the Roadmap Epigenomics Project, not primary tissue -- a real, previously-unverified gap in GENERIC's own pool (which until now was 127 Roadmap epigenomes, mostly primary tissue/cells, plus 83 ENCODE adult-tissue DNase tracks, deliberately life-stage-filtered to EXCLUDE cell lines). Queried ENCODE's own portal restricted to biosample_ontology.classification=cell+line for all 7 default histone marks plus DNase (output_type 'fold change over control' for histone, 'read-depth normalized signal' for DNase, GRCh38): 211 distinct cell lines, 548 (line, mark) track pairs, zero overlap with GENERIC's existing 83 tissue-only DNase accessions. All 548 added here, unfiltered by tissue -- GENERIC is tissue-agnostic by design, so cell-line identity (unlike the per-cohort matrices' tissue-matching requirement) is not a rejection criterion here. Also added the 3 rare marks' full cell-line pool (H3K23ac/H3K14ac/H2AK9ac -- 7 biosamples: IMR-90, mesenchymal stem cell, H1, H9, trophoblast cell, neuronal stem cell, mesendoderm; 12 track pairs), the only place in this registry these 3 marks now appear at all, since no per-cohort tissue match exists for them (checked: IMR-90/H1/trophoblast/H9/mesenchymal-stem-cell/neuronal-stem-cell/mesendoderm match none of our 13 registered cohort tissues). average_by_assay's collapsing means this addition changes the resulting ~17-18 columns' underlying sample composition and precision, not their count -- consistent with why the mechanism was adopted in the first place (2026-09-06).",
       "gtex": {

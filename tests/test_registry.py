@@ -32,6 +32,7 @@ def test_available_projects():
         "GBM",
         "GENERIC",
         "HNSC",
+        "KICH",
         "OV",
         "SKCM",
         "STAD",
