@@ -98,6 +98,9 @@ class _Report:
         )
 
 
+_ROADMAP_COLUMN = re.compile(r"^e\d{3}_")
+
+
 def _spearman(df: pd.DataFrame, a: pd.Series, b: pd.Series) -> float:
     joined = pd.concat([a, b], axis=1, keys=["a", "b"]).dropna()
     if len(joined) < 10:
@@ -310,7 +313,14 @@ def _sanity_tier(
                 note="each sample contributes body+promoter",
             )
     if spec.roadmap is not None:
-        roadmap_cols = [c for c in df.columns if "fc_signal" in c]
+        # Roadmap columns are "<eid>_<mark>_fc_signal_<region>"; an
+        # encode_chromatin column also carries "fc_signal" but starts
+        # with its mark label, so match the EID prefix too.
+        roadmap_cols = [
+            c
+            for c in df.columns
+            if "fc_signal" in c and _ROADMAP_COLUMN.match(c)
+        ]
         maximum = 2 * len(spec.roadmap.eids) * len(spec.roadmap.marks)
         if roadmap_cols:
             report.add(

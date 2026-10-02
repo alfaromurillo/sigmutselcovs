@@ -161,3 +161,15 @@ def test_requires_matrix_or_data_dir():
         ValueError, match="data_dir or cov_matrix_raw"
     ):
         validate_covariates("COAD")
+
+
+def test_roadmap_column_count_ignores_encode_tracks():
+    df = _healthy_matrix()
+    n_roadmap = sum("fc_signal" in c for c in df.columns)
+    for k in range(40):
+        for region in ("body", "promoter"):
+            df[f"dnase_fc_signal_encff{k:06d}_{region}"] = 1.0
+    frame = validate_covariates("COAD", cov_matrix_raw=df)
+    row = frame.set_index("check").loc["roadmap_column_count"]
+    assert row["value"] == n_roadmap
+    assert row["status"] == "pass"
