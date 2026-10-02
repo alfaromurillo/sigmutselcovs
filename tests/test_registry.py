@@ -31,6 +31,7 @@ def test_available_projects():
         "ESCA",
         "GBM",
         "GENERIC",
+        "HNSC",
         "OV",
         "SKCM",
         "STAD",
