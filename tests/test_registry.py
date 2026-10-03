@@ -35,6 +35,7 @@ def test_available_projects():
         "KICH",
         "KIRC",
         "KIRP",
+        "LAML",
         "LGG",
         "OV",
         "SKCM",

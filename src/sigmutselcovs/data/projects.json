@@ -746,6 +746,63 @@
         ]
       }
     },
+    "LAML": {
+      "description": "Acute myeloid leukemia. GTEx maps to Whole_Blood (representative gtex_whole_blood). Tumor samples are 'Primary Blood Derived Cancer - Peripheral Blood' (sample type 03, kept by select_tcga_maf_files' default 01/03); GDC has 153 open masked-somatic MAFs over 144 cases and 151 STAR-count RNA-seq files (queried 2026-10-03). No TCGA ATAC-seq (not in Corces et al. 2018), atac null. Roadmap uses E051 (G-CSF-mobilized CD34+ hematopoietic stem/progenitor cells, male 42Y -- AML's cell of origin; 5/7 marks, H3K9ac and H3K27ac 404), E029 (primary peripheral-blood monocytes, adult; 6/7, H3K9ac 404) and E124 (CD14+ monocytes, ENCODE2012; 7/7) -- the myeloid lineage; all 21 (EID, mark) pairs live-checked 2026-10-03. Rejected as non-adult by Roadmap's own AGE field: E035/E036 (primary HSC), E050 (mobilized HSC, female, 'Fetus') and E030 (neutrophils, 'Fetus'); E062 (PBMC) left out as lymphocyte-dominated. encode_chromatin: adult common myeloid progenitor, CD34-positive, one 33y female donor (ENCDO412QUR): H3K27ac, H3K27me3, H3K36me3, H3K4me1, H3K4me3, H3K9me3 and DNase (no H3K9ac exists for this cell type), plus adult CD14-positive monocyte DNase (21y male). Cell lines: the AML lines in ENCODE's panel -- HL-60 (H3K4me3, H3K27ac, H3K27me3, DNase), NB4 (APL; H3K4me3, DNase), and DNase-only Kasumi-1, SKNO-1 (t(8;21) AML), MOLM-13 and OCI-AML2 (both 0.1% DMSO vehicle controls, the only DNase they have), THP-1 (acute monocytic leukemia) and CMK (acute megakaryoblastic leukemia). K562 not used for chromatin: it is CML in blast crisis (BCR-ABL, erythroleukemic), not AML, and it is already in GENERIC's cell-line pool. repliseq: K562 (ENCODE UW 6-fraction Repli-seq, hg19), the only myeloid-leukemia line in the human RT catalog -- disease-proximal rather than disease-matched (a myeloid blast line, as GM12878 is a B-cell line for DLBC), registered to be measured with rt_block_scoping; the hESC-derived 'myeloid cell' and 'hematopoietic multipotent progenitor cell' Repli-chip profiles rejected as embryonic in-vitro differentiations. Assemblies: Roadmap and repliseq hg19, encode_chromatin GRCh38.",
+      "gtex": {
+        "mapping_key": "LAML",
+        "representative_column": "gtex_whole_blood"
+      },
+      "gexp": {
+        "tcga_project_id": "TCGA-LAML"
+      },
+      "atac": null,
+      "roadmap": {
+        "eids": [
+          "E051",
+          "E029",
+          "E124"
+        ]
+      },
+      "repliseq": {
+        "type": "fraction_bigwigs",
+        "assembly": "hg19",
+        "cell_line": "K562",
+        "tracks": [
+          {"label": "g1b", "accession": "ENCFF001GRX"},
+          {"label": "s1", "accession": "ENCFF001GSF"},
+          {"label": "s2", "accession": "ENCFF001GSJ"},
+          {"label": "s3", "accession": "ENCFF001GSN"},
+          {"label": "s4", "accession": "ENCFF001GSP"},
+          {"label": "g2", "accession": "ENCFF001GSB"}
+        ],
+        "n_fractions": 6,
+        "include_clr_fractions": true
+      },
+      "encode_chromatin": {
+        "tracks": [
+          {"label": "DNase", "accession": "ENCFF431BDM"},
+          {"label": "H3K27ac", "accession": "ENCFF064JOI"},
+          {"label": "H3K27me3", "accession": "ENCFF922JDI"},
+          {"label": "H3K36me3", "accession": "ENCFF293UHC"},
+          {"label": "H3K4me1", "accession": "ENCFF285VFU"},
+          {"label": "H3K4me3", "accession": "ENCFF156DEQ"},
+          {"label": "H3K9me3", "accession": "ENCFF763TRE"},
+          {"label": "DNase", "accession": "ENCFF052LCB"},
+          {"label": "H3K4me3", "accession": "ENCFF695YII"},
+          {"label": "H3K27ac", "accession": "ENCFF383GZA"},
+          {"label": "H3K27me3", "accession": "ENCFF925LNP"},
+          {"label": "DNase", "accession": "ENCFF359YDL"},
+          {"label": "H3K4me3", "accession": "ENCFF228XER"},
+          {"label": "DNase", "accession": "ENCFF642HHG"},
+          {"label": "DNase", "accession": "ENCFF794VTV"},
+          {"label": "DNase", "accession": "ENCFF261WCP"},
+          {"label": "DNase", "accession": "ENCFF686JSS"},
+          {"label": "DNase", "accession": "ENCFF148NTM"},
+          {"label": "DNase", "accession": "ENCFF956WXH"},
+          {"label": "DNase", "accession": "ENCFF647QIE"}
+        ]
+      }
+    },
     "GENERIC": {
       "description": "Tissue-agnostic pan-tissue covariate pool, not a TCGA study code -- see sigmutselcovs' DEVELOPMENT.md, 'Generic (pan-tissue) covariates'. Objective B of the expanded-covariate-sources task (2026-09-03), rebuilt 2026-09-04 using the disk-bounded streaming download path (covariates_chromatin.py/download.py) after the original 26-EID plan hit gauss's disk limit. roadmap.eids is the full 127-epigenome Roadmap consolidated panel (E001-E129 excluding E060/E064, which genuinely don't exist -- verified live, not assumed); roadmap.marks adds DNase to the standard 7 histone marks, since Roadmap has its own native DNase-seq tracks via the same egg2.wustl.edu signal system for most EIDs (found while checking E121-E129's coverage), not just histone ChIP. encode_chromatin.tracks is 83 adult primary-tissue DNase-seq experiments from the ENCODE portal (one per unique biosample term, live-queried and life-stage-filtered to exclude embryonic/fetal/newborn/cell-line samples), complementing Roadmap's own DNase coverage with tissues Roadmap's panel doesn't reach. Still excludes H3K23ac/H3K14ac/H2AK9ac: no usable ENCODE coverage exists for any of the three (in-vitro-differentiated stem cells or one QC-flagged experiment only) -- unrelated to disk, a genuine data-availability gap. average_by_assay is true (2026-09-06): the raw per-track columns (roadmap's ~850 real tracks + encode_chromatin's 83) are pooled and collapsed to one averaged column per mark before assembly, rather than PCA-reduced as ~1860 separate per-track columns -- collapsing first cheaply outperforms PCA at the small component counts a per-cohort model can support, confirmed by 5-fold gene-CV against several TCGA cohorts' own covariate matrices. Cell lines added 2026-09-07: Martincorena et al. 2017's own STAR Methods (the primary paper, not just the dndscv package/GitHub repo, finally accessed this session) states plainly that dNdScv's 169-track/20-PC matrix came from '63 cell lines' in the Roadmap Epigenomics Project, not primary tissue -- a real, previously-unverified gap in GENERIC's own pool (which until now was 127 Roadmap epigenomes, mostly primary tissue/cells, plus 83 ENCODE adult-tissue DNase tracks, deliberately life-stage-filtered to EXCLUDE cell lines). Queried ENCODE's own portal restricted to biosample_ontology.classification=cell+line for all 7 default histone marks plus DNase (output_type 'fold change over control' for histone, 'read-depth normalized signal' for DNase, GRCh38): 211 distinct cell lines, 548 (line, mark) track pairs, zero overlap with GENERIC's existing 83 tissue-only DNase accessions. All 548 added here, unfiltered by tissue -- GENERIC is tissue-agnostic by design, so cell-line identity (unlike the per-cohort matrices' tissue-matching requirement) is not a rejection criterion here. Also added the 3 rare marks' full cell-line pool (H3K23ac/H3K14ac/H2AK9ac -- 7 biosamples: IMR-90, mesenchymal stem cell, H1, H9, trophoblast cell, neuronal stem cell, mesendoderm; 12 track pairs), the only place in this registry these 3 marks now appear at all, since no per-cohort tissue match exists for them (checked: IMR-90/H1/trophoblast/H9/mesenchymal-stem-cell/neuronal-stem-cell/mesendoderm match none of our 13 registered cohort tissues). average_by_assay's collapsing means this addition changes the resulting ~17-18 columns' underlying sample composition and precision, not their count -- consistent with why the mechanism was adopted in the first place (2026-09-06). repliseq added 2026-10-02 as a pooled_mrt source, so GENERIC is now the complete tissue-agnostic matrix (pooled chromatin, pan-tissue expression median, pooled replication timing): 108 profiles over 50 human biosamples -- every replication-timing experiment on the ENCODE portal enumerated by assay_title (Repli-seq + Repli-chip, the 182 of the assay_slims facet; 15 UW 6-fraction lines reduced to mean replication time, 33 Repli-chip biosamples and 5 Gilbert-lab Repli-seq series as sign-flipped wavelets; T47D excluded, it has no usable signal files) plus the GSE137764 HCT116 16-fraction MAT. Pooled column rt_pool_z correlates 0.91 with HCT116 alone; median pairwise correlation between biosamples 0.75.",
       "gtex": {
