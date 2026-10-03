@@ -610,9 +610,9 @@ def test_generic_row():
     """GENERIC (Objective B, 2026-09-03, rebuilt 2026-09-04 with the
     disk-bounded streaming path) is a tissue-agnostic pool, not a
     real TCGA code -- gtex.reduce collapses every GTEx tissue into
-    one column instead of picking a representative, atac/gexp/
-    repliseq are null (TCGA-specific, no tissue-agnostic
-    equivalent), and simple_matrix.gtex_column defaults correctly
+    one column instead of picking a representative, atac/gexp are
+    null (TCGA-specific, no tissue-agnostic equivalent), repliseq is
+    a pooled_mrt source (2026-10-02), and simple_matrix.gtex_column defaults correctly
     off representative_column without an explicit override.
 
     roadmap.eids is the full 127-epigenome Roadmap consolidated
@@ -639,7 +639,20 @@ def test_generic_row():
     )
     assert generic.atac is None
     assert generic.gexp is None
-    assert generic.repliseq is None
+    # Pooled replication timing since 2026-10-02: 108 profiles over
+    # 50 biosamples, one of them the GSE137764 HCT116 MAT (hg38).
+    rt = generic.repliseq
+    assert rt.type == "pooled_mrt"
+    assert len(rt.profiles) == 108
+    assert len({p.cell_line for p in rt.profiles}) == 50
+    assert {p.type for p in rt.profiles} == {
+        "fraction_bigwigs",
+        "wavelet",
+        "mat",
+    }
+    (hct,) = [p for p in rt.profiles if p.type == "mat"]
+    assert hct.cell_line == "HCT116" and hct.assembly == "hg38"
+    assert "T47D" not in {p.cell_line for p in rt.profiles}
     assert generic.roadmap is not None
     assert len(generic.roadmap.eids) == 127
     assert len(set(generic.roadmap.eids)) == 127  # no duplicates
