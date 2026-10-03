@@ -34,6 +34,7 @@ def test_available_projects():
         "HNSC",
         "KICH",
         "KIRC",
+        "KIRP",
         "LGG",
         "OV",
         "SKCM",
