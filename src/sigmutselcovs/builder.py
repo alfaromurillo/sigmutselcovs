@@ -14,6 +14,7 @@ old ``coad_analysis/code/covariates.py`` ``build()``.
 import hashlib
 import json
 import logging
+import re
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import NamedTuple
@@ -32,9 +33,12 @@ from .covariates_gene_expression import (
 )
 from .covariates_locations import location_gtex_tcga_mapping
 from .covariates_replication_timing import (
+    generate_mrt_per_gene,
+    generate_rt_wavelet_per_gene,
     load_or_generate_mrt,
     load_or_generate_rt_fractions,
     load_or_generate_rt_wavelet,
+    pool_rt_profiles,
 )
 from .covariates_utilities import clr_transform
 from .paths import ProjectPaths, project_paths
@@ -104,6 +108,7 @@ SOURCE_BLOCKS = {
     "mrt": "replication_timing",
     "clr": "replication_timing",
     "wavelet": "replication_timing",
+    "rt_pool": "replication_timing",
     "atac": "atac",
     "roadmap": "chromatin",
     "encode_chromatin": "chromatin",
@@ -168,6 +173,79 @@ def _selected(
 
 def _skip(source: str, reason: str) -> None:
     logger.warning("Skipping %s covariates: %s", source, reason)
+
+
+def _load_pooled_rt(
+    spec, paths: ProjectPaths, gtf_for, force_generation: bool
+) -> list[pd.DataFrame]:
+    """The single ``rt_pool_z`` frame of a ``pooled_mrt`` source.
+
+    Each profile's per-gene timing is cached under ``rt_pool_dir`` and
+    computed with the same functions a single-source project uses, on
+    its own assembly's GTF; profiles whose files are missing are
+    skipped with a warning.
+    """
+    if paths.rt_pool_csv.exists() and not force_generation:
+        pooled = pd.read_csv(paths.rt_pool_csv, index_col=0).iloc[
+            :, 0
+        ]
+        return [pooled.astype(float).rename("rt_pool_z").to_frame()]
+    paths.rt_pool_dir.mkdir(parents=True, exist_ok=True)
+    profiles = []
+    for i, profile in enumerate(spec.profiles):
+        label = re.sub(r"[^a-z0-9]+", "_", profile.cell_line.lower())
+        cache = (
+            paths.rt_pool_dir / f"{i:03d}_{label}_{profile.type}.csv"
+        )
+        if cache.exists() and not force_generation:
+            series = pd.read_csv(cache, index_col=0).iloc[:, 0]
+            profiles.append((profile.cell_line, series))
+            continue
+        gtf = gtf_for(profile.assembly)
+        if profile.type == "mat":
+            source = paths.rt_dir / profile.filename
+            files = [source]
+        else:
+            files = [
+                paths.rt_encode_dir / f"{t.accession}.bigWig"
+                for t in profile.tracks
+            ]
+            source = files
+        missing = [f for f in files if not f.exists()]
+        if missing:
+            logger.warning(
+                "pooled RT: skipping %s (%s): missing %s",
+                profile.cell_line,
+                profile.type,
+                [f.name for f in missing],
+            )
+            continue
+        if profile.type == "wavelet":
+            series = -generate_rt_wavelet_per_gene(
+                files[0], gtf, bin_size=profile.bin_size
+            )
+        else:
+            series = generate_mrt_per_gene(
+                source,
+                gtf,
+                source_type=profile.type,
+                bin_size=profile.bin_size,
+            )
+        series = series.rename("rt")
+        series.to_frame().to_csv(cache, float_format="%.6g")
+        profiles.append((profile.cell_line, series))
+    if not profiles:
+        _skip("repliseq", "no pooled RT profile could be built")
+        return []
+    pooled = pool_rt_profiles(profiles)
+    pooled.to_frame().to_csv(paths.rt_pool_csv, float_format="%.6g")
+    logger.info(
+        "pooled RT: %d profiles over %d biosamples, %d genes",
+        len(profiles),
+        len({b for b, _ in profiles}),
+        int(pooled.notna().sum()),
+    )
+    return [pooled.to_frame()]
 
 
 def _load_repliseq(
@@ -337,7 +415,7 @@ def _describe_block(
             "assembly": "",
             "units": "STAR metric",
         }
-    if source in ("mrt", "clr", "wavelet"):
+    if source in ("mrt", "clr", "wavelet", "rt_pool"):
         rt = spec.repliseq
         desc = {
             "mrt": "Mean replication time over gene body "
@@ -345,6 +423,9 @@ def _describe_block(
             "clr": "CLR-transformed S-phase fraction over gene body",
             "wavelet": "Wavelet-smoothed early/late replication "
             "signal over gene body",
+            "rt_pool": "Pooled replication timing: per-gene timing "
+            "z-scored per profile, averaged within and then across "
+            "biosamples (larger = later)",
         }[source]
         return {
             "description": desc,
@@ -354,6 +435,7 @@ def _describe_block(
                 "mrt": "MRT (0..1)",
                 "clr": "CLR(fraction)",
                 "wavelet": "signal",
+                "rt_pool": "z",
             }[source],
         }
     if source == "atac":
@@ -668,12 +750,17 @@ def build_covariate_matrix(
                 "not defined in the registry for " f"{spec.code}",
             )
         else:
-            rt_frames = _load_repliseq(
-                spec.repliseq,
-                paths,
-                gtf_for(spec.repliseq.assembly),
-                force_generation,
-            )
+            if spec.repliseq.type == "pooled_mrt":
+                rt_frames = _load_pooled_rt(
+                    spec.repliseq, paths, gtf_for, force_generation
+                )
+            else:
+                rt_frames = _load_repliseq(
+                    spec.repliseq,
+                    paths,
+                    gtf_for(spec.repliseq.assembly),
+                    force_generation,
+                )
             if rt_frames:
                 frames.extend(rt_frames)
                 for frame in rt_frames:
@@ -684,7 +771,11 @@ def build_covariate_matrix(
                         else (
                             "wavelet"
                             if first == "rt_wavelet"
-                            else "mrt"
+                            else (
+                                "rt_pool"
+                                if first == "rt_pool_z"
+                                else "mrt"
+                            )
                         )
                     )
                     blocks.append((kind, list(frame.columns)))

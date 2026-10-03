@@ -404,7 +404,14 @@ def _biology_tier(
     report: _Report, df: pd.DataFrame, spec: ProjectSpec
 ) -> None:
     expression = _expression_series(df, spec)
-    mrt = df["mrt"] if "mrt" in df.columns else None
+    # A pooled RT source gives z-scores oriented like mrt (larger =
+    # later), so the direction and housekeeping checks apply to it.
+    if "mrt" in df.columns:
+        mrt = df["mrt"]
+    elif "rt_pool_z" in df.columns:
+        mrt = df["rt_pool_z"]
+    else:
+        mrt = None
 
     _check_direction(
         report,

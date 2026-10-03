@@ -969,3 +969,37 @@ def load_or_generate_mrt(
     logger.info("Saved MRT per gene to %s", location_csv)
     logger.info("... done generating MRT per gene.")
     return ser
+
+
+def pool_rt_profiles(
+    profiles: Sequence[tuple[str, pd.Series]],
+) -> pd.Series:
+    """Pool per-gene RT profiles of many biosamples into one column.
+
+    Each ``(biosample, series)`` must already be oriented larger =
+    later (``mrt``; a wavelet's log2 early/late negated). Every profile
+    is z-scored across its genes, so profiles on different scales can
+    be averaged; profiles of one biosample are averaged first, then the
+    biosamples, so each biosample has one vote. A gene's value is the
+    mean over the biosamples that cover it.
+
+    Returns
+    -------
+    pd.Series
+        Indexed by 'ensembl_gene_id'; name 'rt_pool_z'.
+    """
+    if not profiles:
+        raise ValueError(
+            "pool_rt_profiles needs at least one profile"
+        )
+    z = {}
+    for i, (biosample, series) in enumerate(profiles):
+        series = series.astype(float).groupby(level=0).mean()
+        z[(biosample, i)] = (series - series.mean()) / series.std()
+    frame = pd.DataFrame(z)
+    per_biosample = frame.T.groupby(level=0).mean().T
+    pooled = per_biosample.mean(axis=1, skipna=True).rename(
+        "rt_pool_z"
+    )
+    pooled.index.name = "ensembl_gene_id"
+    return pooled

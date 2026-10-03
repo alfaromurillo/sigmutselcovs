@@ -382,6 +382,15 @@ def download_repliseq(
       the portal's md5.
     """
     session = session or requests.Session()
+    if spec.type == "pooled_mrt":
+        out: list[Path] = []
+        for profile in spec.profiles:
+            out.extend(
+                download_repliseq(
+                    profile, paths, force=force, session=session
+                )
+            )
+        return out
     if spec.type == "mat":
         target = paths.rt_dir / spec.filename
         if target.exists() and not force:

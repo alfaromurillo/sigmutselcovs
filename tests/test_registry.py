@@ -714,3 +714,59 @@ def test_generic_not_split_by_registry_project_convention():
     subcohort logic (not sigmutselcovs code, but a constraint this
     registry entry must survive) is a no-op on a hyphen-free code."""
     assert "GENERIC".split("-")[0] == "GENERIC"  # noqa: SIM905
+
+
+_POOL = {
+    "type": "pooled_mrt",
+    "assembly": "hg19",
+    "cell_line": "pool",
+    "profiles": [
+        {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "A549",
+            "tracks": [
+                {"label": "wavelet", "accession": "ENCFF000AAA"}
+            ],
+        },
+        {
+            "type": "mat",
+            "assembly": "hg38",
+            "cell_line": "HCT116",
+            "filename": "x.mat",
+        },
+    ],
+}
+
+
+def test_pooled_mrt_profiles_parse(tmp_path):
+    raw = json.loads(location_projects_registry.read_text())
+    raw["projects"]["COAD"]["repliseq"] = _POOL
+    path = tmp_path / "projects.json"
+    path.write_text(json.dumps(raw))
+    rt = load_registry(path)["COAD"].repliseq
+    assert rt.type == "pooled_mrt"
+    assert [p.type for p in rt.profiles] == ["wavelet", "mat"]
+    assert isinstance(rt.profiles[0], RepliseqSpec)
+    assert rt.profiles[0].tracks == (
+        TrackRef("wavelet", "ENCFF000AAA"),
+    )
+    assert rt.profiles[1].assembly == "hg38"
+
+
+def test_pooled_mrt_validation():
+    raw = json.loads(location_projects_registry.read_text())
+    raw["projects"]["COAD"]["repliseq"] = {**_POOL, "profiles": []}
+    with pytest.raises(ValueError, match="needs profiles"):
+        validate_registry(raw)
+    raw["projects"]["COAD"]["repliseq"] = {
+        **_POOL,
+        "profiles": [dict(_POOL)],
+    }
+    with pytest.raises(ValueError, match="repliseq.type"):
+        validate_registry(raw)
+    bad = {**_POOL["profiles"][1]}
+    del bad["filename"]
+    raw["projects"]["COAD"]["repliseq"] = {**_POOL, "profiles": [bad]}
+    with pytest.raises(ValueError, match="needs a filename"):
+        validate_registry(raw)

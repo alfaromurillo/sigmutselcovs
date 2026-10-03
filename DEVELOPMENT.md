@@ -157,7 +157,9 @@ below.)
 ## Generic (pan-tissue) covariates
 
 `GENERIC` is a pseudo-project code (not a real TCGA study) registered
-the same way as any cohort, with three differences:
+the same way as any cohort. It is the complete tissue-agnostic matrix:
+pooled chromatin, pan-tissue expression and pooled replication timing.
+It differs from a cohort's row in four ways:
 
 - `gtex.mapping_key` resolves (via `gtex_tcga_mapping.json`, same
   mechanism as any code) to *every* GTEx tissue column rather than
@@ -166,8 +168,20 @@ the same way as any cohort, with three differences:
   `GtexSpec.reduce` and `import_gtex`'s `reduce` parameter. `None`
   (the default for every real cohort) keeps today's one-column
   behavior.
-- `gexp`, `atac`, `repliseq` are `null` — these are TCGA-tumor-
-  specific data types with no tissue-agnostic equivalent.
+- `gexp` and `atac` are `null` — these are TCGA-tumor-specific data
+  types with no tissue-agnostic equivalent.
+- `repliseq` is a `pooled_mrt` source: one profile per replication-
+  timing experiment (`mat`, `fraction_bigwigs` or `wavelet`, each on
+  its own assembly), giving a single `rt_pool_z` column. Each
+  profile's per-gene timing is oriented larger = later (a wavelet's
+  log2 early/late is negated), z-scored across genes, averaged within
+  a biosample (`cell_line`) and then across biosamples, so each
+  biosample has one vote (`pool_rt_profiles`). Timing is largely
+  conserved across cell types, which is what makes a pool a sensible
+  tissue-agnostic covariate. Per-profile results are cached under
+  `replication_timing/pool/`. All replication-timing sources are
+  autosomal, so a matrix with this column leaves chrX/chrY genes
+  incomplete.
 - `roadmap`/`encode_chromatin` are populated with a large pool of
   epigenomes/tracks spanning many tissues (rather than one matched
   tissue), pooled through the same PCA/concatenation machinery as

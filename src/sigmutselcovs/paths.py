@@ -123,6 +123,15 @@ class ProjectPaths:
     def rt_wavelet_csv(self) -> Path:
         return self.rt_dir / "rt_wavelet_per_gene.csv"
 
+    @property
+    def rt_pool_dir(self) -> Path:
+        """Per-profile caches of a pooled_mrt source."""
+        return self.rt_dir / "pool"
+
+    @property
+    def rt_pool_csv(self) -> Path:
+        return self.rt_dir / "rt_pool_z_per_gene.csv"
+
     # --- chromatin ---
     @property
     def roadmap_dir(self) -> Path:

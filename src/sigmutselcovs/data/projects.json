@@ -678,7 +678,7 @@
       }
     },
     "GENERIC": {
-      "description": "Tissue-agnostic pan-tissue covariate pool, not a TCGA study code -- see sigmutselcovs' DEVELOPMENT.md, 'Generic (pan-tissue) covariates'. Objective B of the expanded-covariate-sources task (2026-09-03), rebuilt 2026-09-04 using the disk-bounded streaming download path (covariates_chromatin.py/download.py) after the original 26-EID plan hit gauss's disk limit. roadmap.eids is the full 127-epigenome Roadmap consolidated panel (E001-E129 excluding E060/E064, which genuinely don't exist -- verified live, not assumed); roadmap.marks adds DNase to the standard 7 histone marks, since Roadmap has its own native DNase-seq tracks via the same egg2.wustl.edu signal system for most EIDs (found while checking E121-E129's coverage), not just histone ChIP. encode_chromatin.tracks is 83 adult primary-tissue DNase-seq experiments from the ENCODE portal (one per unique biosample term, live-queried and life-stage-filtered to exclude embryonic/fetal/newborn/cell-line samples), complementing Roadmap's own DNase coverage with tissues Roadmap's panel doesn't reach. Still excludes H3K23ac/H3K14ac/H2AK9ac: no usable ENCODE coverage exists for any of the three (in-vitro-differentiated stem cells or one QC-flagged experiment only) -- unrelated to disk, a genuine data-availability gap. average_by_assay is true (2026-09-06): the raw per-track columns (roadmap's ~850 real tracks + encode_chromatin's 83) are pooled and collapsed to one averaged column per mark before assembly, rather than PCA-reduced as ~1860 separate per-track columns -- collapsing first cheaply outperforms PCA at the small component counts a per-cohort model can support, confirmed by 5-fold gene-CV against several TCGA cohorts' own covariate matrices. Cell lines added 2026-09-07: Martincorena et al. 2017's own STAR Methods (the primary paper, not just the dndscv package/GitHub repo, finally accessed this session) states plainly that dNdScv's 169-track/20-PC matrix came from '63 cell lines' in the Roadmap Epigenomics Project, not primary tissue -- a real, previously-unverified gap in GENERIC's own pool (which until now was 127 Roadmap epigenomes, mostly primary tissue/cells, plus 83 ENCODE adult-tissue DNase tracks, deliberately life-stage-filtered to EXCLUDE cell lines). Queried ENCODE's own portal restricted to biosample_ontology.classification=cell+line for all 7 default histone marks plus DNase (output_type 'fold change over control' for histone, 'read-depth normalized signal' for DNase, GRCh38): 211 distinct cell lines, 548 (line, mark) track pairs, zero overlap with GENERIC's existing 83 tissue-only DNase accessions. All 548 added here, unfiltered by tissue -- GENERIC is tissue-agnostic by design, so cell-line identity (unlike the per-cohort matrices' tissue-matching requirement) is not a rejection criterion here. Also added the 3 rare marks' full cell-line pool (H3K23ac/H3K14ac/H2AK9ac -- 7 biosamples: IMR-90, mesenchymal stem cell, H1, H9, trophoblast cell, neuronal stem cell, mesendoderm; 12 track pairs), the only place in this registry these 3 marks now appear at all, since no per-cohort tissue match exists for them (checked: IMR-90/H1/trophoblast/H9/mesenchymal-stem-cell/neuronal-stem-cell/mesendoderm match none of our 13 registered cohort tissues). average_by_assay's collapsing means this addition changes the resulting ~17-18 columns' underlying sample composition and precision, not their count -- consistent with why the mechanism was adopted in the first place (2026-09-06).",
+      "description": "Tissue-agnostic pan-tissue covariate pool, not a TCGA study code -- see sigmutselcovs' DEVELOPMENT.md, 'Generic (pan-tissue) covariates'. Objective B of the expanded-covariate-sources task (2026-09-03), rebuilt 2026-09-04 using the disk-bounded streaming download path (covariates_chromatin.py/download.py) after the original 26-EID plan hit gauss's disk limit. roadmap.eids is the full 127-epigenome Roadmap consolidated panel (E001-E129 excluding E060/E064, which genuinely don't exist -- verified live, not assumed); roadmap.marks adds DNase to the standard 7 histone marks, since Roadmap has its own native DNase-seq tracks via the same egg2.wustl.edu signal system for most EIDs (found while checking E121-E129's coverage), not just histone ChIP. encode_chromatin.tracks is 83 adult primary-tissue DNase-seq experiments from the ENCODE portal (one per unique biosample term, live-queried and life-stage-filtered to exclude embryonic/fetal/newborn/cell-line samples), complementing Roadmap's own DNase coverage with tissues Roadmap's panel doesn't reach. Still excludes H3K23ac/H3K14ac/H2AK9ac: no usable ENCODE coverage exists for any of the three (in-vitro-differentiated stem cells or one QC-flagged experiment only) -- unrelated to disk, a genuine data-availability gap. average_by_assay is true (2026-09-06): the raw per-track columns (roadmap's ~850 real tracks + encode_chromatin's 83) are pooled and collapsed to one averaged column per mark before assembly, rather than PCA-reduced as ~1860 separate per-track columns -- collapsing first cheaply outperforms PCA at the small component counts a per-cohort model can support, confirmed by 5-fold gene-CV against several TCGA cohorts' own covariate matrices. Cell lines added 2026-09-07: Martincorena et al. 2017's own STAR Methods (the primary paper, not just the dndscv package/GitHub repo, finally accessed this session) states plainly that dNdScv's 169-track/20-PC matrix came from '63 cell lines' in the Roadmap Epigenomics Project, not primary tissue -- a real, previously-unverified gap in GENERIC's own pool (which until now was 127 Roadmap epigenomes, mostly primary tissue/cells, plus 83 ENCODE adult-tissue DNase tracks, deliberately life-stage-filtered to EXCLUDE cell lines). Queried ENCODE's own portal restricted to biosample_ontology.classification=cell+line for all 7 default histone marks plus DNase (output_type 'fold change over control' for histone, 'read-depth normalized signal' for DNase, GRCh38): 211 distinct cell lines, 548 (line, mark) track pairs, zero overlap with GENERIC's existing 83 tissue-only DNase accessions. All 548 added here, unfiltered by tissue -- GENERIC is tissue-agnostic by design, so cell-line identity (unlike the per-cohort matrices' tissue-matching requirement) is not a rejection criterion here. Also added the 3 rare marks' full cell-line pool (H3K23ac/H3K14ac/H2AK9ac -- 7 biosamples: IMR-90, mesenchymal stem cell, H1, H9, trophoblast cell, neuronal stem cell, mesendoderm; 12 track pairs), the only place in this registry these 3 marks now appear at all, since no per-cohort tissue match exists for them (checked: IMR-90/H1/trophoblast/H9/mesenchymal-stem-cell/neuronal-stem-cell/mesendoderm match none of our 13 registered cohort tissues). average_by_assay's collapsing means this addition changes the resulting ~17-18 columns' underlying sample composition and precision, not their count -- consistent with why the mechanism was adopted in the first place (2026-09-06). repliseq added 2026-10-02 as a pooled_mrt source, so GENERIC is now the complete tissue-agnostic matrix (pooled chromatin, pan-tissue expression median, pooled replication timing): 108 profiles over 50 human biosamples -- every replication-timing experiment on the ENCODE portal enumerated by assay_title (Repli-seq + Repli-chip, the 182 of the assay_slims facet; 15 UW 6-fraction lines reduced to mean replication time, 33 Repli-chip biosamples and 5 Gilbert-lab Repli-seq series as sign-flipped wavelets; T47D excluded, it has no usable signal files) plus the GSE137764 HCT116 16-fraction MAT. Pooled column rt_pool_z correlates 0.91 with HCT116 alone; median pairwise correlation between biosamples 0.75.",
       "gtex": {
         "mapping_key": "GENERIC",
         "representative_column": "gtex_pantissue_median",
@@ -686,7 +686,988 @@
       },
       "atac": null,
       "gexp": null,
-      "repliseq": null,
+      "repliseq": {
+        "type": "pooled_mrt",
+        "assembly": "hg19",
+        "cell_line": "pool of 50 biosamples",
+        "profiles": [
+          {
+            "type": "fraction_bigwigs",
+            "assembly": "hg19",
+            "cell_line": "BG02",
+            "tracks": [
+              {"label": "g1b", "accession": "ENCFF001GHF"},
+              {"label": "s1", "accession": "ENCFF001GHM"},
+              {"label": "s2", "accession": "ENCFF001GHO"},
+              {"label": "s3", "accession": "ENCFF001GHS"},
+              {"label": "s4", "accession": "ENCFF001GHV"},
+              {"label": "g2", "accession": "ENCFF001GHH"}
+            ],
+            "n_fractions": 6,
+            "include_clr_fractions": false
+          },
+          {
+            "type": "fraction_bigwigs",
+            "assembly": "hg19",
+            "cell_line": "BJ",
+            "tracks": [
+              {"label": "g1b", "accession": "ENCFF001GIC"},
+              {"label": "s1", "accession": "ENCFF001GIP"},
+              {"label": "s2", "accession": "ENCFF001GIX"},
+              {"label": "s3", "accession": "ENCFF001GJC"},
+              {"label": "s4", "accession": "ENCFF001GJH"},
+              {"label": "g2", "accession": "ENCFF001GII"}
+            ],
+            "n_fractions": 6,
+            "include_clr_fractions": false
+          },
+          {
+            "type": "fraction_bigwigs",
+            "assembly": "hg19",
+            "cell_line": "BJ",
+            "tracks": [
+              {"label": "g1b", "accession": "ENCFF001GID"},
+              {"label": "s1", "accession": "ENCFF001GIQ"},
+              {"label": "s2", "accession": "ENCFF001GIZ"},
+              {"label": "s3", "accession": "ENCFF001GJD"},
+              {"label": "s4", "accession": "ENCFF001GJI"},
+              {"label": "g2", "accession": "ENCFF001GIK"}
+            ],
+            "n_fractions": 6,
+            "include_clr_fractions": false
+          },
+          {
+            "type": "fraction_bigwigs",
+            "assembly": "hg19",
+            "cell_line": "GM06990",
+            "tracks": [
+              {"label": "g1b", "accession": "ENCFF001GJT"},
+              {"label": "s1", "accession": "ENCFF001GKD"},
+              {"label": "s2", "accession": "ENCFF001GKH"},
+              {"label": "s3", "accession": "ENCFF001GKL"},
+              {"label": "s4", "accession": "ENCFF001GKP"},
+              {"label": "g2", "accession": "ENCFF001GJX"}
+            ],
+            "n_fractions": 6,
+            "include_clr_fractions": false
+          },
+          {
+            "type": "fraction_bigwigs",
+            "assembly": "hg19",
+            "cell_line": "GM12801",
+            "tracks": [
+              {"label": "g1b", "accession": "ENCFF001GKX"},
+              {"label": "s1", "accession": "ENCFF001GLC"},
+              {"label": "s2", "accession": "ENCFF001GLE"},
+              {"label": "s3", "accession": "ENCFF001GLH"},
+              {"label": "s4", "accession": "ENCFF001GLK"},
+              {"label": "g2", "accession": "ENCFF001GKY"}
+            ],
+            "n_fractions": 6,
+            "include_clr_fractions": false
+          },
+          {
+            "type": "fraction_bigwigs",
+            "assembly": "hg19",
+            "cell_line": "GM12812",
+            "tracks": [
+              {"label": "g1b", "accession": "ENCFF001GLS"},
+              {"label": "s1", "accession": "ENCFF001GLY"},
+              {"label": "s2", "accession": "ENCFF001GMA"},
+              {"label": "s3", "accession": "ENCFF001GMD"},
+              {"label": "s4", "accession": "ENCFF001GMG"},
+              {"label": "g2", "accession": "ENCFF001GLV"}
+            ],
+            "n_fractions": 6,
+            "include_clr_fractions": false
+          },
+          {
+            "type": "fraction_bigwigs",
+            "assembly": "hg19",
+            "cell_line": "GM12813",
+            "tracks": [
+              {"label": "g1b", "accession": "ENCFF001GMO"},
+              {"label": "s1", "accession": "ENCFF001GMU"},
+              {"label": "s2", "accession": "ENCFF001GMX"},
+              {"label": "s3", "accession": "ENCFF001GMZ"},
+              {"label": "s4", "accession": "ENCFF001GND"},
+              {"label": "g2", "accession": "ENCFF001GMR"}
+            ],
+            "n_fractions": 6,
+            "include_clr_fractions": false
+          },
+          {
+            "type": "fraction_bigwigs",
+            "assembly": "hg19",
+            "cell_line": "GM12878",
+            "tracks": [
+              {"label": "g1b", "accession": "ENCFF001GNK"},
+              {"label": "s1", "accession": "ENCFF001GNR"},
+              {"label": "s2", "accession": "ENCFF001GNT"},
+              {"label": "s3", "accession": "ENCFF001GNX"},
+              {"label": "s4", "accession": "ENCFF001GOA"},
+              {"label": "g2", "accession": "ENCFF001GNN"}
+            ],
+            "n_fractions": 6,
+            "include_clr_fractions": false
+          },
+          {
+            "type": "fraction_bigwigs",
+            "assembly": "hg19",
+            "cell_line": "HeLa-S3",
+            "tracks": [
+              {"label": "g1b", "accession": "ENCFF001GOH"},
+              {"label": "s1", "accession": "ENCFF001GON"},
+              {"label": "s2", "accession": "ENCFF001GOQ"},
+              {"label": "s3", "accession": "ENCFF001GOS"},
+              {"label": "s4", "accession": "ENCFF001GOW"},
+              {"label": "g2", "accession": "ENCFF001GOJ"}
+            ],
+            "n_fractions": 6,
+            "include_clr_fractions": false
+          },
+          {
+            "type": "fraction_bigwigs",
+            "assembly": "hg19",
+            "cell_line": "HepG2",
+            "tracks": [
+              {"label": "g1b", "accession": "ENCFF001GPC"},
+              {"label": "s1", "accession": "ENCFF001GPK"},
+              {"label": "s2", "accession": "ENCFF001GPO"},
+              {"label": "s3", "accession": "ENCFF001GPU"},
+              {"label": "s4", "accession": "ENCFF001GPX"},
+              {"label": "g2", "accession": "ENCFF001GPF"}
+            ],
+            "n_fractions": 6,
+            "include_clr_fractions": false
+          },
+          {
+            "type": "fraction_bigwigs",
+            "assembly": "hg19",
+            "cell_line": "IMR-90",
+            "tracks": [
+              {"label": "g1b", "accession": "ENCFF001GRA"},
+              {"label": "s1", "accession": "ENCFF001GRG"},
+              {"label": "s2", "accession": "ENCFF001GRJ"},
+              {"label": "s3", "accession": "ENCFF001GRM"},
+              {"label": "s4", "accession": "ENCFF001GRQ"},
+              {"label": "g2", "accession": "ENCFF001GRD"}
+            ],
+            "n_fractions": 6,
+            "include_clr_fractions": false
+          },
+          {
+            "type": "fraction_bigwigs",
+            "assembly": "hg19",
+            "cell_line": "K562",
+            "tracks": [
+              {"label": "g1b", "accession": "ENCFF001GRX"},
+              {"label": "s1", "accession": "ENCFF001GSF"},
+              {"label": "s2", "accession": "ENCFF001GSJ"},
+              {"label": "s3", "accession": "ENCFF001GSN"},
+              {"label": "s4", "accession": "ENCFF001GSP"},
+              {"label": "g2", "accession": "ENCFF001GSB"}
+            ],
+            "n_fractions": 6,
+            "include_clr_fractions": false
+          },
+          {
+            "type": "fraction_bigwigs",
+            "assembly": "hg19",
+            "cell_line": "MCF-7",
+            "tracks": [
+              {"label": "g1b", "accession": "ENCFF001GSV"},
+              {"label": "s1", "accession": "ENCFF001GTD"},
+              {"label": "s2", "accession": "ENCFF001GTF"},
+              {"label": "s3", "accession": "ENCFF001GTH"},
+              {"label": "s4", "accession": "ENCFF001GTK"},
+              {"label": "g2", "accession": "ENCFF001GSX"}
+            ],
+            "n_fractions": 6,
+            "include_clr_fractions": false
+          },
+          {
+            "type": "fraction_bigwigs",
+            "assembly": "hg19",
+            "cell_line": "SK-N-SH",
+            "tracks": [
+              {"label": "g1b", "accession": "ENCFF001GUO"},
+              {"label": "s1", "accession": "ENCFF001GUT"},
+              {"label": "s2", "accession": "ENCFF001GUW"},
+              {"label": "s3", "accession": "ENCFF001GUZ"},
+              {"label": "s4", "accession": "ENCFF001GVD"},
+              {"label": "g2", "accession": "ENCFF001GUQ"}
+            ],
+            "n_fractions": 6,
+            "include_clr_fractions": false
+          },
+          {
+            "type": "fraction_bigwigs",
+            "assembly": "hg19",
+            "cell_line": "endothelial cell of umbilical vein",
+            "tracks": [
+              {"label": "g1b", "accession": "ENCFF001GQE"},
+              {"label": "s1", "accession": "ENCFF001GQM"},
+              {"label": "s2", "accession": "ENCFF001GQO"},
+              {"label": "s3", "accession": "ENCFF001GQR"},
+              {"label": "s4", "accession": "ENCFF001GQT"},
+              {"label": "g2", "accession": "ENCFF001GQH"}
+            ],
+            "n_fractions": 6,
+            "include_clr_fractions": false
+          },
+          {
+            "type": "fraction_bigwigs",
+            "assembly": "hg19",
+            "cell_line": "keratinocyte",
+            "tracks": [
+              {"label": "g1b", "accession": "ENCFF001GTS"},
+              {"label": "s1", "accession": "ENCFF001GTZ"},
+              {"label": "s2", "accession": "ENCFF001GUB"},
+              {"label": "s3", "accession": "ENCFF001GUD"},
+              {"label": "s4", "accession": "ENCFF001GUG"},
+              {"label": "g2", "accession": "ENCFF001GTU"}
+            ],
+            "n_fractions": 6,
+            "include_clr_fractions": false
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "BG01",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF317FAT"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "BG02",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF000KTW"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "BG02",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF000KTX"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "C0202",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF041HOZ"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "C0202",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF174LZH"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "CyT49",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF088COU"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "CyT49",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF555IJR"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "GM06990",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF000KUA"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "GM06990",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF000KUB"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "GM06999",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF639LTW"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "GM06999",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF769GPR"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "H1",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF000KUF"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "H1",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF000KUG"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "H1",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF000KUH"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "H7",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF000KUK"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "H7",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF000KUL"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "H9",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF000KUN"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "HeLa-S3",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF000KUP"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "IMR-90",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF000KUR"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "NC-NC",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF625DLV"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "T-cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF114OGH"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "definitive endodermal cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF303LWY"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "definitive endodermal cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF820GCV"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "endocrine cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF131CBF"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "endocrine cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF455FSI"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "endocrine cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF480LGE"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "endocrine cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF764PQR"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "endodermal cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF174KUT"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "endodermal cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF321FPF"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "endodermal cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF452IGW"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "endodermal cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF520MKA"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "endodermal cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF615OXN"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "erythroid progenitor cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF015AJC"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "erythroid progenitor cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF380HLO"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "hFib2-iPS4",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF000KUU"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "hFib2-iPS4",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF000KUW"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "hematopoietic multipotent progenitor cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF100XJA"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "hepatocyte",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF191CRG"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "hepatocyte",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF520XAL"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "hepatocyte",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF581QGZ"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "hepatocyte",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF585VCH"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "hepatocyte",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF989SBF"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "iPS-5",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF000KUZ"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "iPS-5",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF000KVA"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "lateral mesodermal cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF011YIA"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "lateral mesodermal cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF061BYC"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "lateral mesodermal cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF297UBR"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "lateral mesodermal cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF577QKR"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "lateral mesodermal cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF756LKN"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "mesenchymal stem cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF825ZDS"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "mesenchymal stem cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF978RCZ"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "mesendoderm",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF051GWR"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "mesendoderm",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF228KFI"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "mesothelial cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF151OSN"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "mesothelial cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF184DLB"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "mesothelial cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF212TLH"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "mesothelial cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF336VSK"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "mesothelial cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF451DZD"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "myeloid cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF489OQZ"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "myeloid cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF536JGA"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "myoblast",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF076CAB"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "myoblast",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF366RPM"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "myoblast",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF771YZL"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "neural crest cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF072DYF"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "neural crest cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF283VRQ"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "neural crest cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF310HXX"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "neural crest cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF346GTH"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "neural crest cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF364XMV"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "neural crest cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF383SGP"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "neural progenitor cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF469TYS"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "neural progenitor cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF571KHC"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "neural progenitor cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF907YXU"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "neural progenitor cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF923TOC"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "posterior foregut",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF623BGX"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "primitive gut cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF221JHQ"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "primitive gut cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF496OSK"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "smooth muscle cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF670UWV"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "smooth muscle cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF786EKI"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "smooth muscle cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF860YYU"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "smooth muscle cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF879OPQ"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "splanchnic mesodermal cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF005OFZ"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "splanchnic mesodermal cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF090QYN"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "splanchnic mesodermal cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF508BTN"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "splanchnic mesodermal cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF624TOR"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "splanchnic mesodermal cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF630QUO"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "splanchnic mesodermal cell",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF813VIP"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "A549",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF797GYT"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "G401",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF993XAU"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "NCI-H460",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF085YSK"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "SK-N-MC",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF708QCM"}
+            ]
+          },
+          {
+            "type": "wavelet",
+            "assembly": "hg19",
+            "cell_line": "Caki2",
+            "tracks": [
+              {"label": "wavelet", "accession": "ENCFF417PET"}
+            ]
+          },
+          {
+            "type": "mat",
+            "assembly": "hg38",
+            "cell_line": "HCT116",
+            "filename": "GSE137764_HCT_GaussiansGSE137764_mooth_scaled_autosome.mat",
+            "url": "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE137nnn/GSE137764/suppl/GSE137764%5FHCT%5FGaussiansGSE137764%5Fmooth%5Fscaled%5Fautosome%2Emat%2Egz"
+          }
+        ]
+      },
       "average_by_assay": true,
       "roadmap": {
         "eids": [

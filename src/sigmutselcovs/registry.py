@@ -42,7 +42,7 @@ location_projects_registry = (
     location_covariates_data / "projects.json"
 )
 
-_REPLISEQ_TYPES = ("mat", "fraction_bigwigs", "wavelet")
+_REPLISEQ_TYPES = ("mat", "fraction_bigwigs", "wavelet", "pooled_mrt")
 _OPTIONAL_SOURCES = (
     "gexp",
     "atac",
@@ -147,7 +147,18 @@ class EncodeChromatinSpec:
 
 @dataclass(frozen=True, slots=True)
 class RepliseqSpec:
-    """Replication timing source."""
+    """Replication timing source.
+
+    ``pooled_mrt`` pools many biosamples into one column: ``profiles``
+    holds one ``mat``/``fraction_bigwigs``/``wavelet`` spec per
+    profile, ``cell_line`` naming the biosample (profiles sharing one
+    are averaged first). Each profile's per-gene timing is oriented
+    larger = later (wavelets are log2 early/late, so they are negated),
+    z-scored across genes, averaged within a biosample and then across
+    biosamples, giving one vote per biosample. Replication timing is
+    largely conserved across cell types, which is what makes a pool a
+    reasonable tissue-agnostic covariate.
+    """
 
     type: str
     assembly: str
@@ -159,6 +170,7 @@ class RepliseqSpec:
     mrt_fraction_cols: tuple[str, ...] | None = None
     include_clr_fractions: bool | None = None
     bin_size: int = 50_000
+    profiles: tuple["RepliseqSpec", ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -227,6 +239,11 @@ def _build_spec(cls, raw: dict):
             f"Unknown keys for {cls.__name__}: {sorted(unknown)}"
         )
     kwargs = {k: _tupled(v) for k, v in raw.items()}
+    if cls is RepliseqSpec and raw.get("profiles"):
+        kwargs["profiles"] = tuple(
+            _build_spec(RepliseqSpec, dict(p))
+            for p in raw["profiles"]
+        )
     if cls in (RepliseqSpec, EncodeChromatinSpec) and kwargs.get(
         "tracks"
     ):
@@ -302,27 +319,37 @@ def validate_registry(raw: dict) -> None:
             )
         repliseq = row.get("repliseq")
         if repliseq is not None:
-            rtype = repliseq.get("type")
-            if rtype not in _REPLISEQ_TYPES:
-                raise ValueError(
-                    f"{code}: repliseq.type {rtype!r} not one of "
-                    f"{_REPLISEQ_TYPES}"
-                )
-            if rtype == "mat" and not repliseq.get("filename"):
-                raise ValueError(
-                    f"{code}: repliseq type 'mat' needs a filename"
-                )
-            if rtype == "fraction_bigwigs" and not repliseq.get(
-                "tracks"
-            ):
-                raise ValueError(
-                    f"{code}: repliseq type 'fraction_bigwigs' "
-                    "needs tracks"
-                )
-            if rtype == "wavelet" and not repliseq.get("tracks"):
-                raise ValueError(
-                    f"{code}: repliseq type 'wavelet' needs one track"
-                )
+            _validate_repliseq(code, repliseq)
+
+
+def _validate_repliseq(code: str, repliseq: dict, nested=False):
+    """Check one repliseq block, recursing into a pool's profiles."""
+    rtype = repliseq.get("type")
+    allowed = _REPLISEQ_TYPES[:-1] if nested else _REPLISEQ_TYPES
+    if rtype not in allowed:
+        raise ValueError(
+            f"{code}: repliseq.type {rtype!r} not one of {allowed}"
+        )
+    if rtype == "mat" and not repliseq.get("filename"):
+        raise ValueError(
+            f"{code}: repliseq type 'mat' needs a filename"
+        )
+    if rtype == "fraction_bigwigs" and not repliseq.get("tracks"):
+        raise ValueError(
+            f"{code}: repliseq type 'fraction_bigwigs' needs tracks"
+        )
+    if rtype == "wavelet" and not repliseq.get("tracks"):
+        raise ValueError(
+            f"{code}: repliseq type 'wavelet' needs one track"
+        )
+    if rtype == "pooled_mrt":
+        profiles = repliseq.get("profiles") or []
+        if not profiles:
+            raise ValueError(
+                f"{code}: repliseq type 'pooled_mrt' needs profiles"
+            )
+        for profile in profiles:
+            _validate_repliseq(code, profile, nested=True)
 
 
 def load_registry(
