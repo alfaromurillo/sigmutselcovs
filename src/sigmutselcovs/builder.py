@@ -80,18 +80,36 @@ def combine_with_generic(
     outer, same as every other source block in
     `build_covariate_matrix` -- a gene present in one matrix but not
     the other gets NaN in the missing matrix's columns, not a dropped
-    row. Column name collisions between the two matrices are not
-    checked here; callers combining matrices from unrelated registry
-    rows are expected to have distinct column-naming conventions
-    (verified for the shipped sources), same as within a single
-    `build_covariate_matrix` call.
+    row. A column the cohort's matrix already has is taken from the
+    cohort's matrix and left out of the pool's: a cohort with no
+    tissue of its own in GTEx can use the pool's own pan-tissue
+    median as its expression column, and the combined matrix must
+    not carry it twice.
     """
+    generic_sources = dict(
+        generic_matrix.attrs.get("column_sources", {})
+    )
+    shared = generic_matrix.columns.intersection(
+        cov_matrix_full.columns
+    )
+    if len(shared):
+        logger.info(
+            "combine_with_generic: %d column(s) already in the "
+            "cohort's matrix, kept from it: %s",
+            len(shared),
+            ", ".join(shared),
+        )
+        generic_matrix = generic_matrix.drop(columns=shared)
     combined = pd.concat(
         [cov_matrix_full, generic_matrix], axis=1, join="outer"
     )
     combined.attrs["column_sources"] = {
+        **{
+            k: v
+            for k, v in generic_sources.items()
+            if k not in shared
+        },
         **cov_matrix_full.attrs.get("column_sources", {}),
-        **generic_matrix.attrs.get("column_sources", {}),
     }
     return combined
 

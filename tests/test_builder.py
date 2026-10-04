@@ -724,6 +724,40 @@ def test_combine_with_generic_outer_joins_on_gene_index():
     assert combined.loc["ENSG_B", "generic_col"] == 10.0
 
 
+def test_combine_with_generic_keeps_the_cohort_copy_of_a_shared_column():
+    # A cohort with no tissue of its own in GTEx uses the pool's
+    # pan-tissue median as its expression column; combined, it must
+    # appear once, with the cohort's values and source.
+    cohort = pd.DataFrame(
+        {"gtex_pantissue_median": [1.0], "c": [3.0]}, index=["ENSG_A"]
+    )
+    cohort.attrs["column_sources"] = {
+        "gtex_pantissue_median": "gtex",
+        "c": "roadmap",
+    }
+    generic = pd.DataFrame(
+        {"gtex_pantissue_median": [9.0], "g": [2.0]}, index=["ENSG_A"]
+    )
+    generic.attrs["column_sources"] = {
+        "gtex_pantissue_median": "gtex",
+        "g": "chromatin_collapsed",
+    }
+
+    combined = builder.combine_with_generic(cohort, generic)
+
+    assert list(combined.columns) == [
+        "gtex_pantissue_median",
+        "c",
+        "g",
+    ]
+    assert combined.at["ENSG_A", "gtex_pantissue_median"] == 1.0
+    assert combined.attrs["column_sources"] == {
+        "gtex_pantissue_median": "gtex",
+        "c": "roadmap",
+        "g": "chromatin_collapsed",
+    }
+
+
 def test_combine_with_generic_keeps_both_column_sources():
     cohort = pd.DataFrame({"c": [1.0]}, index=["ENSG_A"])
     cohort.attrs["column_sources"] = {"c": "roadmap"}
