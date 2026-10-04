@@ -37,6 +37,7 @@ def test_available_projects():
         "KIRP",
         "LAML",
         "LGG",
+        "LUAD",
         "OV",
         "SKCM",
         "STAD",
@@ -47,7 +48,7 @@ def test_available_projects():
 
 def test_get_project_unknown_lists_available():
     with pytest.raises(ValueError, match="BRCA, CESC, CHOL, COAD"):
-        get_project("LUAD")
+        get_project("NOTACODE")
 
 
 def test_get_project_case_insensitive():
