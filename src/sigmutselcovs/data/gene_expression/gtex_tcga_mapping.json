@@ -1,4 +1,8 @@
 {
+  "MESO": [
+    "Lung",
+    "Adipose_Visceral_Omentum"
+  ],
   "COAD": [
     "Colon_Sigmoid",
     "Colon_Transverse",
