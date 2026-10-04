@@ -39,6 +39,7 @@ def test_available_projects():
         "LGG",
         "LIHC",
         "LUAD",
+        "LUSC",
         "MESO",
         "OV",
         "SKCM",
