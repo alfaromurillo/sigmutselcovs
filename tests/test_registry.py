@@ -46,10 +46,15 @@ def test_available_projects():
         "PCPG",
         "PRAD",
         "READ",
+        "SARC",
         "SKCM",
         "STAD",
         "TGCT",
+        "THCA",
+        "THYM",
         "UCEC",
+        "UCS",
+        "UVM",
     ]
 
 

@@ -53,7 +53,14 @@
     "Skin_Sun_Exposed_Lower_leg",
     "Skin_Not_Sun_Exposed_Suprapubic"
   ],
-  "SARC": ["Muscle_Skeletal"],
+  "SARC": [
+    "Muscle_Skeletal",
+    "Artery_Tibial",
+    "Uterus",
+    "Adipose_Subcutaneous",
+    "Adipose_Visceral_Omentum",
+    "Cells_Cultured_fibroblasts"
+  ],
   "ACC": ["Adrenal_Gland"],
   "CHOL": ["Liver", "Liver_Portal_Tract"],
   "PCPG": ["Adrenal_Gland", "Nerve_Tibial"],

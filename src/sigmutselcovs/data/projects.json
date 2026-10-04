@@ -1165,6 +1165,153 @@
         ]
       }
     },
+    "SARC": {
+      "description": "Sarcoma (TCGA-SARC, 261 cases): adult soft-tissue sarcomas of several histologies -- leiomyosarcoma (LMS, ~104: retroperitoneal/vascular and uterine), dedifferentiated liposarcoma (DDLPS, 58, plus a few well-differentiated/pleomorphic), undifferentiated pleomorphic sarcoma (UPS, 47 incl. 'malignant fibrous histiocytoma'), myxofibrosarcoma (24), MPNST (9) and synovial sarcoma (10). Sources follow the three dominant lineages -- smooth muscle (LMS), adipocyte (liposarcoma) and fibroblast (UPS/myxofibrosarcoma), together ~90% of cases; MPNST and synovial sarcoma (~7%) get no matched source (ENCODE tibial nerve exists but was left out). GTEx: the existing mapping (Muscle_Skeletal, representative gtex_muscle_skeletal) -- skeletal muscle is not the lineage of any TCGA-SARC histology; see the proposed mapping change in the bring-up notes. Expression: TCGA-SARC tumor and normal (2 solid-tissue normals, so the normal mean rests on 2 samples). atac null: SARC is not in the TCGA ATAC-seq set (Corces et al. 2018). roadmap null: the matching Roadmap epigenomes (E076/E111/E103 smooth muscle, E063 adipose nuclei, E126 NHDF-Ad) are all hg19 and duplicate cell types covered natively in GRCh38 below (E126's Broad NHDF-Ad data is ENCODE's fibroblast-of-dermis set). encode_chromatin, all adult and GRCh38: tibial artery (vascular smooth muscle; retroperitoneal LMS arises mostly from the walls of large veins), donor ENCDO845WKR (37y), H3K27me3, H3K4me3, H3K27ac, H3K9me3, H3K36me3, H3K4me1 and DNase; uterus (uterine LMS; mostly myometrium), donor ENCDO793LXB (53y), the same six marks and DNase; subcutaneous abdominal adipose tissue (liposarcoma), donor ENCDO622KQK (49y), H3K27me3, H3K36me3, H3K27ac, H3K4me3, H3K9me3, H3K4me1 and H3K9ac (no DNase for that donor), plus omental fat pad DNase from ENCDO793LXB (visceral fat, closer to retroperitoneal liposarcoma); adult dermal fibroblasts (fibroblast of dermis, Lonza CC-2511 NHDF-Ad; UPS/myxofibrosarcoma lineage), all seven default marks (Broad, replicate-pooled) and DNase (UW). Cell lines, DNase only: T778 (well-differentiated liposarcoma, 69y F, Cellosaurus CVCL_M808; MDM2-amplified like DDLPS, a disease match for the liposarcoma group) and HT1080 (adult fibrosarcoma, 35y M; a near match for the fibroblastic UPS/myxofibrosarcoma group). They are the only adult soft-tissue-sarcoma lines in ENCODE. Rejected: SJSA1 and MG63 (osteosarcoma), A673 (Ewing), SJCRH30 (alveolar rhabdomyosarcoma) -- histologies TCGA-SARC excludes, and three of them pediatric; U2OS is not in ENCODE's chromatin panel. repliseq null: no adult smooth-muscle, adipocyte or fibroblast replication-timing source exists. The fibroblast-lineage candidates are BJ (newborn foreskin, UW 6-fraction) and IMR-90 (fetal lung), the smooth-muscle and mesenchymal ones hESC-derived Repli-chip (embryonic), and Ehrlich-lab skeletal myoblast Repli-chip is the wrong lineage; BJ is the unmeasured candidate if a lineage block is wanted (the pooled RT in GENERIC already carries it). Assemblies: encode_chromatin GRCh38; gexp hg38.",
+      "gtex": {
+        "mapping_key": "SARC",
+        "representative_column": "gtex_muscle_skeletal"
+      },
+      "gexp": {
+        "tcga_project_id": "TCGA-SARC"
+      },
+      "atac": null,
+      "roadmap": null,
+      "repliseq": null,
+      "encode_chromatin": {
+        "tracks": [
+          {"label": "H3K27me3", "accession": "ENCFF058KBD"},
+          {"label": "H3K4me3", "accession": "ENCFF901QWB"},
+          {"label": "H3K27ac", "accession": "ENCFF972ZHA"},
+          {"label": "H3K9me3", "accession": "ENCFF701RDF"},
+          {"label": "H3K36me3", "accession": "ENCFF692KPV"},
+          {"label": "H3K4me1", "accession": "ENCFF308FBT"},
+          {"label": "DNase", "accession": "ENCFF177TZZ"},
+          {"label": "H3K4me3", "accession": "ENCFF370WIV"},
+          {"label": "H3K9me3", "accession": "ENCFF059MVB"},
+          {"label": "H3K27me3", "accession": "ENCFF633HHF"},
+          {"label": "H3K36me3", "accession": "ENCFF703AQK"},
+          {"label": "H3K4me1", "accession": "ENCFF183AON"},
+          {"label": "H3K27ac", "accession": "ENCFF154QOP"},
+          {"label": "DNase", "accession": "ENCFF931IYG"},
+          {"label": "H3K27me3", "accession": "ENCFF879XVO"},
+          {"label": "H3K36me3", "accession": "ENCFF375JNJ"},
+          {"label": "H3K27ac", "accession": "ENCFF608YXU"},
+          {"label": "H3K4me3", "accession": "ENCFF162OOB"},
+          {"label": "H3K9me3", "accession": "ENCFF390RAO"},
+          {"label": "H3K4me1", "accession": "ENCFF772IQC"},
+          {"label": "H3K9ac", "accession": "ENCFF323EPV"},
+          {"label": "DNase", "accession": "ENCFF724SLN"},
+          {"label": "H3K27ac", "accession": "ENCFF500IPG"},
+          {"label": "H3K27me3", "accession": "ENCFF171CWX"},
+          {"label": "H3K36me3", "accession": "ENCFF344FQD"},
+          {"label": "H3K4me1", "accession": "ENCFF167KTN"},
+          {"label": "H3K4me3", "accession": "ENCFF125WTJ"},
+          {"label": "H3K9ac", "accession": "ENCFF751GHM"},
+          {"label": "H3K9me3", "accession": "ENCFF940SKE"},
+          {"label": "DNase", "accession": "ENCFF121RAP"},
+          {"label": "DNase", "accession": "ENCFF378MXC"},
+          {"label": "DNase", "accession": "ENCFF510IQJ"}
+        ]
+      }
+    },
+    "THCA": {
+      "description": "Thyroid carcinoma (TCGA-THCA: papillary thyroid carcinoma, from thyroid follicular epithelial cells). GTEx maps to Thyroid (representative gtex_thyroid). TCGA ATAC-seq covered (Corces et al. 2018; the tarball's bigWigs are named THCA_<uuid>..., read from its first member). Expression: TCGA-THCA tumor and normal (59 solid-tissue normals, so the default Tumor+Normal pair stays). Roadmap null: none of its 127 epigenomes is thyroid. encode_chromatin: adult thyroid gland tissue from one ENTEx donor (ENCDO271OUW, female, 51y; THCA is about three-quarters female, so a female donor matches the cohort's chrX state) -- H3K27ac, H3K27me3, H3K36me3, H3K4me1, H3K4me3, H3K9me3 and DNase, all single-replicate. Three other adult donors (ENCDO845WKR male 37y, ENCDO451RUA male 54y, ENCDO793LXB female 53y, the last without H3K27me3) carry the same panel and are left out to keep one donor. No thyroid cell line has usable chromatin in ENCODE: K1 (the only thyroid-carcinoma line there, and an ICLAC-listed GLAG-66 derivative) has only a RAD21 ChIA-PET; TPC-1, B-CPAP, 8505C, FTC-133, Nthy-ori 3-1 return nothing. repliseq null: nothing in the replication-timing catalog is thyroid or follicular epithelium; the hESC-derived posterior-foregut endocrine Repli-chip profile is embryonic and pancreatic-lineage, rejected. GENERIC's pooled RT covers it. Assemblies: encode_chromatin and ATAC GRCh38.",
+      "gtex": {
+        "mapping_key": "THCA",
+        "representative_column": "gtex_thyroid"
+      },
+      "gexp": {
+        "tcga_project_id": "TCGA-THCA"
+      },
+      "atac": {
+        "gdc_uuid": "ed21baf7-8aca-404e-827a-a1bea9a89128",
+        "column_prefix": "thca"
+      },
+      "roadmap": null,
+      "repliseq": null,
+      "encode_chromatin": {
+        "tracks": [
+          {"label": "H3K27ac", "accession": "ENCFF774RLX"},
+          {"label": "H3K27me3", "accession": "ENCFF721MDG"},
+          {"label": "H3K36me3", "accession": "ENCFF390SFV"},
+          {"label": "H3K4me1", "accession": "ENCFF952FEE"},
+          {"label": "H3K4me3", "accession": "ENCFF321LZL"},
+          {"label": "H3K9me3", "accession": "ENCFF225AOQ"},
+          {"label": "DNase", "accession": "ENCFF230CJW"}
+        ]
+      }
+    },
+    "THYM": {
+      "description": "Thymoma (and a minority of thymic carcinoma): tumors of the thymic epithelium, derived from the third pharyngeal pouch endoderm, in a mediastinal organ whose cells are overwhelmingly non-neoplastic developing T cells (thymocytes) in the lymphocyte-rich types (B1/B2/AB). GTEx has no thymus; its existing mapping is Spleen + Whole_Blood (lymphoid proxies, the thymocyte compartment rather than the epithelium); representative column gtex_spleen. Expression: TCGA-THYM tumor and normal (2 normal samples, so the default Tumor+Normal pair stays; both are lymphocyte-dominated thymus). ATAC null: THYM is not among the 23 TCGA ATAC-seq cohorts (Corces et al. 2018). No adult human thymus epigenome exists anywhere: Roadmap's two thymus epigenomes are E093 (fetal, 15 weeks) and E112 (a 3-year-old child), and ENCODE's human thymus tissue is the same child donor (ENCDO478OMA, six histone marks) plus fetal donors only (all DNase is embryonic). No thymic epithelial cell, thymoma or thymic carcinoma line or primary cell is in ENCODE (searches for thymic epithelial, thymoma, thymic carcinoma, IU-TAB-1, T1889, Ty-82 and medullary thymic return zero). repliseq null: nothing in the human RT universe is thymic epithelium or any third-pharyngeal-pouch derivative. roadmap and encode_chromatin are left null rather than filled with the child thymus, which is both non-adult and the wrong compartment (thymocyte chromatin, not epithelial). This row carries expression only; its chromatin and replication timing are expected to come from GENERIC if the own + GENERIC matrix is adopted. Assemblies: expression and GTEx gene-level only (no bigWig blocks).",
+      "gtex": {
+        "mapping_key": "THYM",
+        "representative_column": "gtex_spleen"
+      },
+      "gexp": {
+        "tcga_project_id": "TCGA-THYM"
+      },
+      "atac": null,
+      "roadmap": null,
+      "repliseq": null,
+      "encode_chromatin": null
+    },
+    "UCS": {
+      "description": "Uterine carcinosarcoma (malignant mixed Mullerian tumor): a biphasic tumor of the uterine corpus whose sarcomatous component arises from the carcinoma by epithelial-mesenchymal transition, so its cell of origin is endometrial epithelium, the same as UCEC's (TCGA's marker paper, Cherniack et al. 2017, finds it closest to serous endometrial carcinoma). Every tissue source is therefore UCEC's, re-verified 2026-10-04. GTEx maps to Uterus (the existing UCS key; representative gtex_uterus). Expression is tumor-only: all 57 TCGA-UCS STAR-count files are primary tumors, no normals. No TCGA ATAC-seq for UCS (not in Corces et al. 2018; atac: null). roadmap null: none of Roadmap's 127 epigenomes is uterine (E097 ovary and the GI smooth-muscle epigenomes are the wrong organ or cell). encode_chromatin: UCEC's adult uterus tissue tracks -- H3K9me3, H3K36me3, H3K27ac, H3K27me3 from one 51y donor (ENCDO271OUW), H3K4me1 and DNase from a 53y donor (ENCDO793LXB) -- plus H3K4me3 from the 51y donor (ENCSR743GCE, combined replicates), which UCEC's row records as unreleased but has been released since 2018; ENCODE has no uterus H3K9ac. Cell line: Ishikawa DNase-seq, the only endometrial cancer line in ENCODE (endometrioid adenocarcinoma, so a weaker match for carcinosarcoma than for UCEC), taken from the DMSO vehicle-control experiment (ENCSR000EIP) rather than UCEC's 4-hydroxytamoxifen-treated one. No carcinosarcoma or uterine sarcoma line exists in ENCODE (MES-SA, SK-UT-1, SK-LMS-1, HEC-1, AN3-CA, KLE, RL95-2 checked). ENCODE's adult uterus ATAC-seq (46y, 59y) and endometrium FAIRE-seq are left out, as ATAC is not an encode_chromatin label here. repliseq null: endometrium is a settled replication-timing negative (no source in ENCODE, GSE137764 or GEO, Ishikawa and HEC-1 included), and the cell-of-origin question leads back to endometrial epithelium; fibroblast or smooth-muscle profiles would be an organ-level guess for the sarcomatous component and are declined. Assemblies: encode_chromatin GRCh38.",
+      "gtex": {
+        "mapping_key": "UCS",
+        "representative_column": "gtex_uterus"
+      },
+      "gexp": {
+        "tcga_project_id": "TCGA-UCS",
+        "tissue_types": [
+          "Tumor"
+        ]
+      },
+      "atac": null,
+      "roadmap": null,
+      "repliseq": null,
+      "encode_chromatin": {
+        "tracks": [
+          {"label": "H3K4me1", "accession": "ENCFF183AON"},
+          {"label": "H3K4me3", "accession": "ENCFF181HLF"},
+          {"label": "H3K9me3", "accession": "ENCFF267RUZ"},
+          {"label": "H3K36me3", "accession": "ENCFF142JQP"},
+          {"label": "H3K27ac", "accession": "ENCFF477FDT"},
+          {"label": "H3K27me3", "accession": "ENCFF789HLD"},
+          {"label": "DNase", "accession": "ENCFF931IYG"},
+          {"label": "DNase", "accession": "ENCFF926OUY"}
+        ]
+      }
+    },
+    "UVM": {
+      "description": "Uveal melanoma: 80 TCGA cases, primary site eye and adnexa (choroid/ciliary body melanocytes, neural-crest derived like cutaneous melanocytes but UV-shielded). GTEx has no eye tissue, so UVM has no tissue mapping; instead of an organ proxy with no relation to the uvea, the gtex block reuses GENERIC's pan-tissue median (mapping_key GENERIC, reduce median, column gtex_pantissue_median) -- a tissue-neutral expression level, with the tumor's own expression carried by the TCGA block. Expression is tumor-only: all 80 TCGA-UVM STAR-count files are primary tumors, no normals (queried 2026-10-04). No TCGA ATAC-seq (not in Corces et al. 2018), atac null. Roadmap uses E059 and E061 (foreskin melanocyte primary cultures, the melanocyte lineage; 6/7 marks, H3K9ac 404 for both, live-checked 2026-10-04) -- the same epigenomes SKCM's row uses, newborn donors kept as there. Roadmap has no eye epigenome. encode_chromatin: ENCODE's human eye and retina tissue is all embryonic (56-125 days) and rejected; retinal and iris pigment epithelial cells (ScienCell, life stage unknown) are optic-cup neuroectoderm, not melanocytes, and rejected; WERI-Rb-1 (retinoblastoma) is a retinal precursor, rejected. ENCODE has no uveal melanoma line (92.1, Mel202, MP41, OMM-1, MUM2B, Mel270 absent); the melanoma lines are cutaneous -- SK-MEL-5 and COLO829 (SKCM's two DNase files) and RPMI-7951 (lymph-node metastasis of melanoma), DNase only -- lineage-matched, not disease-matched (no UV damage, GNAQ/GNA11 rather than BRAF/NRAS drivers). repliseq null: no melanocyte or melanoma replication-timing source exists (SKCM's settled negative). Assemblies: Roadmap hg19, encode_chromatin GRCh38.",
+      "gtex": {
+        "mapping_key": "GENERIC",
+        "representative_column": "gtex_pantissue_median",
+        "reduce": "median"
+      },
+      "gexp": {
+        "tcga_project_id": "TCGA-UVM",
+        "tissue_types": [
+          "Tumor"
+        ]
+      },
+      "atac": null,
+      "roadmap": {
+        "eids": [
+          "E059",
+          "E061"
+        ]
+      },
+      "repliseq": null,
+      "encode_chromatin": {
+        "tracks": [
+          {"label": "DNase", "accession": "ENCFF117VUC"},
+          {"label": "DNase", "accession": "ENCFF108VMQ"},
+          {"label": "DNase", "accession": "ENCFF158FWS"}
+        ]
+      }
+    },
     "GENERIC": {
       "description": "Tissue-agnostic pan-tissue covariate pool, not a TCGA study code -- see sigmutselcovs' DEVELOPMENT.md, 'Generic (pan-tissue) covariates'. Objective B of the expanded-covariate-sources task (2026-09-03), rebuilt 2026-09-04 using the disk-bounded streaming download path (covariates_chromatin.py/download.py) after the original 26-EID plan hit gauss's disk limit. roadmap.eids is the full 127-epigenome Roadmap consolidated panel (E001-E129 excluding E060/E064, which genuinely don't exist -- verified live, not assumed); roadmap.marks adds DNase to the standard 7 histone marks, since Roadmap has its own native DNase-seq tracks via the same egg2.wustl.edu signal system for most EIDs (found while checking E121-E129's coverage), not just histone ChIP. encode_chromatin.tracks is 83 adult primary-tissue DNase-seq experiments from the ENCODE portal (one per unique biosample term, live-queried and life-stage-filtered to exclude embryonic/fetal/newborn/cell-line samples), complementing Roadmap's own DNase coverage with tissues Roadmap's panel doesn't reach. Still excludes H3K23ac/H3K14ac/H2AK9ac: no usable ENCODE coverage exists for any of the three (in-vitro-differentiated stem cells or one QC-flagged experiment only) -- unrelated to disk, a genuine data-availability gap. average_by_assay is true (2026-09-06): the raw per-track columns (roadmap's ~850 real tracks + encode_chromatin's 83) are pooled and collapsed to one averaged column per mark before assembly, rather than PCA-reduced as ~1860 separate per-track columns -- collapsing first cheaply outperforms PCA at the small component counts a per-cohort model can support, confirmed by 5-fold gene-CV against several TCGA cohorts' own covariate matrices. Cell lines added 2026-09-07: Martincorena et al. 2017's own STAR Methods (the primary paper, not just the dndscv package/GitHub repo, finally accessed this session) states plainly that dNdScv's 169-track/20-PC matrix came from '63 cell lines' in the Roadmap Epigenomics Project, not primary tissue -- a real, previously-unverified gap in GENERIC's own pool (which until now was 127 Roadmap epigenomes, mostly primary tissue/cells, plus 83 ENCODE adult-tissue DNase tracks, deliberately life-stage-filtered to EXCLUDE cell lines). Queried ENCODE's own portal restricted to biosample_ontology.classification=cell+line for all 7 default histone marks plus DNase (output_type 'fold change over control' for histone, 'read-depth normalized signal' for DNase, GRCh38): 211 distinct cell lines, 548 (line, mark) track pairs, zero overlap with GENERIC's existing 83 tissue-only DNase accessions. All 548 added here, unfiltered by tissue -- GENERIC is tissue-agnostic by design, so cell-line identity (unlike the per-cohort matrices' tissue-matching requirement) is not a rejection criterion here. Also added the 3 rare marks' full cell-line pool (H3K23ac/H3K14ac/H2AK9ac -- 7 biosamples: IMR-90, mesenchymal stem cell, H1, H9, trophoblast cell, neuronal stem cell, mesendoderm; 12 track pairs), the only place in this registry these 3 marks now appear at all, since no per-cohort tissue match exists for them (checked: IMR-90/H1/trophoblast/H9/mesenchymal-stem-cell/neuronal-stem-cell/mesendoderm match none of our 13 registered cohort tissues). average_by_assay's collapsing means this addition changes the resulting ~17-18 columns' underlying sample composition and precision, not their count -- consistent with why the mechanism was adopted in the first place (2026-09-06). repliseq added 2026-10-02 as a pooled_mrt source, so GENERIC is now the complete tissue-agnostic matrix (pooled chromatin, pan-tissue expression median, pooled replication timing): 108 profiles over 50 human biosamples -- every replication-timing experiment on the ENCODE portal enumerated by assay_title (Repli-seq + Repli-chip, the 182 of the assay_slims facet; 15 UW 6-fraction lines reduced to mean replication time, 33 Repli-chip biosamples and 5 Gilbert-lab Repli-seq series as sign-flipped wavelets; T47D excluded, it has no usable signal files) plus the GSE137764 HCT116 16-fraction MAT. Pooled column rt_pool_z correlates 0.91 with HCT116 alone; median pairwise correlation between biosamples 0.75.",
       "gtex": {
