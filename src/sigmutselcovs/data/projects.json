@@ -1070,6 +1070,50 @@
         ]
       }
     },
+    "PRAD": {
+      "description": "Prostate adenocarcinoma. GTEx maps to Prostate (gtex_prostate). TCGA-PRAD has normal RNA-seq (52 Solid Tissue Normal files), so gexp keeps the default tumor+normal means. TCGA ATAC-seq covered (Corces et al. 2018; the tarball's bigWigs are named PRAD_<uuid>..., read from its first member). roadmap null: Roadmap's 127-epigenome panel has no prostate epigenome. encode_chromatin: adult prostate gland tissue from one ENTEx donor (ENCDO845WKR, 37y; DNase, H3K27ac, H3K27me3, H3K36me3, H3K4me1, H3K4me3), plus H3K9me3 from a second adult donor (ENCDO451RUA, 54y), the only donor with that mark; ENCODE has no adult prostate H3K9ac. Primary prostate epithelial cell DNase (life stage unrecorded), the cell of origin. RWPE1 (HPV18-immortalized normal prostate epithelium; DNase, H3K27ac) as an immortalized-normal cell-of-origin proxy, as PAAD uses HPDE6-E6E7; RWPE2 (RWPE1 transformed in vitro with KRAS) rejected as an engineered line. Prostate cancer lines, untreated files only (ENCODE's many androgen/DHT-treatment experiments excluded): LNCaP clone FGC (DNase x2, H3K4me3), C4-2B (H3K27ac), 22Rv1 (H3K27ac), VCaP (H3K27ac) and PC-3 (all seven standard marks plus DNase; AR-negative bone metastasis). repliseq null: LNCaP's Gilbert-lab Repli-seq series (ENCSR888VII) has no wavelet-smoothed bigWig, only a 5 kb unsmoothed relative-replication bedGraph (ENCFF995YGM, hg19), which no registry type reads. Assemblies: encode_chromatin and ATAC GRCh38.",
+      "gtex": {
+        "mapping_key": "PRAD",
+        "representative_column": "gtex_prostate"
+      },
+      "gexp": {
+        "tcga_project_id": "TCGA-PRAD"
+      },
+      "atac": {
+        "gdc_uuid": "4677a65c-a9fb-4fb3-9e56-917715551d4c",
+        "column_prefix": "prad"
+      },
+      "roadmap": null,
+      "repliseq": null,
+      "encode_chromatin": {
+        "tracks": [
+          {"label": "DNase", "accession": "ENCFF219LGC"},
+          {"label": "H3K27ac", "accession": "ENCFF112GCV"},
+          {"label": "H3K27me3", "accession": "ENCFF577XCF"},
+          {"label": "H3K36me3", "accession": "ENCFF264RXL"},
+          {"label": "H3K4me1", "accession": "ENCFF870DKK"},
+          {"label": "H3K4me3", "accession": "ENCFF761PKU"},
+          {"label": "H3K9me3", "accession": "ENCFF541WVN"},
+          {"label": "DNase", "accession": "ENCFF038JKP"},
+          {"label": "DNase", "accession": "ENCFF666AUK"},
+          {"label": "H3K27ac", "accession": "ENCFF644HJX"},
+          {"label": "DNase", "accession": "ENCFF086MWH"},
+          {"label": "DNase", "accession": "ENCFF517KEQ"},
+          {"label": "H3K4me3", "accession": "ENCFF099XXL"},
+          {"label": "H3K27ac", "accession": "ENCFF226UYQ"},
+          {"label": "H3K27ac", "accession": "ENCFF206VZR"},
+          {"label": "H3K27ac", "accession": "ENCFF450QIY"},
+          {"label": "DNase", "accession": "ENCFF913KGH"},
+          {"label": "H3K27ac", "accession": "ENCFF537PUA"},
+          {"label": "H3K27me3", "accession": "ENCFF682MGB"},
+          {"label": "H3K36me3", "accession": "ENCFF519YBG"},
+          {"label": "H3K4me1", "accession": "ENCFF734QNV"},
+          {"label": "H3K4me3", "accession": "ENCFF319OET"},
+          {"label": "H3K9ac", "accession": "ENCFF611FMK"},
+          {"label": "H3K9me3", "accession": "ENCFF302MER"}
+        ]
+      }
+    },
     "GENERIC": {
       "description": "Tissue-agnostic pan-tissue covariate pool, not a TCGA study code -- see sigmutselcovs' DEVELOPMENT.md, 'Generic (pan-tissue) covariates'. Objective B of the expanded-covariate-sources task (2026-09-03), rebuilt 2026-09-04 using the disk-bounded streaming download path (covariates_chromatin.py/download.py) after the original 26-EID plan hit gauss's disk limit. roadmap.eids is the full 127-epigenome Roadmap consolidated panel (E001-E129 excluding E060/E064, which genuinely don't exist -- verified live, not assumed); roadmap.marks adds DNase to the standard 7 histone marks, since Roadmap has its own native DNase-seq tracks via the same egg2.wustl.edu signal system for most EIDs (found while checking E121-E129's coverage), not just histone ChIP. encode_chromatin.tracks is 83 adult primary-tissue DNase-seq experiments from the ENCODE portal (one per unique biosample term, live-queried and life-stage-filtered to exclude embryonic/fetal/newborn/cell-line samples), complementing Roadmap's own DNase coverage with tissues Roadmap's panel doesn't reach. Still excludes H3K23ac/H3K14ac/H2AK9ac: no usable ENCODE coverage exists for any of the three (in-vitro-differentiated stem cells or one QC-flagged experiment only) -- unrelated to disk, a genuine data-availability gap. average_by_assay is true (2026-09-06): the raw per-track columns (roadmap's ~850 real tracks + encode_chromatin's 83) are pooled and collapsed to one averaged column per mark before assembly, rather than PCA-reduced as ~1860 separate per-track columns -- collapsing first cheaply outperforms PCA at the small component counts a per-cohort model can support, confirmed by 5-fold gene-CV against several TCGA cohorts' own covariate matrices. Cell lines added 2026-09-07: Martincorena et al. 2017's own STAR Methods (the primary paper, not just the dndscv package/GitHub repo, finally accessed this session) states plainly that dNdScv's 169-track/20-PC matrix came from '63 cell lines' in the Roadmap Epigenomics Project, not primary tissue -- a real, previously-unverified gap in GENERIC's own pool (which until now was 127 Roadmap epigenomes, mostly primary tissue/cells, plus 83 ENCODE adult-tissue DNase tracks, deliberately life-stage-filtered to EXCLUDE cell lines). Queried ENCODE's own portal restricted to biosample_ontology.classification=cell+line for all 7 default histone marks plus DNase (output_type 'fold change over control' for histone, 'read-depth normalized signal' for DNase, GRCh38): 211 distinct cell lines, 548 (line, mark) track pairs, zero overlap with GENERIC's existing 83 tissue-only DNase accessions. All 548 added here, unfiltered by tissue -- GENERIC is tissue-agnostic by design, so cell-line identity (unlike the per-cohort matrices' tissue-matching requirement) is not a rejection criterion here. Also added the 3 rare marks' full cell-line pool (H3K23ac/H3K14ac/H2AK9ac -- 7 biosamples: IMR-90, mesenchymal stem cell, H1, H9, trophoblast cell, neuronal stem cell, mesendoderm; 12 track pairs), the only place in this registry these 3 marks now appear at all, since no per-cohort tissue match exists for them (checked: IMR-90/H1/trophoblast/H9/mesenchymal-stem-cell/neuronal-stem-cell/mesendoderm match none of our 13 registered cohort tissues). average_by_assay's collapsing means this addition changes the resulting ~17-18 columns' underlying sample composition and precision, not their count -- consistent with why the mechanism was adopted in the first place (2026-09-06). repliseq added 2026-10-02 as a pooled_mrt source, so GENERIC is now the complete tissue-agnostic matrix (pooled chromatin, pan-tissue expression median, pooled replication timing): 108 profiles over 50 human biosamples -- every replication-timing experiment on the ENCODE portal enumerated by assay_title (Repli-seq + Repli-chip, the 182 of the assay_slims facet; 15 UW 6-fraction lines reduced to mean replication time, 33 Repli-chip biosamples and 5 Gilbert-lab Repli-seq series as sign-flipped wavelets; T47D excluded, it has no usable signal files) plus the GSE137764 HCT116 16-fraction MAT. Pooled column rt_pool_z correlates 0.91 with HCT116 alone; median pairwise correlation between biosamples 0.75.",
       "gtex": {
