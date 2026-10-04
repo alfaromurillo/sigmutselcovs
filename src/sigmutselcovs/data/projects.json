@@ -753,7 +753,8 @@
         "representative_column": "gtex_whole_blood"
       },
       "gexp": {
-        "tcga_project_id": "TCGA-LAML"
+        "tcga_project_id": "TCGA-LAML",
+        "tissue_types": ["Tumor"]
       },
       "atac": null,
       "roadmap": {
