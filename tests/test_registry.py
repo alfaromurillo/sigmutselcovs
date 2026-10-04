@@ -543,6 +543,7 @@ def test_zero_roadmap_cohorts_have_real_encode_chromatin_rows():
             "H3K36me3",
             "H3K27ac",
             "H3K27me3",
+            "H3K4me3",  # released 2018, added 2026-10-04
             "DNase",
         },
     }

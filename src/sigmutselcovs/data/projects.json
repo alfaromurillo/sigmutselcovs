@@ -120,7 +120,7 @@
       }
     },
     "UCEC": {
-      "description": "Uterine Corpus Endometrial Carcinoma. encode_chromatin added 2026-09-03 (expanded-covariate-sources task): ENCODE has adult primary uterus tissue for 5 of our 7 default marks plus DNase -- H3K4me1, H3K9me3, H3K36me3, H3K27ac, H3K27me3 and DNase (one of two available adult uterus DNase experiments used). Missing H3K4me3 and H3K9ac (not released for this biosample). encode_chromatin cell line added 2026-09-07: Ishikawa (DNase-seq, native GRCh38) is a genuine endometrial adenocarcinoma cell line -- a disease-matched complement to the adult primary uterus tissue tracks above, not just an organ-level proxy. Found via Martincorena et al. 2017's STAR Methods confirming dNdScv's matrix is cell-line-based.",
+      "description": "Uterine Corpus Endometrial Carcinoma. encode_chromatin added 2026-09-03 (expanded-covariate-sources task): ENCODE has adult primary uterus tissue for 5 of our 7 default marks plus DNase -- H3K4me1, H3K9me3, H3K36me3, H3K27ac, H3K27me3 and DNase (one of two available adult uterus DNase experiments used). H3K9ac is not released for this biosample. H3K4me3 added 2026-10-04: ENCFF181HLF (ENCSR743GCE, released 2018), from the 51-year-old donor behind four of the other marks; it was wrongly recorded here as unreleased. encode_chromatin cell line added 2026-09-07: Ishikawa (DNase-seq, native GRCh38; since 2026-10-04 the vehicle-control experiment ENCFF926OUY, replacing the tamoxifen-treated ENCFF251BFP) is a genuine endometrial adenocarcinoma cell line -- a disease-matched complement to the adult primary uterus tissue tracks above, not just an organ-level proxy. Found via Martincorena et al. 2017's STAR Methods confirming dNdScv's matrix is cell-line-based.",
       "gtex": {
         "mapping_key": "UCEC",
         "representative_column": "gtex_uterus"
@@ -141,8 +141,9 @@
           {"label": "H3K36me3", "accession": "ENCFF142JQP"},
           {"label": "H3K27ac", "accession": "ENCFF477FDT"},
           {"label": "H3K27me3", "accession": "ENCFF789HLD"},
+          {"label": "H3K4me3", "accession": "ENCFF181HLF"},
           {"label": "DNase", "accession": "ENCFF931IYG"},
-          {"label": "DNase", "accession": "ENCFF251BFP"}
+          {"label": "DNase", "accession": "ENCFF926OUY"}
         ]
       }
     },
