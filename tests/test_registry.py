@@ -42,6 +42,7 @@ def test_available_projects():
         "LUSC",
         "MESO",
         "OV",
+        "PAAD",
         "SKCM",
         "STAD",
         "TGCT",
