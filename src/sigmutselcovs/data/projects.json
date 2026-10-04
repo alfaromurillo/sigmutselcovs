@@ -684,7 +684,8 @@
         "representative_column": "gtex_brain_cortex"
       },
       "gexp": {
-        "tcga_project_id": "TCGA-LGG"
+        "tcga_project_id": "TCGA-LGG",
+        "tissue_types": ["Tumor"]
       },
       "atac": {
         "gdc_uuid": "8009b5ee-7910-458c-a334-ee08ebcd1b88",
