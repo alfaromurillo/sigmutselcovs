@@ -238,6 +238,11 @@ def import_tcga_gene_expression(
     if "Sample ID" not in ss.columns:
         raise KeyError("Sample sheet missing 'Sample ID' column.")
 
+    # Every file the sheet knows, before any tissue filter: a file
+    # filtered out by tissue_type is skipped quietly, and only one
+    # missing from the sheet altogether is worth a warning.
+    sheet_ids = set(ss[file_id_col].dropna())
+
     if tissue_type is not None:
         tissue_col = next(
             (c for c in ss.columns if c.lower() == "tissue type"),
@@ -274,9 +279,10 @@ def import_tcga_gene_expression(
         file_id = p.parent.name
         barcode = id_to_bar.get(file_id)
         if barcode is None:
-            logger.warning(
-                "No barcode for %s; skipping %s", file_id, p
-            )
+            if file_id not in sheet_ids:
+                logger.warning(
+                    "No barcode for %s; skipping %s", file_id, p
+                )
             continue
 
         df = pd.read_csv(p, sep="\t", comment="#")
