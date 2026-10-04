@@ -366,14 +366,38 @@ def _load_chromatin(
     gtf: str | Path,
     force_generation: bool,
 ) -> pd.DataFrame | None:
-    """Chromatin covariates for one source (roadmap or TCGA ATAC)."""
+    """Chromatin covariates for one source (roadmap or TCGA ATAC).
+
+    The cache records the bigWig file names it was built from
+    (``<cache>.tracks.json``). When bigWigs are present and differ from
+    that record -- a registry row gained, lost or swapped a track --
+    the cache is rebuilt rather than silently reused. With no bigWigs
+    on disk (moved to an archive after the build) the cache is used
+    as is; a cache written before the record existed is trusted, as
+    before, and gains a record at its next rebuild.
+    """
     if not bigwigs and not covs_csv.exists():
         _skip(source, f"no bigWig files and no cache at {covs_csv}")
         return None
     if not bigwigs and force_generation:
         _skip(source, "force_generation without bigWig files")
         return None
-    return load_or_generate_chromatin_covariates(
+    record = covs_csv.parent / f"{covs_csv.name}.tracks.json"
+    names = sorted(Path(b).name for b in bigwigs)
+    if bigwigs and covs_csv.exists() and record.exists():
+        built_from = json.loads(record.read_text())
+        if built_from != names:
+            logger.warning(
+                "%s: cache %s was built from other tracks "
+                "(gained %s, lost %s); rebuilding it.",
+                source,
+                covs_csv,
+                sorted(set(names) - set(built_from)),
+                sorted(set(built_from) - set(names)),
+            )
+            force_generation = True
+    rebuilt = force_generation or not covs_csv.exists()
+    out = load_or_generate_chromatin_covariates(
         covs_csv,
         bigwigs,
         gtf,
@@ -384,6 +408,9 @@ def _load_chromatin(
         force_generation=force_generation,
         average_by_assay=False,
     )
+    if rebuilt and bigwigs:
+        record.write_text(json.dumps(names, indent=1) + "\n")
+    return out
 
 
 def _atac_prefix(spec, atac_covs: pd.DataFrame) -> str:
