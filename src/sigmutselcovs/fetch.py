@@ -17,11 +17,11 @@ Files published in each project's Zenodo record:
     cov_matrix_columns.csv
 
 Record ids per project live in ``data/zenodo.json`` (``records``,
-mapping PROJECT -> Zenodo record id) -- currently empty, until the
-artifacts are first uploaded. Unlike a hosted index file, this
-mapping is entirely local: whether a project is published is known
-without a network call, and only fetching its file list/checksums
-requires one (``GET {api_url}/{record_id}``, Zenodo's own REST API).
+mapping PROJECT -> Zenodo record id; a new version of a record gets
+a new id, so this file points at the latest). Unlike a hosted index
+file, this mapping is entirely local: whether a project is published
+is known without a network call, and only fetching its file
+list/checksums requires one (``GET {api_url}/{record_id}``, Zenodo's own REST API).
 """
 
 import json
