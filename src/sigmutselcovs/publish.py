@@ -280,6 +280,58 @@ def upload_artifact_files(
     return results
 
 
+def create_new_version(
+    deposit_id: int | str,
+    token: str,
+    *,
+    clear_files: bool = True,
+    api_url: str = DEFAULT_API_URL,
+    session: requests.Session | None = None,
+    timeout: int = 30,
+) -> dict:
+    """Open a new-version draft of a published deposition.
+
+    A published Zenodo record cannot be changed, only superseded: this
+    asks Zenodo for a new version (``actions/newversion``) and returns
+    the *draft* (its ``id`` is the new record's, its ``links.bucket``
+    what :func:`upload_artifact_files` needs). Zenodo copies the
+    previous version's files into the draft; with ``clear_files``
+    (default) they are deleted, so the upload that follows is the
+    complete file set rather than a mix of old and new.
+    """
+    session = session or requests.Session()
+    response = session.post(
+        f"{api_url}/{deposit_id}/actions/newversion",
+        headers=_headers(token),
+        timeout=timeout,
+    )
+    response.raise_for_status()
+    draft_url = response.json()["links"]["latest_draft"]
+    draft = session.get(
+        draft_url, headers=_headers(token), timeout=timeout
+    )
+    draft.raise_for_status()
+    draft = draft.json()
+    if clear_files:
+        for f in draft.get("files", []):
+            deleted = session.delete(
+                f["links"]["self"],
+                headers=_headers(token),
+                timeout=timeout,
+            )
+            deleted.raise_for_status()
+            logger.info(
+                "Removed %s from the new-version draft",
+                f.get("filename"),
+            )
+        refreshed = session.get(
+            draft_url, headers=_headers(token), timeout=timeout
+        )
+        refreshed.raise_for_status()
+        draft = refreshed.json()
+    return draft
+
+
 def publish_deposition(
     deposit_id: int | str,
     token: str,

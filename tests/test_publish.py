@@ -6,6 +6,7 @@ import pytest
 
 from sigmutselcovs.publish import (
     create_deposition,
+    create_new_version,
     default_metadata,
     get_deposition,
     publish_deposition,
@@ -247,3 +248,73 @@ def test_default_metadata_includes_extra_related_identifiers():
         r["relation"] for r in metadata["related_identifiers"]
     }
     assert relations == {"isSupplementTo", "isPartOf"}
+
+
+class _VersionSession:
+    """newversion POST, then GETs of the draft, DELETEs of its files."""
+
+    def __init__(self):
+        self.calls = []
+        self.files = [
+            {
+                "filename": "a.parquet",
+                "links": {"self": "https://z/files/1"},
+            },
+            {
+                "filename": "b.json",
+                "links": {"self": "https://z/files/2"},
+            },
+        ]
+
+    def post(self, url, json=None, headers=None, timeout=None):
+        self.calls.append(("POST", url))
+        return _Response(
+            payload={
+                "links": {"latest_draft": "https://z/depositions/777"}
+            }
+        )
+
+    def get(self, url, headers=None, timeout=None):
+        self.calls.append(("GET", url))
+        return _Response(
+            payload={
+                "id": 777,
+                "files": list(self.files),
+                "links": {"bucket": "https://z/bucket/777"},
+            }
+        )
+
+    def delete(self, url, headers=None, timeout=None):
+        self.calls.append(("DELETE", url))
+        self.files = [
+            f for f in self.files if f["links"]["self"] != url
+        ]
+        return _Response(status_code=204)
+
+
+def test_create_new_version_returns_the_cleared_draft():
+    session = _VersionSession()
+    draft = create_new_version(
+        123, "tok", api_url="https://z/depositions", session=session
+    )
+    assert session.calls[0] == (
+        "POST",
+        "https://z/depositions/123/actions/newversion",
+    )
+    assert ("DELETE", "https://z/files/1") in session.calls
+    assert ("DELETE", "https://z/files/2") in session.calls
+    assert draft["id"] == 777
+    assert draft["files"] == []
+
+
+def test_create_new_version_can_keep_the_copied_files():
+    session = _VersionSession()
+    draft = create_new_version(
+        123,
+        "tok",
+        clear_files=False,
+        api_url="https://z/depositions",
+        session=session,
+    )
+    assert not any(c[0] == "DELETE" for c in session.calls)
+    assert len(draft["files"]) == 2
