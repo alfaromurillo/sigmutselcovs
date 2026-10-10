@@ -152,6 +152,20 @@ pca = fetch_covariate_matrix("BRCA")          # small, default
 full = fetch_covariate_matrix("BRCA", "full") # larger
 ```
 
+If you need only part of the full matrix, ask for it by block or by
+column name, and only those columns are downloaded:
+
+```python
+chrom = fetch_covariate_matrix("BRCA", "full", blocks=["chromatin"])
+rt = fetch_covariate_matrix("BRCA", "full", blocks=["replication_timing"])
+gtex = fetch_covariate_matrix("BRCA", "full", columns=["gtex_breast_mammary_tissue"])
+```
+
+The blocks are `gtex`, `expression`, `replication_timing`, `atac` and
+`chromatin`, taken from the source each column was built from (the
+`source` column of the record's `cov_matrix_columns.csv`). These
+partial reads are not cached, so keep the result.
+
 Until a Zenodo record is published for the project, this raises
 `CovariateArtifactsUnavailable` (a `FileNotFoundError` subclass)
 with the download/build commands above in the error message.

@@ -40,7 +40,48 @@ No separate sigmutsel install needed — this package has no
 dependency on it. `gdcfetch` is on PyPI, so it installs normally as
 part of the command above.
 
-## Quick start
+## Quick start: download pre-built matrices
+
+Most users do not need to build anything. Every published cohort's
+matrices are on Zenodo, one record per cohort (see `Supported
+cohorts` below), and one call downloads them:
+
+```python
+from sigmutselcovs import fetch_covariate_matrix
+
+pca = fetch_covariate_matrix("COAD")           # PCA-reduced, a few MB
+full = fetch_covariate_matrix("COAD", "full")  # every column, ~0.5-1 GB
+```
+
+**Only some columns.** The full matrix holds thousands of columns,
+most of them per-sample expression. To read just the ones you need,
+name them or name whole blocks; only those columns are transferred,
+by HTTP range requests, so a handful costs a few MB instead of the
+whole file:
+
+```python
+# by block: gtex, expression, replication_timing, atac, chromatin
+chrom = fetch_covariate_matrix("COAD", "full", blocks=["chromatin", "atac"])
+
+# by name (names are listed in the record's cov_matrix_columns.csv)
+some = fetch_covariate_matrix("COAD", "full", columns=["mrt"])
+```
+
+Names and blocks are checked against the record's column dictionary
+before anything large is downloaded, and a misspelled column name
+reports the closest matches. Partial reads are not cached; keep the
+returned DataFrame, or use `--out` from the command line:
+
+```bash
+sigmutselcovs fetch COAD                               # PCA matrix
+sigmutselcovs fetch COAD --blocks chromatin atac --out coad_chrom.parquet
+sigmutselcovs fetch COAD --columns mrt --out coad_mrt.csv
+```
+
+## Quick start: build from raw data
+
+To build a matrix yourself (a cohort not yet published, or other
+sources), download the raw tracks and build:
 
 ```bash
 sigmutselcovs projects
@@ -75,6 +116,7 @@ console command (`download`, `build`, `validate`, `fetch`,
 | `build_covariate_matrix(project, data_dir, *, cache_matrices=False)` | Assemble the `full`, `simple`, and `tcga` covariate matrices from data already in `data_dir` (returns a `CovariateMatrices` NamedTuple; unpacks as a 3-tuple). Also writes a per-column dictionary (`cov_matrix_columns.csv`) and a build manifest when `cache_matrices=True`. Runs `validate_covariates` automatically at the end. |
 | `validate_covariates(project, data_dir)` | Run data-sanity (NaN fractions, value ranges, column counts) and biological-plausibility (expression vs. replication timing, histone-mark direction, a housekeeping-gene panel) checks; returns a DataFrame of pass/warn/fail results. |
 | `fetch_covariate_matrix(project, which="pca")` | Download a pre-built matrix from Zenodo instead of running download + build locally. Raises `CovariateArtifactsUnavailable` (a `FileNotFoundError`) with the equivalent download/build commands when nothing is published yet. |
+| `fetch_covariate_matrix(project, "full", columns=[...], blocks=[...])` | Read only some columns of the full matrix, by name or by block (`gtex`, `expression`, `replication_timing`, `atac`, `chromatin`), through HTTP range requests: a few MB instead of the whole ~0.5-1 GB file. |
 | `check_updates()` | Compare each external source (GTEx, GDC, ENCODE, Roadmap, GEO) against its last-known state; run every few months to catch upstream data releases. |
 
 `load_registry()` / `available_projects()` / `get_project(code)`
@@ -83,8 +125,14 @@ without touching the network.
 
 ## Supported cohorts
 
-Currently registered: `COAD`, `BRCA`. Adding a new cohort is a
-registry entry — see `DEVELOPMENT.md` § "Adding a new cohort".
+`sigmutselcovs projects` lists every registered cohort (the ones
+that can be built). The ones with pre-built matrices on Zenodo are
+listed in `src/sigmutselcovs/data/zenodo.json` (`records`), together
+with the tissue-agnostic `GENERIC` matrix; a cohort registered but
+not yet published raises `CovariateArtifactsUnavailable` on fetch,
+with the download/build commands in the message. Adding a new
+cohort is a registry entry — see `DEVELOPMENT.md` § "Adding a new
+cohort".
 
 ## Data sources and citations
 

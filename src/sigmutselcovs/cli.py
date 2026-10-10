@@ -8,8 +8,9 @@ Subcommands:
 - ``build <PROJECT> --data-dir DIR`` — build and cache the matrices
 - ``validate <PROJECT> --data-dir DIR`` — run the sanity and
   plausibility checks
-- ``fetch <PROJECT> [--which pca]`` — download pre-built matrices
-  from Zenodo
+- ``fetch <PROJECT> [--which pca] [--columns ...] [--blocks ...]
+  [--out FILE]`` — download pre-built matrices from Zenodo, or only
+  some columns of the full one
 - ``check-updates`` — compare covariate sources to their recorded
   state
 - ``download-gtex`` — fetch the GTEx GCT into the user cache
@@ -18,6 +19,7 @@ Subcommands:
 import argparse
 import logging
 import sys
+from pathlib import Path
 
 
 def _add_project_arg(parser):
@@ -130,6 +132,28 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--dest", default=None)
     p.add_argument("--force", action="store_true")
+    p.add_argument(
+        "--columns",
+        nargs="+",
+        default=None,
+        help="read only these columns of the full matrix "
+        "(implies --which full)",
+    )
+    p.add_argument(
+        "--blocks",
+        nargs="+",
+        default=None,
+        help="read only these blocks of the full matrix: gtex, "
+        "expression, replication_timing, atac, chromatin "
+        "(implies --which full)",
+    )
+    p.add_argument(
+        "--out",
+        default=None,
+        help="also write the matrix to this file (.parquet or .csv); "
+        "needed to keep a --columns/--blocks read, which is not "
+        "cached",
+    )
 
     p = sub.add_parser(
         "check-updates", help="compare sources to recorded state"
@@ -232,13 +256,28 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "fetch":
         from .fetch import fetch_covariate_matrix
 
+        which = args.which
+        if args.columns or args.blocks:
+            which = "full"
         frame = fetch_covariate_matrix(
-            args.project, args.which, dest=args.dest, force=args.force
+            args.project,
+            which,
+            columns=args.columns,
+            blocks=args.blocks,
+            dest=args.dest,
+            force=args.force,
         )
         print(
-            f"cov_matrix_{args.which}: {frame.shape[0]} genes x "
+            f"cov_matrix_{which}: {frame.shape[0]} genes x "
             f"{frame.shape[1]} columns"
         )
+        if args.out:
+            out = Path(args.out)
+            if out.suffix == ".parquet":
+                frame.to_parquet(out)
+            else:
+                frame.to_csv(out)
+            print(f"written to {out}")
         return 0
 
     if args.command == "check-updates":

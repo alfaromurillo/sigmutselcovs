@@ -16,6 +16,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of measurement (`SOURCE_BLOCKS`: gtex, expression, replication
   timing, atac, chromatin), for callers that treat a gene's missing
   covariates by block.
+- `fetch_covariate_matrix(project, "full", columns=..., blocks=...)`
+  reads only the named columns, or whole blocks such as
+  `["chromatin", "atac"]`, of a published full matrix by HTTP range
+  requests (`HTTPRangeFile`), instead of downloading the whole file:
+  3 columns of a 538 MB matrix transfer about 3.4 MB, mostly the
+  parquet footer. Names and blocks are checked against the record's
+  column dictionary before any large transfer. Not cached, and not
+  checksum-verified, since only parts of the file are read. The
+  `fetch` command takes the same selection as `--columns` and
+  `--blocks`, and `--out FILE` (.parquet or .csv) to keep the result.
+  README leads with downloading pre-built matrices.
 
 ## [0.2.0] - 2026-08-12
 

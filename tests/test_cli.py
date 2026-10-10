@@ -95,3 +95,39 @@ def test_fetch_unpublished_raises(tmp_path):
 def test_command_required():
     with pytest.raises(SystemExit):
         build_parser().parse_args([])
+
+
+def test_fetch_columns_and_blocks_imply_full(tmp_path, monkeypatch):
+    import pandas as pd
+
+    from sigmutselcovs import fetch
+
+    calls = {}
+
+    def fake(project, which, **kwargs):
+        calls.update(project=project, which=which, **kwargs)
+        return pd.DataFrame(
+            {"atac_1": [0.5]},
+            index=pd.Index(["ENSG1"], name="ensembl_gene_id"),
+        )
+
+    monkeypatch.setattr(fetch, "fetch_covariate_matrix", fake)
+    out = tmp_path / "sel.csv"
+    code = main(
+        [
+            "fetch",
+            "COAD",
+            "--blocks",
+            "atac",
+            "chromatin",
+            "--columns",
+            "mrt",
+            "--out",
+            str(out),
+        ]
+    )
+    assert code == 0
+    assert calls["which"] == "full"
+    assert calls["blocks"] == ["atac", "chromatin"]
+    assert calls["columns"] == ["mrt"]
+    assert pd.read_csv(out, index_col=0).loc["ENSG1", "atac_1"] == 0.5
