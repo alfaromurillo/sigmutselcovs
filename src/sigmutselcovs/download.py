@@ -609,11 +609,25 @@ def download_covariates(
                 expected = len(source_spec.eids) * len(
                     source_spec.marks
                 )
+                peaks = {}
+                if source_spec.peaks:
+                    peak_files = download_roadmap_peaks(
+                        source_spec,
+                        paths,
+                        force=force,
+                        session=session,
+                    )
+                    peaks = {
+                        "n_peak_files": len(peak_files),
+                        "expected_peaks": expected
+                        * len(source_spec.peaks),
+                    }
                 report.add(
                     source,
                     "ok",
                     n_files=len(files),
                     expected=expected,
+                    **peaks,
                 )
             elif source == "atac":
                 files = download_tcga_atac(
@@ -624,11 +638,26 @@ def download_covariates(
                 files = download_encode_chromatin_tracks(
                     source_spec, paths, force=force, session=session
                 )
+                peaks = {}
+                if source_spec.peak_tracks:
+                    peak_files = download_encode_chromatin_peaks(
+                        source_spec,
+                        paths,
+                        force=force,
+                        session=session,
+                    )
+                    peaks = {
+                        "n_peak_files": len(peak_files),
+                        "expected_peaks": len(
+                            source_spec.peak_tracks
+                        ),
+                    }
                 report.add(
                     source,
                     "ok",
                     n_files=len(files),
                     expected=len(source_spec.tracks),
+                    **peaks,
                 )
         # One source's failure shouldn't abort the others; recorded
         # in the report instead of raised.
@@ -674,6 +703,120 @@ def download_roadmap_tracks(
                 if mark in spec.required_marks:
                     raise
                 logger.warning("Skipping %s: %s", name, exc)
+    return out
+
+
+def download_roadmap_peaks(
+    spec: RoadmapSpec,
+    paths: ProjectPaths,
+    *,
+    force: bool = False,
+    session: requests.Session | None = None,
+) -> list[Path]:
+    """Download Roadmap peak calls (eids x marks x ``spec.peaks``).
+
+    Each file is fetched from ``spec.peaks_url_template`` to
+    ``chromatin/roadmap/peaks/<eid>-<mark>.<peakType>.gz``, kept
+    gzipped, with `download_file`'s idempotent, atomic semantics. A
+    missing (eid, mark) is logged and skipped unless the mark is in
+    ``required_marks``, as for `download_roadmap_tracks`.
+
+    Returns
+    -------
+    list[pathlib.Path]
+        The peak files present after the call, in eid, mark, peak
+        type order.
+    """
+    session = session or requests.Session()
+    out: list[Path] = []
+    for eid in spec.eids:
+        for mark in spec.marks:
+            for peak_type in spec.peaks:
+                name = f"{eid}-{mark}.{peak_type}.gz"
+                dest = paths.roadmap_peaks_dir / name
+                if dest.exists() and not force:
+                    logger.info("Peaks already present: %s", name)
+                    out.append(dest)
+                    continue
+                url = spec.peaks_url_template.format(
+                    eid=eid, mark=mark, peak_type=peak_type
+                )
+                try:
+                    out.append(
+                        download_file(
+                            url, dest, force=force, session=session
+                        )
+                    )
+                except Exception as exc:
+                    if mark in spec.required_marks:
+                        raise
+                    logger.warning("Skipping %s: %s", name, exc)
+    return out
+
+
+def download_encode_chromatin_peaks(
+    spec: EncodeChromatinSpec,
+    paths: ProjectPaths,
+    *,
+    force: bool = False,
+    session: requests.Session | None = None,
+) -> list[Path]:
+    """Download ENCODE peak calls (one file per ``spec.peak_tracks``).
+
+    Each accession is resolved through the portal (or taken from the
+    entry's ``url``) and saved, md5-verified, to
+    ``chromatin/encode/peaks/<label>_<accession>.<peakType>.gz``: the
+    name carries the mark, so `average_by_assay` can find it, and the
+    peak type, which `covariates_chromatin.peak_file_parts` reads.
+
+    Returns
+    -------
+    list[pathlib.Path]
+        The peak files, in ``spec.peak_tracks`` order.
+    """
+    session = session or requests.Session()
+    out: list[Path] = []
+    for ref in spec.peak_tracks:
+        dest = (
+            paths.encode_chromatin_peaks_dir
+            / f"{ref.label}_{ref.accession}.{ref.peak_type}.gz"
+        )
+        if dest.exists() and not force:
+            logger.info("Peaks already present: %s", dest.name)
+            out.append(dest)
+            continue
+        if ref.url is not None:
+            url, md5, size = ref.url, None, None
+        else:
+            meta = resolve_encode_file(ref.accession, session=session)
+            url = meta["url"]
+            md5 = meta["md5sum"]
+            size = meta["file_size"]
+            if meta.get("file_format") not in (None, "bed"):
+                logger.warning(
+                    "ENCODE %s is %s, not a bed peak file",
+                    ref.accession,
+                    meta["file_format"],
+                )
+            if _assembly_mismatch(
+                meta.get("assembly"), spec.assembly
+            ):
+                logger.warning(
+                    "ENCODE %s assembly %s != registry %s",
+                    ref.accession,
+                    meta["assembly"],
+                    spec.assembly,
+                )
+        out.append(
+            download_file(
+                url,
+                dest,
+                expected_md5=md5,
+                expected_size=size,
+                force=force,
+                session=session,
+            )
+        )
     return out
 
 
