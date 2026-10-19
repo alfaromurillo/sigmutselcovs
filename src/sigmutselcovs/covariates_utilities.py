@@ -204,10 +204,11 @@ def load_gene_bodies_from_gtf(
     add_chr_prefix_if_needed: bool = True,
     autosomes_only: bool = True,
     drop_version_suffix: bool = True,
+    with_cds_span: bool = False,
 ) -> pd.DataFrame:
     """Load gene bodies from a GTF into a BED-like DataFrame.
 
-    Parses only `feature == "gene"` entries from a GTF (e.g., GENCODE),
+    Parses `feature == "gene"` entries from a GTF (e.g., GENCODE),
     returning 0-based, half-open gene intervals. The resulting DataFrame
     is indexed by `ensembl_gene_id`.
 
@@ -226,12 +227,20 @@ def load_gene_bodies_from_gtf(
     drop_version_suffix : bool, default True
         If True, strip the version from Ensembl IDs (e.g., ".17" in
         "ENSG00000123456.17" → "ENSG00000123456").
+    with_cds_span : bool, default False
+        If True, add the columns ``cds_start`` and ``cds_end``: the
+        first and last coding base of each gene (0-based, half-open),
+        from the ``CDS`` features of all its transcripts merged. A
+        gene without ``CDS`` features gets ``<NA>`` in both. The
+        other columns and the row order are unchanged.
 
     Returns
     -------
     pandas.DataFrame
-        Columns: ["Chromosome", "start", "end", "strand"], indexed by
-        `ensembl_gene_id`. Coordinates are 0-based, half-open [start, end).
+        Columns: ["Chromosome", "start", "end", "strand"] (plus
+        ["cds_start", "cds_end"], nullable ``Int64``, when
+        ``with_cds_span``), indexed by `ensembl_gene_id`. Coordinates
+        are 0-based, half-open [start, end).
 
     Notes
     -----
@@ -239,6 +248,9 @@ def load_gene_bodies_from_gtf(
       half-open (BED-like) by doing `start-1, end`.
     - If `drop_version_suffix` is True, versioned Ensembl IDs are
       de-versioned to facilitate joins with resources that omit versions.
+    - A ``CDS`` feature is matched to its gene by the full ``gene_id``
+      attribute and the chromosome, so the copies of a
+      pseudoautosomal gene on chrX and chrY keep their own spans.
 
     Raises
     ------
@@ -259,6 +271,8 @@ def load_gene_bodies_from_gtf(
         op = open
 
     rows = []
+    # (gene_id as in the GTF, chromosome) -> [first, last) coding base
+    cds_spans: dict[tuple[str, str], tuple[int, int]] = {}
     with op(gtf_path, "rt") as fh:
         for line in fh:
             if not line or line.startswith("#"):
@@ -274,6 +288,16 @@ def load_gene_bodies_from_gtf(
                 _frame,
                 attrs,
             ) = line.rstrip("\n").split("\t")
+            if with_cds_span and feat == "CDS":
+                m_id = re.search(r'gene_id "([^"]+)"', attrs)
+                if m_id:
+                    key = (m_id.group(1), chrom)
+                    s0, e1 = int(start) - 1, int(end)
+                    span = cds_spans.get(key)
+                    if span is not None:
+                        s0, e1 = min(s0, span[0]), max(e1, span[1])
+                    cds_spans[key] = (s0, e1)
+                continue
             if feat != "gene":
                 continue
 
@@ -283,6 +307,7 @@ def load_gene_bodies_from_gtf(
                 # Malformed line; skip
                 continue
             gene_id = m_id.group(1)
+            raw_gene_id = gene_id
             if drop_version_suffix:
                 gene_id = gene_id.split(".")[0]
 
@@ -296,18 +321,33 @@ def load_gene_bodies_from_gtf(
             # 1-based inclusive -> 0-based half-open
             s0 = int(start) - 1
             e1 = int(end)
-            rows.append((gene_id, chrom, s0, e1, strand))
+            if with_cds_span:
+                rows.append(
+                    (gene_id, chrom, s0, e1, strand, raw_gene_id)
+                )
+            else:
+                rows.append((gene_id, chrom, s0, e1, strand))
 
-    df = pd.DataFrame(
-        rows,
-        columns=[
-            "ensembl_gene_id",
-            "Chromosome",
-            "start",
-            "end",
-            "strand",
-        ],
-    )
+    columns = [
+        "ensembl_gene_id",
+        "Chromosome",
+        "start",
+        "end",
+        "strand",
+    ]
+    if with_cds_span:
+        spans = [cds_spans.get((r[5], r[1])) for r in rows]
+        rows = [r[:5] for r in rows]
+    df = pd.DataFrame(rows, columns=columns)
+    if with_cds_span:
+        df["cds_start"] = pd.array(
+            [None if sp is None else sp[0] for sp in spans],
+            dtype="Int64",
+        )
+        df["cds_end"] = pd.array(
+            [None if sp is None else sp[1] for sp in spans],
+            dtype="Int64",
+        )
 
     if df.empty:
         # Return an empty, correctly-shaped DataFrame with index set

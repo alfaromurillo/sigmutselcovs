@@ -52,6 +52,16 @@ _OPTIONAL_SOURCES = (
 )
 _GTEX_REDUCE_METHODS = ("median",)
 
+# Per-gene windows a chromatin track can be summarised over (see
+# `covariates_chromatin.gene_windows`), the per-base transforms of a
+# bigWig mean, and the peak-call formats read as a track source.
+# Defined here, not in `covariates_chromatin`, so the registry never
+# imports pyBigWig.
+CHROMATIN_WINDOWS = ("body", "promoter", "cds_span", "cds_span2k")
+DEFAULT_CHROMATIN_WINDOWS = ("body", "promoter")
+CHROMATIN_TRANSFORMS = ("log1p",)
+PEAK_TYPES = ("narrowPeak", "broadPeak")
+
 
 @dataclass(frozen=True, slots=True)
 class GtexSpec:
