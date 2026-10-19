@@ -23,8 +23,13 @@ import pandas as pd
 
 from .covariates_checks import fix_all
 from .covariates_chromatin import (
+    _LOG_SUFFIX,
+    _PEAK_SUFFIXES,
+    _WINDOW_SUFFIXES,
     _collapse_by_assay,
+    chromatin_cache_path,
     load_or_generate_chromatin_covariates,
+    load_or_generate_peak_covariates,
 )
 from .covariates_gene_expression import (
     import_gtex,
@@ -43,6 +48,8 @@ from .covariates_replication_timing import (
 from .covariates_utilities import clr_transform
 from .paths import ProjectPaths, project_paths
 from .registry import (
+    DEFAULT_CHROMATIN_WINDOWS,
+    PEAK_TYPES,
     ProjectSpec,
     get_project,
     location_projects_registry,
@@ -130,6 +137,8 @@ SOURCE_BLOCKS = {
     "atac": "atac",
     "roadmap": "chromatin",
     "encode_chromatin": "chromatin",
+    "roadmap_peaks": "chromatin",
+    "encode_chromatin_peaks": "chromatin",
     "chromatin_collapsed": "chromatin",
 }
 
@@ -359,32 +368,34 @@ def _load_repliseq(
     return frames
 
 
-def _load_chromatin(
+def _cached_chromatin(
     source: str,
     covs_csv: Path,
-    bigwigs: list[Path],
-    gtf: str | Path,
+    files: list[Path],
     force_generation: bool,
+    generate,
+    kind: str = "bigWig",
 ) -> pd.DataFrame | None:
-    """Chromatin covariates for one source (roadmap or TCGA ATAC).
+    """Load or rebuild one chromatin cache, following its input files.
 
-    The cache records the bigWig file names it was built from
-    (``<cache>.tracks.json``). When bigWigs are present and differ from
+    The cache records the file names it was built from
+    (``<cache>.tracks.json``). When files are present and differ from
     that record -- a registry row gained, lost or swapped a track --
-    the cache is rebuilt rather than silently reused. With no bigWigs
+    the cache is rebuilt rather than silently reused. With no files
     on disk (moved to an archive after the build) the cache is used
     as is; a cache written before the record existed is trusted, as
-    before, and gains a record at its next rebuild.
+    before, and gains a record at its next rebuild. ``generate`` is
+    called with the resolved ``force_generation``.
     """
-    if not bigwigs and not covs_csv.exists():
-        _skip(source, f"no bigWig files and no cache at {covs_csv}")
+    if not files and not covs_csv.exists():
+        _skip(source, f"no {kind} files and no cache at {covs_csv}")
         return None
-    if not bigwigs and force_generation:
-        _skip(source, "force_generation without bigWig files")
+    if not files and force_generation:
+        _skip(source, f"force_generation without {kind} files")
         return None
     record = covs_csv.parent / f"{covs_csv.name}.tracks.json"
-    names = sorted(Path(b).name for b in bigwigs)
-    if bigwigs and covs_csv.exists() and record.exists():
+    names = sorted(Path(b).name for b in files)
+    if files and covs_csv.exists() and record.exists():
         built_from = json.loads(record.read_text())
         if built_from != names:
             logger.warning(
@@ -397,19 +408,132 @@ def _load_chromatin(
             )
             force_generation = True
     rebuilt = force_generation or not covs_csv.exists()
-    out = load_or_generate_chromatin_covariates(
+    out = generate(force_generation)
+    if rebuilt and files:
+        record.write_text(json.dumps(names, indent=1) + "\n")
+    return out
+
+
+def _load_chromatin(
+    source: str,
+    covs_csv: Path,
+    bigwigs: list[Path],
+    gtf: str | Path,
+    force_generation: bool,
+    *,
+    windows: Sequence[str] = DEFAULT_CHROMATIN_WINDOWS,
+    transform: str | None = None,
+) -> pd.DataFrame | None:
+    """Chromatin covariates for one source (roadmap or TCGA ATAC).
+
+    ``covs_csv`` is the source's default cache; with other
+    ``windows`` or a ``transform`` the summaries are cached in a file
+    of their own next to it (`chromatin_cache_path`), so a cache is
+    never read under options it was not built with. The cache follows
+    its bigWigs as `_cached_chromatin` describes.
+    """
+    windows = tuple(windows)
+    options = {}
+    if windows != DEFAULT_CHROMATIN_WINDOWS or transform is not None:
+        options = {"windows": list(windows), "transform": transform}
+    covs_csv = chromatin_cache_path(
+        covs_csv, windows=windows, transform=transform
+    )
+
+    def generate(force):
+        return load_or_generate_chromatin_covariates(
+            covs_csv,
+            bigwigs,
+            gtf,
+            biotypes=("protein_coding",),
+            include_promoter=True,
+            promoter_upstream=2000,
+            promoter_downstream=200,
+            force_generation=force,
+            average_by_assay=False,
+            **options,
+        )
+
+    return _cached_chromatin(
+        source, covs_csv, bigwigs, force_generation, generate
+    )
+
+
+def _load_chromatin_peaks(
+    source: str,
+    covs_csv: Path,
+    peak_files: list[Path],
+    gtf: str | Path,
+    force_generation: bool,
+    *,
+    windows: Sequence[str],
+    peak_types: Sequence[str],
+) -> pd.DataFrame | None:
+    """Peak-coverage covariates for one source, cached next to its
+    signal cache under a name keyed on the peak types and windows."""
+    covs_csv = chromatin_cache_path(
+        covs_csv, windows=windows, peak_types=peak_types
+    )
+
+    def generate(force):
+        return load_or_generate_peak_covariates(
+            covs_csv,
+            peak_files,
+            gtf,
+            windows=windows,
+            biotypes=("protein_coding",),
+            promoter_upstream=2000,
+            promoter_downstream=200,
+            force_generation=force,
+        )
+
+    return _cached_chromatin(
+        source,
+        covs_csv,
+        peak_files,
+        force_generation,
+        generate,
+        kind="peak",
+    )
+
+
+def _chromatin_source_frames(
+    source: str,
+    chrom_spec,
+    covs_csv: Path,
+    bigwigs: list[Path],
+    peak_types: Sequence[str],
+    peak_files: list[Path],
+    gtf: str | Path,
+    force_generation: bool,
+) -> list[tuple[str, pd.DataFrame]]:
+    """The (column source, frame) pairs of a roadmap/encode_chromatin
+    source: its signal summaries, then its peak coverage (as source
+    ``<source>_peaks``) when the registry names peaks."""
+    out = []
+    signal = _load_chromatin(
+        source,
         covs_csv,
         bigwigs,
         gtf,
-        biotypes=("protein_coding",),
-        include_promoter=True,
-        promoter_upstream=2000,
-        promoter_downstream=200,
-        force_generation=force_generation,
-        average_by_assay=False,
+        force_generation,
+        windows=chrom_spec.windows,
+        transform=chrom_spec.transform,
     )
-    if rebuilt and bigwigs:
-        record.write_text(json.dumps(names, indent=1) + "\n")
+    if signal is not None:
+        out.append((source, signal))
+    if peak_types:
+        peaks = _load_chromatin_peaks(
+            f"{source}_peaks",
+            covs_csv,
+            peak_files,
+            gtf,
+            force_generation,
+            windows=chrom_spec.windows,
+            peak_types=peak_types,
+        )
+        if peaks is not None:
+            out.append((f"{source}_peaks", peaks))
     return out
 
 
@@ -494,7 +618,7 @@ def _describe_block(
     if source == "roadmap":
         return {
             "description": "Roadmap histone-mark ChIP fold-change "
-            "signal, mean over gene body or promoter window",
+            "signal, mean over " + _windows_phrase(spec.roadmap),
             "cell_line_or_epigenome": "Roadmap epigenomes "
             + (", ".join(spec.roadmap.eids) if spec.roadmap else ""),
             "assembly": spec.roadmap.assembly if spec.roadmap else "",
@@ -504,8 +628,7 @@ def _describe_block(
         ec = spec.encode_chromatin
         return {
             "description": "ENCODE-native histone ChIP-seq or "
-            "DNase-seq signal, mean over gene body or promoter "
-            "window",
+            "DNase-seq signal, mean over " + _windows_phrase(ec),
             "cell_line_or_epigenome": "ENCODE tracks "
             + (
                 ", ".join(
@@ -516,6 +639,32 @@ def _describe_block(
             ),
             "assembly": ec.assembly if ec else "",
             "units": "signal",
+        }
+    if source in ("roadmap_peaks", "encode_chromatin_peaks"):
+        roadmap = source == "roadmap_peaks"
+        chrom_spec = (
+            spec.roadmap if roadmap else spec.encode_chromatin
+        )
+        if roadmap:
+            where = "Roadmap epigenomes " + (
+                ", ".join(chrom_spec.eids) if chrom_spec else ""
+            )
+        else:
+            where = "ENCODE peak files " + (
+                ", ".join(
+                    f"{t.label}:{t.accession}"
+                    for t in chrom_spec.peak_tracks
+                )
+                if chrom_spec
+                else ""
+            )
+        return {
+            "description": ("Roadmap" if roadmap else "ENCODE-native")
+            + " peak calls: fraction of the gene window covered by "
+            "the union of the track's peaks",
+            "cell_line_or_epigenome": where,
+            "assembly": chrom_spec.assembly if chrom_spec else "",
+            "units": "fraction of bases",
         }
     if source == "chromatin_collapsed":
         eids = spec.roadmap.eids if spec.roadmap else ()
@@ -545,17 +694,56 @@ def _describe_block(
     }
 
 
+def _windows_phrase(chrom_spec) -> str:
+    """How a chromatin source's columns summarise its signal."""
+    if chrom_spec is None or (
+        tuple(chrom_spec.windows) == DEFAULT_CHROMATIN_WINDOWS
+        and chrom_spec.transform is None
+    ):
+        return "gene body or promoter window"
+    phrase = "gene windows (" + ", ".join(chrom_spec.windows) + ")"
+    if chrom_spec.transform == "log1p":
+        phrase += " of log1p(signal) per base"
+    return phrase
+
+
+_WINDOW_DETAILS = {
+    "_body": "gene body [TSS+200, TES]",
+    "_promoter": "promoter [TSS-2000, TSS+200]",
+    "_cds_span": "CDS span [first, last coding base]",
+    "_cds_span2k": "CDS span +-2 kb",
+}
+
+
 def _column_detail(source: str, column: str) -> str:
     if source in (
         "atac",
         "roadmap",
         "encode_chromatin",
+        "roadmap_peaks",
+        "encode_chromatin_peaks",
         "chromatin_collapsed",
     ):
-        if column.endswith("_body"):
-            return "gene body [TSS+200, TES]"
-        if column.endswith("_promoter"):
-            return "promoter [TSS-2000, TSS+200]"
+        name = column
+        log = name.endswith(_LOG_SUFFIX) and name[
+            : -len(_LOG_SUFFIX)
+        ].endswith(_WINDOW_SUFFIXES)
+        if log:
+            name = name[: -len(_LOG_SUFFIX)]
+        window = next(
+            (w for w in _WINDOW_SUFFIXES if name.endswith(w)), None
+        )
+        if window is not None:
+            detail = _WINDOW_DETAILS[window]
+            base = name[: -len(window)]
+            for suffix, peak_type in zip(_PEAK_SUFFIXES, PEAK_TYPES):
+                if base.endswith(suffix):
+                    detail += (
+                        f", fraction covered by {peak_type} peaks"
+                    )
+            if log:
+                detail += ", mean of log1p(signal) per base"
+            return detail
     if source == "clr":
         return f"S-phase fraction {column.removeprefix('clr_rt_s')}"
     return ""
@@ -864,21 +1052,23 @@ def build_covariate_matrix(
                 "not defined in the registry for " f"{spec.code}",
             )
         else:
-            roadmap_covs = _load_chromatin(
+            roadmap_frames = _chromatin_source_frames(
                 "roadmap",
+                spec.roadmap,
                 paths.roadmap_covs_csv,
                 paths.roadmap_bigwig_files(),
+                spec.roadmap.peaks,
+                paths.roadmap_peak_files(spec.roadmap.peaks),
                 gtf_for(spec.roadmap.assembly),
                 force_generation,
             )
-            if roadmap_covs is not None:
+            for name, frame in roadmap_frames:
                 if spec.average_by_assay:
-                    chromatin_frames_to_collapse.append(roadmap_covs)
+                    chromatin_frames_to_collapse.append(frame)
                 else:
-                    frames.append(roadmap_covs)
-                    blocks.append(
-                        ("roadmap", list(roadmap_covs.columns))
-                    )
+                    frames.append(frame)
+                    blocks.append((name, list(frame.columns)))
+            if roadmap_frames:
                 included.add("roadmap")
 
     if "encode_chromatin" in selected:
@@ -888,26 +1078,29 @@ def build_covariate_matrix(
                 "not defined in the registry for " f"{spec.code}",
             )
         else:
-            encode_chromatin_covs = _load_chromatin(
+            ec = spec.encode_chromatin
+            ec_peak_types = tuple(
+                t
+                for t in PEAK_TYPES
+                if any(p.peak_type == t for p in ec.peak_tracks)
+            )
+            encode_frames = _chromatin_source_frames(
                 "encode_chromatin",
+                ec,
                 paths.encode_chromatin_covs_csv,
                 paths.encode_chromatin_bigwig_files(),
-                gtf_for(spec.encode_chromatin.assembly),
+                ec_peak_types,
+                paths.encode_chromatin_peak_files(ec_peak_types),
+                gtf_for(ec.assembly),
                 force_generation,
             )
-            if encode_chromatin_covs is not None:
+            for name, frame in encode_frames:
                 if spec.average_by_assay:
-                    chromatin_frames_to_collapse.append(
-                        encode_chromatin_covs
-                    )
+                    chromatin_frames_to_collapse.append(frame)
                 else:
-                    frames.append(encode_chromatin_covs)
-                    blocks.append(
-                        (
-                            "encode_chromatin",
-                            list(encode_chromatin_covs.columns),
-                        )
-                    )
+                    frames.append(frame)
+                    blocks.append((name, list(frame.columns)))
+            if encode_frames:
                 included.add("encode_chromatin")
 
     if chromatin_frames_to_collapse:
@@ -985,8 +1178,19 @@ def build_covariate_matrix(
             logger.warning(
                 "cov_matrix_simple: no mrt column; omitting"
             )
+
+    # A pattern names linear-mean columns unless it ends in "_log":
+    # "h3k4me3_fc_signal_body" is also a substring of the log-mean
+    # column "..._fc_signal_body_log", which must not be averaged in.
+    def matches(pattern: str, column: str) -> bool:
+        return pattern in column and column.endswith(
+            _LOG_SUFFIX
+        ) == pattern.endswith(_LOG_SUFFIX)
+
     body_cols = [
-        c for c in cov_matrix_full.columns if sm.body_pattern in c
+        c
+        for c in cov_matrix_full.columns
+        if matches(sm.body_pattern, c)
     ]
     if body_cols:
         simple_cols["h3k4me3_body"] = cov_matrix_full[body_cols].mean(
@@ -998,7 +1202,9 @@ def build_covariate_matrix(
             sm.body_pattern,
         )
     promoter_cols = [
-        c for c in cov_matrix_full.columns if sm.promoter_pattern in c
+        c
+        for c in cov_matrix_full.columns
+        if matches(sm.promoter_pattern, c)
     ]
     if promoter_cols:
         simple_cols["h3k9me3_prom"] = cov_matrix_full[

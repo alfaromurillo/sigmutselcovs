@@ -28,7 +28,7 @@ import numpy as np
 import pandas as pd
 
 from .covariates_utilities import sanitize_feature_label
-from .registry import ProjectSpec, get_project
+from .registry import CHROMATIN_WINDOWS, ProjectSpec, get_project
 
 logger = logging.getLogger(__name__)
 
@@ -120,14 +120,18 @@ def _expression_series(
 def _mark_mean(
     df: pd.DataFrame, mark: str, where: str
 ) -> pd.Series | None:
-    cols = [
-        c
-        for c in df.columns
-        if mark in c and "fc_signal" in c and c.endswith(where)
-    ]
-    if not cols:
-        return None
-    return df[cols].mean(axis=1)
+    """Mean of a mark's signal columns over one window: the linear
+    means, or the log-means (``..._<where>_log``) when a build has
+    only those."""
+    for ending in (where, f"{where}_log"):
+        cols = [
+            c
+            for c in df.columns
+            if mark in c and "fc_signal" in c and c.endswith(ending)
+        ]
+        if cols:
+            return df[cols].mean(axis=1)
+    return None
 
 
 def _check_direction(
@@ -321,7 +325,11 @@ def _sanity_tier(
             for c in df.columns
             if "fc_signal" in c and _ROADMAP_COLUMN.match(c)
         ]
-        maximum = 2 * len(spec.roadmap.eids) * len(spec.roadmap.marks)
+        maximum = (
+            len(spec.roadmap.windows)
+            * len(spec.roadmap.eids)
+            * len(spec.roadmap.marks)
+        )
         if roadmap_cols:
             report.add(
                 "roadmap_column_count",
@@ -340,7 +348,9 @@ def _sanity_tier(
                 for t in spec.encode_chromatin.tracks
             )
         ]
-        maximum = 2 * len(spec.encode_chromatin.tracks)
+        maximum = len(spec.encode_chromatin.windows) * len(
+            spec.encode_chromatin.tracks
+        )
         if encode_cols:
             report.add(
                 "encode_chromatin_column_count",
@@ -353,9 +363,30 @@ def _sanity_tier(
         # roadmap_column_count/encode_chromatin_column_count above
         # never fire here (collapsed columns no longer carry
         # "fc_signal"/accession substrings) -- this is their
-        # equivalent for the collapsed shape: at most 2 columns
-        # (body+promoter) per distinct mark pooled across sources.
+        # equivalent for the collapsed shape: at most one column per
+        # distinct mark pooled across sources and per summary (signal
+        # window, peak type and window; body+promoter by default).
         marks = set()
+        summaries: set[str] = set()
+        for source in (spec.roadmap, spec.encode_chromatin):
+            if source is None:
+                continue
+            log = "_log" if source.transform == "log1p" else ""
+            summaries.update(f"_{w}{log}" for w in source.windows)
+        if spec.roadmap is not None:
+            summaries.update(
+                f"_{t.lower()}_{w}"
+                for t in spec.roadmap.peaks
+                for w in spec.roadmap.windows
+            )
+        if spec.encode_chromatin is not None:
+            summaries.update(
+                f"_{p.peak_type.lower()}_{w}"
+                for p in spec.encode_chromatin.peak_tracks
+                for w in spec.encode_chromatin.windows
+            )
+        if spec.atac is not None:
+            summaries.update(("_body", "_promoter"))
         if spec.roadmap is not None:
             marks.update(m.lower() for m in spec.roadmap.marks)
         if spec.encode_chromatin is not None:
@@ -364,12 +395,15 @@ def _sanity_tier(
             )
         if spec.atac is not None:
             marks.add("atac")
+        endings = tuple(
+            f"_{w}{log}"
+            for w in CHROMATIN_WINDOWS
+            for log in ("", "_log")
+        )
         collapsed_cols = [
-            c
-            for c in df.columns
-            if c.endswith(("_body", "_promoter"))
+            c for c in df.columns if c.endswith(endings)
         ]
-        maximum = 2 * len(marks)
+        maximum = len(summaries) * len(marks)
         if collapsed_cols and maximum:
             report.add(
                 "chromatin_collapsed_column_count",
@@ -466,7 +500,9 @@ def _biology_tier(
             cols = [
                 c
                 for c in df.columns
-                if mark in c and c.endswith("body")
+                if mark in c
+                and "fc_signal" in c
+                and c.endswith("body")
             ]
             eids = {
                 re.match(r"(e\d+)_", c).group(1)

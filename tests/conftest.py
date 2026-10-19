@@ -166,16 +166,11 @@ def _entries(chrom, rng):
     return starts, ends, values
 
 
-@pytest.fixture(scope="session")
-def synthetic_bigwig(tmp_path_factory):
-    """Path to the synthetic bigWig and its dense per-base signal."""
+def write_bigwig(path, seed=20261019):
+    """Write a synthetic bigWig; return its dense per-base signal."""
     import pyBigWig
 
-    rng = np.random.default_rng(20261019)
-    path = (
-        tmp_path_factory.mktemp("bigwig")
-        / "E900-H3K4me3.fc.signal.bigwig"
-    )
+    rng = np.random.default_rng(seed)
     dense = {}
     bw = pyBigWig.open(str(path), "w")
     bw.addHeader(list(CHROM_SIZES.items()))
@@ -190,7 +185,17 @@ def synthetic_bigwig(tmp_path_factory):
             signal[s:e] = np.float32(v)
         dense[chrom] = signal
     bw.close()
-    return path, dense
+    return dense
+
+
+@pytest.fixture(scope="session")
+def synthetic_bigwig(tmp_path_factory):
+    """Path to the synthetic bigWig and its dense per-base signal."""
+    path = (
+        tmp_path_factory.mktemp("bigwig")
+        / "E900-H3K4me3.fc.signal.bigwig"
+    )
+    return path, write_bigwig(path)
 
 
 @pytest.fixture

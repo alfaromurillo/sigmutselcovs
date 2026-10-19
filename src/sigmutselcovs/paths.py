@@ -68,6 +68,27 @@ def bigwig_files(directory: str | Path) -> list[Path]:
     return glob_patterns_dedup(directory, _BIGWIG_PATTERNS)
 
 
+def peak_files(
+    directory: str | Path, peak_types: Sequence[str]
+) -> list[Path]:
+    """Return the peak files of the given types in a directory.
+
+    Files are named ``<label>.<peakType>`` or ``<label>.<peakType>.gz``
+    (e.g. ``E075-H3K4me3.narrowPeak.gz``); the order is by peak type
+    as given, then sorted, which fixes the column order of the peak
+    coverage summaries.
+    """
+    directory = Path(directory)
+    if not directory.exists():
+        return []
+    patterns = [
+        pattern
+        for peak_type in peak_types
+        for pattern in (f"*.{peak_type}.gz", f"*.{peak_type}")
+    ]
+    return glob_patterns_dedup(directory, patterns)
+
+
 @dataclass(frozen=True, slots=True)
 class ProjectPaths:
     """Standard locations inside a project data directory."""
@@ -142,6 +163,11 @@ class ProjectPaths:
         return self.roadmap_dir / "chromatin_covs_roadmap.csv"
 
     @property
+    def roadmap_peaks_dir(self) -> Path:
+        """Downloaded Roadmap narrowPeak/broadPeak files."""
+        return self.roadmap_dir / "peaks"
+
+    @property
     def atac_dir(self) -> Path:
         return self.root / "chromatin" / "tcga"
 
@@ -159,6 +185,11 @@ class ProjectPaths:
     @property
     def encode_chromatin_covs_csv(self) -> Path:
         return self.encode_chromatin_dir / "chromatin_covs_encode.csv"
+
+    @property
+    def encode_chromatin_peaks_dir(self) -> Path:
+        """Downloaded ENCODE narrowPeak/broadPeak files."""
+        return self.encode_chromatin_dir / "peaks"
 
     # --- MAF files (downloaded by sigmutsel, not this package) ---
     @property
@@ -206,6 +237,16 @@ class ProjectPaths:
 
     def encode_chromatin_bigwig_files(self) -> list[Path]:
         return bigwig_files(self.encode_chromatin_dir)
+
+    def roadmap_peak_files(
+        self, peak_types: Sequence[str]
+    ) -> list[Path]:
+        return peak_files(self.roadmap_peaks_dir, peak_types)
+
+    def encode_chromatin_peak_files(
+        self, peak_types: Sequence[str]
+    ) -> list[Path]:
+        return peak_files(self.encode_chromatin_peaks_dir, peak_types)
 
 
 def project_paths(data_dir: str | Path) -> ProjectPaths:
