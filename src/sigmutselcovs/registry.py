@@ -103,7 +103,20 @@ class AtacSpec:
 
 @dataclass(frozen=True, slots=True)
 class RoadmapSpec:
-    """Roadmap Epigenomics chromatin fold-change signal tracks."""
+    """Roadmap Epigenomics chromatin fold-change signal tracks.
+
+    ``windows`` and ``transform`` choose the per-gene summaries of
+    each signal track (see `covariates_chromatin.gene_windows` and
+    `covariates_chromatin.summarize_bigwig_windows`): one column
+    ``<label>_<window>`` per window, with ``_log`` appended under
+    ``transform="log1p"``. ``peaks`` names peak-call types
+    (``"narrowPeak"``, ``"broadPeak"``) to also summarise, as the
+    fraction of each window covered by the (eid, mark)'s peaks, in
+    columns ``<eid>_<mark>_<peaktype>_<window>``; peak files are
+    fetched from ``peaks_url_template``. The defaults (body and
+    promoter means, no transform, no peaks) are the original
+    summaries.
+    """
 
     eids: tuple[str, ...]
     marks: tuple[str, ...]
@@ -113,6 +126,13 @@ class RoadmapSpec:
         "https://egg2.wustl.edu/roadmap/data/byFileType/signal/"
         "consolidated/macs2signal/foldChange/"
         "{eid}-{mark}.fc.signal.bigwig"
+    )
+    windows: tuple[str, ...] = DEFAULT_CHROMATIN_WINDOWS
+    transform: str | None = None
+    peaks: tuple[str, ...] = ()
+    peaks_url_template: str = (
+        "https://egg2.wustl.edu/roadmap/data/byFileType/peaks/"
+        "consolidated/{peak_type}/{eid}-{mark}.{peak_type}.gz"
     )
 
 
@@ -128,6 +148,21 @@ class TrackRef:
     label: str
     accession: str
     source: str = "encode"
+    url: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class PeakRef:
+    """One ENCODE peak-call file (narrowPeak or broadPeak BED).
+
+    ``label`` holds the mark name (as `TrackRef.label` does for
+    `EncodeChromatinSpec`'s signal tracks) and ``accession`` the
+    peak file's own accession; ``url`` overrides the portal lookup.
+    """
+
+    label: str
+    accession: str
+    peak_type: str = "narrowPeak"
     url: str | None = None
 
 
@@ -148,11 +183,16 @@ class EncodeChromatinSpec:
     ``tracks``' ``TrackRef.label`` holds the mark name (e.g.
     ``"H3K23ac"``, ``"DNase"``); the built matrix has two columns per
     track (body, promoter), same convention as `RoadmapSpec`/
-    `AtacSpec`.
+    `AtacSpec`. ``windows`` and ``transform`` change the signal
+    summaries as for `RoadmapSpec`; ``peak_tracks`` adds peak
+    coverage columns ``<mark>_<accession>_<peaktype>_<window>``.
     """
 
     tracks: tuple[TrackRef, ...]
     assembly: str = "hg38"
+    windows: tuple[str, ...] = DEFAULT_CHROMATIN_WINDOWS
+    transform: str | None = None
+    peak_tracks: tuple[PeakRef, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -261,6 +301,11 @@ def _build_spec(cls, raw: dict):
             TrackRef(**dict(t)) if isinstance(t, dict) else t
             for t in raw["tracks"]
         )
+    if cls is EncodeChromatinSpec and kwargs.get("peak_tracks"):
+        kwargs["peak_tracks"] = tuple(
+            PeakRef(**dict(t)) if isinstance(t, dict) else t
+            for t in raw["peak_tracks"]
+        )
     return cls(**kwargs)
 
 
@@ -293,6 +338,7 @@ def validate_registry(raw: dict) -> None:
 
     with open(location_gtex_tcga_mapping) as fh:
         gtex_mapping = {str(k).upper() for k in json.load(fh)}
+    defaults = raw.get("defaults") or {}
 
     for code, row in projects.items():
         if row.get("gtex") is None:
@@ -319,6 +365,10 @@ def validate_registry(raw: dict) -> None:
             raise ValueError(
                 f"{code}: encode_chromatin needs at least one track"
             )
+        for key in ("roadmap", "encode_chromatin"):
+            merged = _merge_defaults(row.get(key), defaults.get(key))
+            if merged is not None:
+                _validate_chromatin_options(code, key, merged)
         if row.get("average_by_assay") and not any(
             row.get(k) is not None
             for k in ("roadmap", "atac", "encode_chromatin")
@@ -330,6 +380,67 @@ def validate_registry(raw: dict) -> None:
         repliseq = row.get("repliseq")
         if repliseq is not None:
             _validate_repliseq(code, repliseq)
+
+
+def _validate_names(
+    code: str, field: str, value, allowed: tuple[str, ...], empty_ok
+) -> None:
+    """A JSON list of distinct names, each one of ``allowed``."""
+    if not isinstance(value, list):
+        # every registry problem is a ValueError, see validate_registry
+        raise ValueError(  # noqa: TRY004
+            f"{code}: {field} must be a list, not {value!r}"
+        )
+    if not value and not empty_ok:
+        raise ValueError(f"{code}: {field} must not be empty")
+    unknown = [v for v in value if v not in allowed]
+    if unknown:
+        raise ValueError(
+            f"{code}: {field} has unknown names {unknown}; valid: "
+            f"{allowed}"
+        )
+    if len(set(value)) != len(value):
+        raise ValueError(f"{code}: {field} repeats a name: {value}")
+
+
+def _validate_chromatin_options(code: str, key: str, entry: dict):
+    """Check a chromatin source's windows, transform and peaks."""
+    if "windows" in entry:
+        _validate_names(
+            code,
+            f"{key}.windows",
+            entry["windows"],
+            CHROMATIN_WINDOWS,
+            empty_ok=False,
+        )
+    transform = entry.get("transform")
+    if (
+        transform is not None
+        and transform not in CHROMATIN_TRANSFORMS
+    ):
+        raise ValueError(
+            f"{code}: {key}.transform {transform!r} not one of "
+            f"{CHROMATIN_TRANSFORMS} (or null)"
+        )
+    if "peaks" in entry:
+        _validate_names(
+            code, f"{key}.peaks", entry["peaks"], PEAK_TYPES, True
+        )
+    for ref in entry.get("peak_tracks") or []:
+        if not isinstance(ref, dict) or not {
+            "label",
+            "accession",
+        } <= set(ref):
+            raise ValueError(
+                f"{code}: {key}.peak_tracks entries need a label and "
+                f"an accession, got {ref!r}"
+            )
+        peak_type = ref.get("peak_type", "narrowPeak")
+        if peak_type not in PEAK_TYPES:
+            raise ValueError(
+                f"{code}: {key}.peak_tracks {ref['accession']} "
+                f"peak_type {peak_type!r} not one of {PEAK_TYPES}"
+            )
 
 
 def _validate_repliseq(code: str, repliseq: dict, nested=False):
