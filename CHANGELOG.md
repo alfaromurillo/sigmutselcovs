@@ -27,6 +27,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `fetch` command takes the same selection as `--columns` and
   `--blocks`, and `--out FILE` (.parquet or .csv) to keep the result.
   README leads with downloading pre-built matrices.
+- Opt-in chromatin summaries. Per-gene windows `cds_span` (first to
+  last coding base, from the GTF's CDS features merged across
+  transcripts; NaN without a CDS) and `cds_span2k` (that span
+  +-2 kb) next to `body` and `promoter`; `transform="log1p"`, the
+  per-base mean of log1p(signal) over the bases a track covers
+  (columns `<label>_<window>_log`); and peak coverage, the fraction
+  of a window inside the union of a track's narrowPeak/broadPeak
+  calls (columns `<label>_<peaktype>_<window>`). Registry fields
+  `windows`, `transform` and `peaks` (Roadmap) / `peak_tracks`
+  (ENCODE) on `roadmap` and `encode_chromatin`, validated; peak
+  downloaders `download_roadmap_peaks` and
+  `download_encode_chromatin_peaks`; functions
+  `summarize_bigwig_windows`, `summarize_peak_coverage`,
+  `gene_windows`, `load_or_generate_peak_covariates` and
+  `chromatin_cache_path`; `load_gene_bodies_from_gtf(...,
+  with_cds_span=True)`. Each option set is cached in its own file.
+  The defaults are unchanged: default builds are bit for bit the
+  same.
 
 ## [0.2.0] - 2026-08-12
 

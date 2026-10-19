@@ -64,7 +64,7 @@ pipeline's `build()` output bit-for-bit.
 | `cli.py` | The `sigmutselcovs` console command |
 | `covariates_gene_expression.py` | GTEx and TCGA expression loaders |
 | `covariates_replication_timing.py` | Repli-seq: mat / fraction bigWigs / wavelet |
-| `covariates_chromatin.py` | BigWig signal over gene bodies/promoters |
+| `covariates_chromatin.py` | BigWig signal and peak coverage over gene windows |
 | `covariates_utilities.py` | GTF parsing, BED reading, annotation, PCA |
 | `covariates_checks.py` | fix_all / fix_variance / fix_skewness |
 | `covariates_locations.py` | Packaged-data paths (mapping JSON, GCT) |
@@ -232,6 +232,66 @@ rebuild the same as any other source-data version bump affecting a
 published/production matrix: revalidate downstream fits against the
 previous version before adopting the new one, rather than assuming a
 richer pool is automatically better.
+
+## Chromatin summaries
+
+Every chromatin track (a Roadmap or ENCODE bigWig, a TCGA ATAC
+bigWig) is reduced to a few numbers per gene. By default, two: the
+mean signal over the gene body and over the promoter (TSS -2 kb /
++200 bp, strand-aware), in `summarize_bigwig_over_genes` and
+`summarize_promoter_signal`, columns `<label>_body` and
+`<label>_promoter`. `roadmap` and `encode_chromatin` rows can ask
+for other summaries; ATAC keeps the defaults.
+
+- **`windows`** (default `["body", "promoter"]`): any of `body`,
+  `promoter`, `cds_span` (first to last coding base: the gene
+  without its UTRs, from the GTF's `CDS` features merged across
+  transcripts, via `load_gene_bodies_from_gtf(...,
+  with_cds_span=True)`; NaN for a gene with no CDS) and
+  `cds_span2k` (the CDS span +-2 kb). All 0-based half-open
+  (`gene_windows`), starts clipped at 0.
+- **`transform`** (default `null`): `"log1p"` replaces each mean by
+  the mean of log1p(signal) *per base* (not the log of the mean)
+  over the bases the track covers, the bases
+  `pyBigWig.stats(..., exact=True)` counts. `pyBigWig.stats` cannot
+  compute it: `_log1p_interval_means` reads `bw.values(...,
+  numpy=True)` in chunks of at most 8 Mb holding whole windows and
+  sums by cumulative sums. Columns gain `_log`.
+- **Peaks**: `roadmap.peaks` (a list of `narrowPeak`/`broadPeak`)
+  or `encode_chromatin.peak_tracks` (`{label, accession,
+  peak_type}`) add `summarize_peak_coverage` columns
+  `<label>_<peaktype>_<window>` (e.g.
+  `e075_h3k4me3_narrowpeak_body`): the fraction of each window's
+  bases inside the union of the track's peaks (overlapping peaks
+  merged first). The transform does not apply to them. Peak files
+  live under `chromatin/<source>/peaks/`
+  (`download_roadmap_peaks`, `download_encode_chromatin_peaks`),
+  and their column source is `roadmap_peaks`/
+  `encode_chromatin_peaks`, both in the `chromatin` block.
+
+Edge cases: without a transform, `body`/`promoter` are the original
+functions, which give NaN for a window running past the chromosome
+end; the CDS windows and the log transform clip it to the
+chromosome instead. A BED file does not list its chromosomes, so a
+chromosome with no peaks has coverage 0 (with a warning), and peak
+windows are not clipped at the chromosome end.
+
+**Caches.** `chromatin_cache_path` names one cache per option set:
+the defaults keep `chromatin_covs_<source>.csv`, others get e.g.
+`chromatin_covs_roadmap_cds_span-cds_span2k_log1p.csv` or
+`chromatin_covs_roadmap_peaks_narrowpeak_body-promoter.csv`, so a
+build never reads a cache built under other options. Each cache
+records the files it was built from (`<cache>.tracks.json`) and is
+rebuilt when they change.
+
+**Downstream.** `_collapse_by_assay` (`average_by_assay`) keys on
+the mark plus the whole summary suffix (peak type, window, `_log`),
+so `h3k4me3_cds_span_log` and `h3k4me3_narrowpeak_body` are
+averaged separately. `cov_matrix_simple`'s patterns skip `_log`
+columns unless the pattern itself ends in `_log`. `validate.py`
+sizes its column-count checks by the windows and peaks, and its
+direction checks fall back to the log-means when a build has no
+linear means.
 
 ## External data notes
 

@@ -129,6 +129,13 @@ normal" note) — the registry's `roadmap.eids` records which
 epigenomes were used per cohort; missing marks are silently
 skipped at download time.
 
+**Peak calls** (opt-in, `roadmap.peaks` in the registry): the
+consolidated MACS2 narrowPeak and broadPeak files of the same
+epigenomes and marks,
+`https://egg2.wustl.edu/roadmap/data/byFileType/peaks/consolidated/{narrowPeak,broadPeak}/{eid}-{mark}.{narrowPeak,broadPeak}.gz`,
+summarised as the fraction of a gene window covered by peaks. Same
+release, citation and terms as the signal tracks.
+
 **Cite**:
 > Roadmap Epigenomics Consortium, Kundaje, A., Meuleman, W., Ernst,
 > J., Bilenky, M., Yen, A., Heravi-Moussavi, A., … Kellis, M.
