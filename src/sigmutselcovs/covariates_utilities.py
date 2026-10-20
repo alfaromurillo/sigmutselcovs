@@ -67,6 +67,49 @@ def normalize_chromosome_name(
     return None
 
 
+def load_chrom_sizes(assembly: str | Path) -> dict[str, int]:
+    """Chromosome lengths of an assembly.
+
+    Parameters
+    ----------
+    assembly : str | pathlib.Path
+        ``"hg19"`` or ``"hg38"`` for the packaged tables (UCSC
+        ``chrom.sizes``, primary chromosomes chr1-chr22, chrX, chrY,
+        chrM; see SOURCES.md), or the path of a ``chrom.sizes``-style
+        file (chromosome and length, tab-separated).
+
+    Returns
+    -------
+    dict[str, int]
+        Chromosome -> length in bases.
+
+    Raises
+    ------
+    ValueError
+        For an assembly with no packaged table.
+    """
+    from .covariates_locations import location_chrom_sizes
+
+    path = location_chrom_sizes / f"{assembly}.chrom.sizes"
+    if not path.is_file():
+        path = Path(assembly)
+        if not path.is_file():
+            available = sorted(
+                p.name.removesuffix(".chrom.sizes")
+                for p in location_chrom_sizes.glob("*.chrom.sizes")
+            )
+            raise ValueError(
+                f"No chromosome sizes for {assembly!r}; packaged: "
+                f"{available}, or pass a chrom.sizes file"
+            )
+    sizes = {}
+    for line in path.read_text().splitlines():
+        if line.strip() and not line.startswith("#"):
+            chrom, length = line.split("\t")[:2]
+            sizes[chrom] = int(length)
+    return sizes
+
+
 def fetch_bigwig_stat(
     bw, chrom: str, start: int, end: int, stat: str
 ) -> float:

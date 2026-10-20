@@ -27,3 +27,7 @@ location_gencode38_gtf = (
     / "gencode"
     / "gencode.v38.annotation.gtf.gz"
 )
+
+# UCSC chrom.sizes of the primary chromosomes, one file per assembly
+# (``<assembly>.chrom.sizes``).
+location_chrom_sizes = location_covariates_data / "chrom_sizes"

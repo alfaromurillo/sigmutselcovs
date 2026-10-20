@@ -19,6 +19,7 @@ dataset/accession here in the same format.
 - [ENCODE Repli-seq (replication timing)](#encode-repli-seq-replication-timing)
 - [GEO GSE137764 (16-fraction Repli-seq)](#geo-gse137764-16-fraction-repli-seq)
 - [GENCODE (gene annotation)](#gencode-gene-annotation)
+- [UCSC chromosome sizes](#ucsc-chromosome-sizes)
 
 ---
 
@@ -252,3 +253,34 @@ the source of the "extra NaN in hg19 blocks" pattern documented in
 use.
 
 **URL**: https://www.gencodegenes.org/
+
+---
+
+## UCSC chromosome sizes
+
+**What**: chromosome lengths, used to clip peak-coverage windows at
+a chromosome's end. Packaged as
+`src/sigmutselcovs/data/chrom_sizes/{hg19,hg38}.chrom.sizes`: the
+primary chromosomes (chr1-chr22, chrX, chrY, chrM) of UCSC's
+`chrom.sizes` for each assembly, unchanged otherwise. Note that
+UCSC's hg19 chrM is the older 16,571-base sequence, while
+GENCODE v19's chrM annotation follows the 16,569-base rCRS; hg38's
+chrM is the rCRS on both.
+
+**Dataset used**:
+`https://hgdownload.soe.ucsc.edu/goldenPath/hg19/bigZips/hg19.chrom.sizes`
+and
+`https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/hg38.chrom.sizes`
+(GRCh37 and GRCh38 assemblies; the lengths are fixed by the
+assemblies and do not change between downloads).
+
+**Cite**:
+> Kent, W. J., Sugnet, C. W., Furey, T. S., Roskin, K. M., Pringle,
+> T. H., Zahler, A. M., & Haussler, D. (2002). The human genome
+> browser at UCSC. *Genome Research* 12(6), 996–1006.
+> https://doi.org/10.1101/gr.229102
+
+**License / use**: the assembly sequence data and derived tables
+are freely available for any use.
+
+**URL**: https://genome.ucsc.edu/

@@ -44,7 +44,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `chromatin_cache_path`; `load_gene_bodies_from_gtf(...,
   with_cds_span=True)`. `transform` also takes a list, e.g.
   `[null, "log1p"]`, so one source emits both linear and log
-  columns. Each option set is cached in its own file.
+  columns. Each option set is cached in its own file. Peak windows
+  are clipped at the chromosome end with packaged UCSC chromosome
+  sizes for hg19 and hg38 (`load_chrom_sizes`).
   The defaults are unchanged: default builds are bit for bit the
   same.
 

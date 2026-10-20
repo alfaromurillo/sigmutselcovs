@@ -45,7 +45,7 @@ from .covariates_replication_timing import (
     load_or_generate_rt_wavelet,
     pool_rt_profiles,
 )
-from .covariates_utilities import clr_transform
+from .covariates_utilities import clr_transform, load_chrom_sizes
 from .paths import ProjectPaths, project_paths
 from .registry import (
     DEFAULT_CHROMATIN_WINDOWS,
@@ -468,6 +468,18 @@ def _load_chromatin(
     )
 
 
+def _chrom_sizes(assembly: str | None) -> dict[str, int] | None:
+    """The packaged chromosome sizes of an assembly, or None (with a
+    warning) when there is no table for it."""
+    if assembly is None:
+        return None
+    try:
+        return load_chrom_sizes(assembly)
+    except ValueError as exc:
+        logger.warning("%s; peak windows not clipped at the end", exc)
+        return None
+
+
 def _load_chromatin_peaks(
     source: str,
     covs_csv: Path,
@@ -477,9 +489,12 @@ def _load_chromatin_peaks(
     *,
     windows: Sequence[str],
     peak_types: Sequence[str],
+    assembly: str | None = None,
 ) -> pd.DataFrame | None:
     """Peak-coverage covariates for one source, cached next to its
-    signal cache under a name keyed on the peak types and windows."""
+    signal cache under a name keyed on the peak types and windows.
+    Windows are clipped to the chromosomes of ``assembly`` (the
+    packaged `load_chrom_sizes` table)."""
     covs_csv = chromatin_cache_path(
         covs_csv, windows=windows, peak_types=peak_types
     )
@@ -494,6 +509,7 @@ def _load_chromatin_peaks(
             promoter_upstream=2000,
             promoter_downstream=200,
             force_generation=force,
+            chrom_sizes=_chrom_sizes(assembly),
         )
 
     return _cached_chromatin(
@@ -540,6 +556,7 @@ def _chromatin_source_frames(
             force_generation,
             windows=chrom_spec.windows,
             peak_types=peak_types,
+            assembly=chrom_spec.assembly,
         )
         if peaks is not None:
             out.append((f"{source}_peaks", peaks))

@@ -701,6 +701,7 @@ def summarize_peak_coverage(
     peak_type: str | None = None,
     promoter_upstream: int = 2000,
     promoter_downstream: int = 200,
+    chrom_sizes: Mapping[str, int] | None = None,
 ) -> pd.DataFrame:
     """Fraction of each gene window covered by a track's peaks.
 
@@ -720,6 +721,12 @@ def summarize_peak_coverage(
         file name.
     promoter_upstream, promoter_downstream : int
         Promoter extent around the TSS, in bases.
+    chrom_sizes : mapping of str to int, optional
+        Chromosome lengths (e.g. `load_chrom_sizes("hg19")`). When
+        given, windows are clipped to ``[0, length)`` of their
+        chromosome, as the CDS windows and the log transform of
+        `summarize_bigwig_windows` are; a chromosome missing from it
+        is left unclipped. ``None`` clips at 0 only.
 
     Returns
     -------
@@ -734,7 +741,8 @@ def summarize_peak_coverage(
     -----
     A BED file does not list its chromosomes, so a chromosome with no
     peak is taken to have none: its genes get 0 (a warning names such
-    chromosomes). Windows are not clipped at the chromosome end.
+    chromosomes). Windows are clipped at the chromosome end only when
+    ``chrom_sizes`` is given.
     """
     windows = check_windows(windows)
     path = Path(peak_path)
@@ -759,6 +767,21 @@ def summarize_peak_coverage(
             ", ".join(sorted(absent)),
         )
     resolved = np.asarray(resolved, dtype=object)
+    limit = np.full(len(genes), np.inf)
+    if chrom_sizes is not None:
+        unsized = set()
+        for i, chrom in enumerate(chroms):
+            norm = normalize_chromosome_name(chrom, chrom_sizes)
+            if norm is None:
+                unsized.add(chrom)
+            else:
+                limit[i] = chrom_sizes[norm]
+        if unsized:
+            logger.warning(
+                "No chromosome size for %s; peak windows there are "
+                "not clipped at the chromosome end",
+                ", ".join(sorted(unsized)),
+            )
 
     out = pd.DataFrame(index=genes.index)
     for window in windows:
@@ -770,6 +793,9 @@ def summarize_peak_coverage(
         )
         w_start = coords["start"].to_numpy()
         w_end = coords["end"].to_numpy()
+        if chrom_sizes is not None:
+            w_start = np.minimum(w_start, limit)
+            w_end = np.minimum(w_end, limit)
         covered = np.zeros(len(genes))
         for chrom, (p_start, p_end) in intervals.items():
             on = np.flatnonzero(
@@ -1360,6 +1386,7 @@ def summarise_peaks_to_genes(
     windows: Sequence[str] = DEFAULT_CHROMATIN_WINDOWS,
     promoter_upstream: int = 2000,
     promoter_downstream: int = 200,
+    chrom_sizes: Mapping[str, int] | None = None,
 ) -> pd.DataFrame:
     """Stack `summarize_peak_coverage` columns for each peak file.
 
@@ -1373,6 +1400,9 @@ def summarise_peaks_to_genes(
         Windows to summarise over.
     promoter_upstream, promoter_downstream : int
         Promoter extent around the TSS, in bases.
+    chrom_sizes : mapping of str to int, optional
+        Chromosome lengths to clip windows to (see
+        `summarize_peak_coverage`).
 
     Returns
     -------
@@ -1388,6 +1418,7 @@ def summarise_peaks_to_genes(
             windows=windows,
             promoter_upstream=promoter_upstream,
             promoter_downstream=promoter_downstream,
+            chrom_sizes=chrom_sizes,
         )
         for name in frame.columns:
             out[name] = frame[name].to_numpy()
@@ -1405,6 +1436,7 @@ def load_or_generate_peak_covariates(
     promoter_downstream: int = 200,
     force_generation: bool = False,
     average_by_assay: bool = False,
+    chrom_sizes: Mapping[str, int] | None = None,
 ) -> pd.DataFrame:
     """Build or cache gene-level peak-coverage covariates.
 
@@ -1432,6 +1464,10 @@ def load_or_generate_peak_covariates(
     average_by_assay : bool, default False
         Average columns across tracks of the same mark, separately
         for each peak type and window (e.g. ``h3k27ac_narrowpeak_body``).
+    chrom_sizes : mapping of str to int, optional
+        Chromosome lengths to clip windows to (see
+        `summarize_peak_coverage`); the builder passes the packaged
+        table of the source's assembly.
 
     Returns
     -------
@@ -1455,6 +1491,7 @@ def load_or_generate_peak_covariates(
         windows=windows,
         promoter_upstream=promoter_upstream,
         promoter_downstream=promoter_downstream,
+        chrom_sizes=chrom_sizes,
     )
     if not cov_df.index.is_unique:
         cov_df = cov_df.groupby(level=0).mean()

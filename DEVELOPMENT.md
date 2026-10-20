@@ -275,9 +275,12 @@ for other summaries; ATAC keeps the defaults.
 Edge cases: without a transform, `body`/`promoter` are the original
 functions, which give NaN for a window running past the chromosome
 end; the CDS windows and the log transform clip it to the
-chromosome instead. A BED file does not list its chromosomes, so a
-chromosome with no peaks has coverage 0 (with a warning), and peak
-windows are not clipped at the chromosome end.
+chromosome instead. Peak windows are clipped the same way, with the
+packaged UCSC chromosome sizes of the source's assembly
+(`load_chrom_sizes("hg19")`, `data/chrom_sizes/`); a direct call to
+`summarize_peak_coverage` clips only when given `chrom_sizes`. A BED
+file does not list its chromosomes, so a chromosome with no peaks
+has coverage 0 (with a warning).
 
 **Caches.** `chromatin_cache_path` names one cache per option set:
 the defaults keep `chromatin_covs_<source>.csv`, others get e.g.
