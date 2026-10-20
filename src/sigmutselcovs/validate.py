@@ -45,9 +45,9 @@ _ACTIVE_MARKS = (
     "h3k27ac",
     "h3k9ac",
     # ENCODE-sourced marks (encode_chromatin) beyond Roadmap's
-    # default 7 -- see mutation_rates' covariates.md research on
-    # dNdScv's 10 original marks. All three are activation-associated
-    # acetylation marks, same expected direction as h3k27ac/h3k9ac.
+    # default 7, completing the 10 marks of dNdScv's original
+    # covariates. All three are activation-associated acetylation
+    # marks, same expected direction as h3k27ac/h3k9ac.
     "h3k23ac",
     "h3k14ac",
     "h2ak9ac",

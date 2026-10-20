@@ -834,9 +834,8 @@ def stream_roadmap_tracks(
     a-list. Bounds disk usage to ~1 bigwig regardless of how many
     ``(eid, mark)`` pairs are requested -- built for pooling large
     numbers of epigenomes (e.g. ``GENERIC``) where downloading them
-    all up front doesn't fit on disk (hit building the first,
-    26-EID-planned ``GENERIC`` pool, 2026-09-04: gauss filled to 45G
-    free partway through).
+    all up front doesn't fit on disk (building the first, 26-EID
+    ``GENERIC`` pool, 2026-09-04, ran out of disk partway through).
 
     Meant to be driven together with
     :func:`covariates_chromatin.summarize_tracks_to_genes_streaming`:

@@ -740,9 +740,9 @@ def test_average_by_assay_requires_a_chromatin_source():
 
 
 def test_generic_not_split_by_registry_project_convention():
-    """tcga_analysis's REGISTRY_PROJECT = PROJECT.split('-')[0]
-    subcohort logic (not sigmutselcovs code, but a constraint this
-    registry entry must survive) is a no-op on a hyphen-free code."""
+    """A downstream pipeline that splits a project code at '-' to
+    find subcohorts (not sigmutselcovs code, but a constraint this
+    registry entry must survive) leaves a hyphen-free code as is."""
     assert "GENERIC".split("-")[0] == "GENERIC"  # noqa: SIM905
 
 
