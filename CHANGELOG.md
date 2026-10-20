@@ -42,7 +42,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `summarize_bigwig_windows`, `summarize_peak_coverage`,
   `gene_windows`, `load_or_generate_peak_covariates` and
   `chromatin_cache_path`; `load_gene_bodies_from_gtf(...,
-  with_cds_span=True)`. Each option set is cached in its own file.
+  with_cds_span=True)`. `transform` also takes a list, e.g.
+  `[null, "log1p"]`, so one source emits both linear and log
+  columns. Each option set is cached in its own file.
   The defaults are unchanged: default builds are bit for bit the
   same.
 

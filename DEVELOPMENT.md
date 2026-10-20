@@ -256,7 +256,10 @@ for other summaries; ATAC keeps the defaults.
   `pyBigWig.stats(..., exact=True)` counts. `pyBigWig.stats` cannot
   compute it: `_log1p_interval_means` reads `bw.values(...,
   numpy=True)` in chunks of at most 8 Mb holding whole windows and
-  sums by cumulative sums. Columns gain `_log`.
+  sums by cumulative sums. Columns gain `_log`. A list, e.g.
+  `[null, "log1p"]`, emits each track's columns once per transform
+  (linear then log, in the order given); a scalar or a one-element
+  list behaves as before.
 - **Peaks**: `roadmap.peaks` (a list of `narrowPeak`/`broadPeak`)
   or `encode_chromatin.peak_tracks` (`{label, accession,
   peak_type}`) add `summarize_peak_coverage` columns
@@ -278,7 +281,9 @@ windows are not clipped at the chromosome end.
 
 **Caches.** `chromatin_cache_path` names one cache per option set:
 the defaults keep `chromatin_covs_<source>.csv`, others get e.g.
-`chromatin_covs_roadmap_cds_span-cds_span2k_log1p.csv` or
+`chromatin_covs_roadmap_cds_span-cds_span2k_log1p.csv`,
+`chromatin_covs_roadmap_body-promoter_linear-log1p.csv` (a
+transform list, `null` spelled `linear`) or
 `chromatin_covs_roadmap_peaks_narrowpeak_body-promoter.csv`, so a
 build never reads a cache built under other options. Each cache
 records the files it was built from (`<cache>.tracks.json`) and is

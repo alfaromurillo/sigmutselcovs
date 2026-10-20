@@ -28,7 +28,12 @@ import numpy as np
 import pandas as pd
 
 from .covariates_utilities import sanitize_feature_label
-from .registry import CHROMATIN_WINDOWS, ProjectSpec, get_project
+from .registry import (
+    CHROMATIN_WINDOWS,
+    ProjectSpec,
+    chromatin_transforms,
+    get_project,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -327,6 +332,7 @@ def _sanity_tier(
         ]
         maximum = (
             len(spec.roadmap.windows)
+            * len(chromatin_transforms(spec.roadmap.transform))
             * len(spec.roadmap.eids)
             * len(spec.roadmap.marks)
         )
@@ -348,8 +354,12 @@ def _sanity_tier(
                 for t in spec.encode_chromatin.tracks
             )
         ]
-        maximum = len(spec.encode_chromatin.windows) * len(
-            spec.encode_chromatin.tracks
+        maximum = (
+            len(spec.encode_chromatin.windows)
+            * len(
+                chromatin_transforms(spec.encode_chromatin.transform)
+            )
+            * len(spec.encode_chromatin.tracks)
         )
         if encode_cols:
             report.add(
@@ -371,8 +381,9 @@ def _sanity_tier(
         for source in (spec.roadmap, spec.encode_chromatin):
             if source is None:
                 continue
-            log = "_log" if source.transform == "log1p" else ""
-            summaries.update(f"_{w}{log}" for w in source.windows)
+            for transform in chromatin_transforms(source.transform):
+                log = "_log" if transform == "log1p" else ""
+                summaries.update(f"_{w}{log}" for w in source.windows)
         if spec.roadmap is not None:
             summaries.update(
                 f"_{t.lower()}_{w}"

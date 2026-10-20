@@ -63,6 +63,18 @@ CHROMATIN_TRANSFORMS = ("log1p",)
 PEAK_TYPES = ("narrowPeak", "broadPeak")
 
 
+def chromatin_transforms(transform) -> tuple[str | None, ...]:
+    """A chromatin source's ``transform`` field as a tuple.
+
+    A scalar (``None`` for the linear mean, or ``"log1p"``) is one
+    transform; a list or tuple (e.g. ``[None, "log1p"]``) asks for one
+    set of signal columns per transform, in that order.
+    """
+    if transform is None or isinstance(transform, str):
+        return (transform,)
+    return tuple(transform)
+
+
 @dataclass(frozen=True, slots=True)
 class GtexSpec:
     """GTEx gene expression source (always required).
@@ -109,7 +121,8 @@ class RoadmapSpec:
     each signal track (see `covariates_chromatin.gene_windows` and
     `covariates_chromatin.summarize_bigwig_windows`): one column
     ``<label>_<window>`` per window, with ``_log`` appended under
-    ``transform="log1p"``. ``peaks`` names peak-call types
+    ``transform="log1p"``; a list such as ``[None, "log1p"]`` emits
+    both the linear and the log columns (see `chromatin_transforms`). ``peaks`` names peak-call types
     (``"narrowPeak"``, ``"broadPeak"``) to also summarise, as the
     fraction of each window covered by the (eid, mark)'s peaks, in
     columns ``<eid>_<mark>_<peaktype>_<window>``; peak files are
@@ -128,7 +141,7 @@ class RoadmapSpec:
         "{eid}-{mark}.fc.signal.bigwig"
     )
     windows: tuple[str, ...] = DEFAULT_CHROMATIN_WINDOWS
-    transform: str | None = None
+    transform: str | None | tuple[str | None, ...] = None
     peaks: tuple[str, ...] = ()
     peaks_url_template: str = (
         "https://egg2.wustl.edu/roadmap/data/byFileType/peaks/"
@@ -191,7 +204,7 @@ class EncodeChromatinSpec:
     tracks: tuple[TrackRef, ...]
     assembly: str = "hg38"
     windows: tuple[str, ...] = DEFAULT_CHROMATIN_WINDOWS
-    transform: str | None = None
+    transform: str | None | tuple[str | None, ...] = None
     peak_tracks: tuple[PeakRef, ...] = ()
 
 
@@ -414,13 +427,21 @@ def _validate_chromatin_options(code: str, key: str, entry: dict):
             empty_ok=False,
         )
     transform = entry.get("transform")
-    if (
-        transform is not None
-        and transform not in CHROMATIN_TRANSFORMS
-    ):
+    transforms = (
+        [transform] if not isinstance(transform, list) else transform
+    )
+    if not transforms:
+        raise ValueError(f"{code}: {key}.transform must not be empty")
+    for t in transforms:
+        if t is not None and t not in CHROMATIN_TRANSFORMS:
+            raise ValueError(
+                f"{code}: {key}.transform {t!r} not one of "
+                f"{CHROMATIN_TRANSFORMS} (or null)"
+            )
+    if len(set(transforms)) != len(transforms):
         raise ValueError(
-            f"{code}: {key}.transform {transform!r} not one of "
-            f"{CHROMATIN_TRANSFORMS} (or null)"
+            f"{code}: {key}.transform repeats a transform: "
+            f"{transforms}"
         )
     if "peaks" in entry:
         _validate_names(

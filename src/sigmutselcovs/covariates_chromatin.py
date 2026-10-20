@@ -20,6 +20,7 @@ from .registry import (
     CHROMATIN_WINDOWS,
     DEFAULT_CHROMATIN_WINDOWS,
     PEAK_TYPES,
+    chromatin_transforms,
 )
 
 logger = logging.getLogger(__name__)
@@ -241,6 +242,32 @@ def check_transform(transform: str | None) -> str | None:
             f"None, {CHROMATIN_TRANSFORMS}"
         )
     return transform
+
+
+def check_transforms(transform) -> tuple[str | None, ...]:
+    """Validate a scalar transform or a sequence of them.
+
+    Returns
+    -------
+    tuple
+        The transforms, as `registry.chromatin_transforms` gives them.
+
+    Raises
+    ------
+    ValueError
+        If a transform is unknown, the sequence is empty or it
+        repeats one.
+    """
+    transforms = chromatin_transforms(transform)
+    if not transforms:
+        raise ValueError("transform must name at least one transform")
+    for t in transforms:
+        check_transform(t)
+    if len(set(transforms)) != len(transforms):
+        raise ValueError(
+            f"Repeated chromatin transforms in {transforms}"
+        )
+    return transforms
 
 
 def gene_windows(
@@ -845,9 +872,11 @@ def summarise_tracks_to_genes(
         Windows to summarise each track over (see
         `summarize_bigwig_windows`); when given, ``include_promoter``
         is ignored. ``None`` keeps the body (and promoter) summaries.
-    transform : {None, "log1p"}, default None
+    transform : {None, "log1p"} or sequence of them, default None
         Per-base transform of the signal before averaging (see
-        `summarize_bigwig_windows`).
+        `summarize_bigwig_windows`). A sequence such as
+        ``[None, "log1p"]`` gives each track's columns once per
+        transform, in that order.
 
     Returns
     -------
@@ -865,19 +894,21 @@ def summarise_tracks_to_genes(
                 if include_promoter
                 else ("body",)
             )
+        transforms = check_transforms(transform)
         for spec in specs:
-            frame = summarize_bigwig_windows(
-                spec.path,
-                genes,
-                windows=windows,
-                transform=transform,
-                label=spec.label,
-                statistic=spec.statistic,
-                promoter_upstream=promoter_upstream,
-                promoter_downstream=promoter_downstream,
-            )
-            for name in frame.columns:
-                out[name] = frame[name].to_numpy()
+            for each in transforms:
+                frame = summarize_bigwig_windows(
+                    spec.path,
+                    genes,
+                    windows=windows,
+                    transform=each,
+                    label=spec.label,
+                    statistic=spec.statistic,
+                    promoter_upstream=promoter_upstream,
+                    promoter_downstream=promoter_downstream,
+                )
+                for name in frame.columns:
+                    out[name] = frame[name].to_numpy()
         return out
 
     for spec in specs:
@@ -955,19 +986,21 @@ def summarize_tracks_to_genes_streaming(
                 if include_promoter
                 else ("body",)
             )
+        transforms = check_transforms(transform)
         for label, path in track_source:
-            frame = summarize_bigwig_windows(
-                path,
-                genes,
-                windows=windows,
-                transform=transform,
-                label=label,
-                statistic=statistic,
-                promoter_upstream=promoter_upstream,
-                promoter_downstream=promoter_downstream,
-            )
-            for name in frame.columns:
-                columns[name] = frame[name].to_numpy()
+            for each in transforms:
+                frame = summarize_bigwig_windows(
+                    path,
+                    genes,
+                    windows=windows,
+                    transform=each,
+                    label=label,
+                    statistic=statistic,
+                    promoter_upstream=promoter_upstream,
+                    promoter_downstream=promoter_downstream,
+                )
+                for name in frame.columns:
+                    columns[name] = frame[name].to_numpy()
         return pd.DataFrame(columns, index=genes.index)
 
     for label, path in track_source:
@@ -1054,8 +1087,10 @@ def chromatin_cache_path(
         ``chromatin/roadmap/chromatin_covs_roadmap.csv``.
     windows : sequence of str, default ("body", "promoter")
         Summary windows, in column order.
-    transform : {None, "log1p"}, default None
-        Signal transform.
+    transform : {None, "log1p"} or sequence of them, default None
+        Signal transform(s). A one-element sequence names the same
+        file as its scalar; a longer one is spelled out in order,
+        ``None`` as ``linear`` (e.g. ``..._linear-log1p.csv``).
     peak_types : sequence of str, optional
         For the peak-coverage cache: the peak types summarised.
 
@@ -1067,15 +1102,25 @@ def chromatin_cache_path(
     """
     base = Path(base_csv)
     windows = check_windows(windows)
-    check_transform(transform)
+    transforms = check_transforms(transform)
     window_tag = "-".join(windows)
     if peak_types is not None:
         types = "-".join(t.lower() for t in peak_types)
         tag = f"peaks_{types}_{window_tag}"
-    elif windows == DEFAULT_CHROMATIN_WINDOWS and transform is None:
+    elif windows == DEFAULT_CHROMATIN_WINDOWS and transforms == (
+        None,
+    ):
         return base
+    elif len(transforms) == 1:
+        tag = window_tag + (
+            f"_{transforms[0]}" if transforms[0] else ""
+        )
     else:
-        tag = window_tag + (f"_{transform}" if transform else "")
+        tag = (
+            window_tag
+            + "_"
+            + "-".join(t or "linear" for t in transforms)
+        )
     return base.with_name(f"{base.stem}_{tag}{base.suffix}")
 
 
@@ -1191,8 +1236,9 @@ def load_or_generate_chromatin_covariates(
         Windows to summarise each track over (see
         `summarize_bigwig_windows`); overrides ``include_promoter``.
         The CDS windows read the GTF's ``CDS`` features as well.
-    transform : {None, "log1p"}, default None
-        Per-base transform of the signal before averaging.
+    transform : {None, "log1p"} or sequence of them, default None
+        Per-base transform(s) of the signal before averaging, as in
+        `summarise_tracks_to_genes`.
 
     Returns
     -------

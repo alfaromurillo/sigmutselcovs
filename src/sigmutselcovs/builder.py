@@ -51,6 +51,7 @@ from .registry import (
     DEFAULT_CHROMATIN_WINDOWS,
     PEAK_TYPES,
     ProjectSpec,
+    chromatin_transforms,
     get_project,
     location_projects_registry,
 )
@@ -422,7 +423,7 @@ def _load_chromatin(
     force_generation: bool,
     *,
     windows: Sequence[str] = DEFAULT_CHROMATIN_WINDOWS,
-    transform: str | None = None,
+    transform: str | None | Sequence[str | None] = None,
 ) -> pd.DataFrame | None:
     """Chromatin covariates for one source (roadmap or TCGA ATAC).
 
@@ -433,9 +434,17 @@ def _load_chromatin(
     its bigWigs as `_cached_chromatin` describes.
     """
     windows = tuple(windows)
+    transforms = chromatin_transforms(transform)
     options = {}
-    if windows != DEFAULT_CHROMATIN_WINDOWS or transform is not None:
-        options = {"windows": list(windows), "transform": transform}
+    if windows != DEFAULT_CHROMATIN_WINDOWS or transforms != (None,):
+        options = {
+            "windows": list(windows),
+            "transform": (
+                transform
+                if transform is None or isinstance(transform, str)
+                else list(transforms)
+            ),
+        }
     covs_csv = chromatin_cache_path(
         covs_csv, windows=windows, transform=transform
     )
@@ -696,14 +705,21 @@ def _describe_block(
 
 def _windows_phrase(chrom_spec) -> str:
     """How a chromatin source's columns summarise its signal."""
+    transforms = (
+        chromatin_transforms(chrom_spec.transform)
+        if chrom_spec is not None
+        else (None,)
+    )
     if chrom_spec is None or (
         tuple(chrom_spec.windows) == DEFAULT_CHROMATIN_WINDOWS
-        and chrom_spec.transform is None
+        and transforms == (None,)
     ):
         return "gene body or promoter window"
     phrase = "gene windows (" + ", ".join(chrom_spec.windows) + ")"
-    if chrom_spec.transform == "log1p":
+    if transforms == ("log1p",):
         phrase += " of log1p(signal) per base"
+    elif "log1p" in transforms:
+        phrase += ", and the mean of log1p(signal) per base"
     return phrase
 
 
