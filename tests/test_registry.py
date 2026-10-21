@@ -3,6 +3,7 @@
 import json
 
 import pytest
+from conftest import legacy_registry_raw
 
 from sigmutselcovs.registry import (
     EncodeChromatinSpec,
@@ -14,7 +15,6 @@ from sigmutselcovs.registry import (
     available_projects,
     get_project,
     load_registry,
-    location_projects_registry,
     validate_registry,
 )
 
@@ -307,7 +307,7 @@ def test_skcm_row():
 
 def test_defaults_merge():
     """Roadmap marks and gexp defaults come from the defaults block."""
-    raw = json.loads(location_projects_registry.read_text())
+    raw = legacy_registry_raw()
     # No real-cohort row spells out roadmap marks (a project may
     # disable roadmap entirely with a null row, e.g. UCEC -- nothing
     # to merge). GENERIC is the deliberate exception: it adds DNase
@@ -326,7 +326,7 @@ def test_defaults_merge():
 
 
 def test_null_source_disables_block(tmp_path):
-    raw = json.loads(location_projects_registry.read_text())
+    raw = legacy_registry_raw()
     raw["projects"]["COAD"]["atac"] = None
     raw["projects"]["COAD"]["repliseq"] = None
     path = tmp_path / "projects.json"
@@ -345,21 +345,21 @@ def test_validate_rejects_bad_schema_version():
 
 
 def test_validate_rejects_unknown_mapping_key(tmp_path):
-    raw = json.loads(location_projects_registry.read_text())
+    raw = legacy_registry_raw()
     raw["projects"]["COAD"]["gtex"]["mapping_key"] = "NOPE"
     with pytest.raises(ValueError, match="mapping_key"):
         validate_registry(raw)
 
 
 def test_validate_rejects_missing_gtex():
-    raw = json.loads(location_projects_registry.read_text())
+    raw = legacy_registry_raw()
     raw["projects"]["COAD"]["gtex"] = None
     with pytest.raises(ValueError, match="gtex source is required"):
         validate_registry(raw)
 
 
 def test_validate_rejects_bad_repliseq():
-    raw = json.loads(location_projects_registry.read_text())
+    raw = legacy_registry_raw()
     raw["projects"]["COAD"]["repliseq"]["type"] = "bogus"
     with pytest.raises(ValueError, match="repliseq.type"):
         validate_registry(raw)
@@ -373,7 +373,7 @@ def test_validate_rejects_bad_repliseq():
 
 
 def test_unknown_spec_key_rejected(tmp_path):
-    raw = json.loads(location_projects_registry.read_text())
+    raw = legacy_registry_raw()
     raw["projects"]["COAD"]["atac"]["bogus_key"] = 1
     path = tmp_path / "projects.json"
     path.write_text(json.dumps(raw))
@@ -424,7 +424,7 @@ def test_golden_row_with_encode_chromatin_and_generic_gtex(tmp_path):
     tracks -- no real cohort has encode_chromatin yet (Objective A/B
     of the covariate-expansion task adds those), so this is the
     registry-level contract test until then."""
-    raw = json.loads(location_projects_registry.read_text())
+    raw = legacy_registry_raw()
     raw["projects"]["COAD"]["gtex"]["reduce"] = "median"
     raw["projects"]["COAD"]["encode_chromatin"] = {
         "tracks": [
@@ -481,14 +481,14 @@ def test_skcm_cesc_have_only_cell_line_encode_chromatin():
 
 
 def test_validate_rejects_bad_gtex_reduce(tmp_path):
-    raw = json.loads(location_projects_registry.read_text())
+    raw = legacy_registry_raw()
     raw["projects"]["COAD"]["gtex"]["reduce"] = "mean"
     with pytest.raises(ValueError, match="gtex.reduce"):
         validate_registry(raw)
 
 
 def test_validate_rejects_empty_encode_chromatin_tracks(tmp_path):
-    raw = json.loads(location_projects_registry.read_text())
+    raw = legacy_registry_raw()
     raw["projects"]["COAD"]["encode_chromatin"] = {"tracks": []}
     with pytest.raises(ValueError, match="encode_chromatin"):
         validate_registry(raw)
@@ -730,7 +730,7 @@ def test_average_by_assay_requires_a_chromatin_source():
     """average_by_assay=True with no roadmap/atac/encode_chromatin
     at all has nothing to collapse -- reject at registry load time,
     not silently build an unaffected matrix."""
-    raw = json.loads(location_projects_registry.read_text())
+    raw = legacy_registry_raw()
     raw["projects"]["COAD"]["average_by_assay"] = True
     raw["projects"]["COAD"]["roadmap"] = None
     raw["projects"]["COAD"]["atac"] = None
@@ -770,7 +770,7 @@ _POOL = {
 
 
 def test_pooled_mrt_profiles_parse(tmp_path):
-    raw = json.loads(location_projects_registry.read_text())
+    raw = legacy_registry_raw()
     raw["projects"]["COAD"]["repliseq"] = _POOL
     path = tmp_path / "projects.json"
     path.write_text(json.dumps(raw))
@@ -785,7 +785,7 @@ def test_pooled_mrt_profiles_parse(tmp_path):
 
 
 def test_pooled_mrt_validation():
-    raw = json.loads(location_projects_registry.read_text())
+    raw = legacy_registry_raw()
     raw["projects"]["COAD"]["repliseq"] = {**_POOL, "profiles": []}
     with pytest.raises(ValueError, match="needs profiles"):
         validate_registry(raw)

@@ -9,7 +9,13 @@ import json
 import numpy as np
 import pandas as pd
 import pytest
-from conftest import GENE_IDS, write_bigwig, write_gtf, write_peaks
+from conftest import (
+    GENE_IDS,
+    legacy_registry_raw,
+    write_bigwig,
+    write_gtf,
+    write_peaks,
+)
 
 from sigmutselcovs import builder
 from sigmutselcovs import covariates_chromatin as cc
@@ -18,7 +24,6 @@ from sigmutselcovs.builder import (
     covariate_column_blocks,
 )
 from sigmutselcovs.paths import project_paths
-from sigmutselcovs.registry import location_projects_registry
 
 # in file-name order, which is column order
 TRACKS = ("E075-H3K4me3", "E075-H3K9me3", "E106-H3K4me3")
@@ -43,7 +48,7 @@ def project(tmp_path):
 
 
 def _registry(tmp_path, **roadmap):
-    raw = json.loads(location_projects_registry.read_text())
+    raw = legacy_registry_raw()
     raw["projects"]["COAD"]["roadmap"].update(roadmap)
     path = tmp_path / "projects.json"
     path.write_text(json.dumps(raw))
@@ -220,7 +225,7 @@ def test_peaks_without_bigwigs(project, tmp_path, caplog):
 
 def test_average_by_assay_with_options(project, tmp_path):
     paths, gtfs = project
-    raw = json.loads(location_projects_registry.read_text())
+    raw = legacy_registry_raw()
     raw["projects"]["COAD"]["roadmap"].update(
         windows=["body", "cds_span"],
         transform="log1p",

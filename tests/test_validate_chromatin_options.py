@@ -4,8 +4,8 @@ import json
 
 import numpy as np
 import pandas as pd
+from conftest import legacy_registry_raw
 
-from sigmutselcovs.registry import location_projects_registry
 from sigmutselcovs.validate import _mark_mean, validate_covariates
 
 GENES = [f"ENSG{i:011d}" for i in range(1, 51)]
@@ -53,7 +53,7 @@ def test_collapsed_column_count_counts_new_summaries(tmp_path):
             "_narrowpeak_cds_span",
         )
     ]
-    raw = json.loads(location_projects_registry.read_text())
+    raw = legacy_registry_raw()
     raw["projects"]["GENERIC"]["roadmap"].update(
         windows=["body", "cds_span"],
         transform="log1p",
@@ -76,7 +76,7 @@ def test_roadmap_column_count_scales_with_windows(tmp_path):
         f"e075_h3k4me3_fc_signal_{w}"
         for w in ("body", "promoter", "cds_span")
     ]
-    raw = json.loads(location_projects_registry.read_text())
+    raw = legacy_registry_raw()
     raw["projects"]["COAD"]["roadmap"].update(
         eids=["E075"], marks=["H3K4me3"]
     )

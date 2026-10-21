@@ -4,18 +4,17 @@ import json
 import shutil
 
 import pandas as pd
-from conftest import write_bigwig, write_gtf
+from conftest import legacy_registry_raw, write_bigwig, write_gtf
 
 from sigmutselcovs import chromatin_stream as cs
 from sigmutselcovs.builder import build_covariate_matrix
 from sigmutselcovs.paths import project_paths
-from sigmutselcovs.registry import location_projects_registry
 
 TRACKS = ("E075-H3K4me3", "E106-H3K4me3")
 
 
 def _registry(tmp_path):
-    raw = json.loads(location_projects_registry.read_text())
+    raw = legacy_registry_raw()
     raw["projects"]["COAD"]["roadmap"].update(
         eids=["E075", "E106"],
         marks=["H3K4me3"],

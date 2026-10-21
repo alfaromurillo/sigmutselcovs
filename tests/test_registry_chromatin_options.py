@@ -3,6 +3,7 @@
 import json
 
 import pytest
+from conftest import legacy_registry_raw
 
 from sigmutselcovs.registry import (
     EncodeChromatinSpec,
@@ -10,12 +11,11 @@ from sigmutselcovs.registry import (
     RoadmapSpec,
     TrackRef,
     load_registry,
-    location_projects_registry,
 )
 
 
 def _registry(tmp_path, edit):
-    raw = json.loads(location_projects_registry.read_text())
+    raw = legacy_registry_raw()
     edit(raw)
     path = tmp_path / "projects.json"
     path.write_text(json.dumps(raw))

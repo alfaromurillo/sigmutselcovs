@@ -65,6 +65,7 @@ pipeline's `build()` output bit-for-bit.
 | `covariates_gene_expression.py` | GTEx and TCGA expression loaders |
 | `covariates_replication_timing.py` | Repli-seq: mat / fraction bigWigs / wavelet |
 | `covariates_chromatin.py` | BigWig signal and peak coverage over gene windows |
+| `chromatin_stream.py` | Parallel, resumable chromatin caches with no bigWig kept |
 | `covariates_utilities.py` | GTF parsing, BED reading, annotation, PCA |
 | `covariates_checks.py` | fix_all / fix_variance / fix_skewness |
 | `covariates_locations.py` | Packaged-data paths (mapping JSON, GCT) |
@@ -179,13 +180,23 @@ It differs from a cohort's row in four ways:
   biosample has one vote (`pool_rt_profiles`). Timing is largely
   conserved across cell types, which is what makes a pool a sensible
   tissue-agnostic covariate. Per-profile results are cached under
-  `replication_timing/pool/`. All replication-timing sources are
-  autosomal, so a matrix with this column leaves chrX/chrY genes
-  incomplete.
+  `replication_timing/pool/`. Bigwig sources are binned on chr1-22
+  and chrX and every chromosome's genes are timed (2026-10-21; before,
+  autosomes only), so chrX genes get a pooled time from the profiles
+  that cover chrX; an autosome-only table (the HCT116 MAT) leaves them
+  out of its own profile. Per-gene caches written before keep their
+  autosome-only genes until regenerated.
 - `roadmap`/`encode_chromatin` are populated with a large pool of
   epigenomes/tracks spanning many tissues (rather than one matched
   tissue), pooled through the same PCA/concatenation machinery as
-  any cohort's matrix.
+  any cohort's matrix. Since 2026-10-21 they are summarised exactly as
+  a cohort's rows (the registry defaults, "Chromatin summaries"
+  below), one column per track (`average_by_assay` false), over all
+  32 Roadmap consolidated marks. The pool is too large for disk:
+  build its caches with `sigmutselcovs stream-chromatin GENERIC
+  --source roadmap` (and `encode_chromatin`), which downloads,
+  summarises and deletes a few tracks at a time, resumably
+  (`chromatin_stream.py`); `build` then reads the caches.
 
 `combine_with_generic(cov_matrix_full, generic_matrix)` (in
 `builder.py`, exported from the package root) concatenates a
@@ -193,7 +204,10 @@ cohort's own `cov_matrix_full` with `GENERIC`'s (outer join on
 `ensembl_gene_id`, same as any other source block) — this is the
 supported way to get a matrix combining tissue-specific and
 pan-tissue signal; it is not automatic, since not every downstream
-use wants both.
+use wants both. Pass `drop_own_tracks=True` to leave out of the pool
+every track the cohort's matrix already summarises, matched by track
+identity (Roadmap epigenome and mark, ENCODE file accession;
+`chromatin_track_identity`), whatever the windows and transforms.
 
 **Finding tracks for `encode_chromatin`** (used for both a cohort's
 own registry row and `GENERIC`'s pool): search the ENCODE portal for
@@ -236,12 +250,21 @@ richer pool is automatically better.
 ## Chromatin summaries
 
 Every chromatin track (a Roadmap or ENCODE bigWig, a TCGA ATAC
-bigWig) is reduced to a few numbers per gene. By default, two: the
-mean signal over the gene body and over the promoter (TSS -2 kb /
-+200 bp, strand-aware), in `summarize_bigwig_over_genes` and
+bigWig) is reduced to a few numbers per gene. The spec defaults are
+two: the mean signal over the gene body and over the promoter (TSS
+-2 kb / +200 bp, strand-aware), in `summarize_bigwig_over_genes` and
 `summarize_promoter_signal`, columns `<label>_body` and
-`<label>_promoter`. `roadmap` and `encode_chromatin` rows can ask
-for other summaries; ATAC keeps the defaults.
+`<label>_promoter`. **The shipped registry's `defaults` block puts
+every row, a cohort's and `GENERIC`'s, on one method instead
+(2026-10-21): `windows: ["cds_span"]`, `transform: "log1p_mean"`,
+`min_completeness: 0.9`, for `roadmap`, `encode_chromatin` and
+`atac` alike.** log1p of the mean signal over the CDS span is the
+summary that best reproduces the chromatin principal components a
+widely used selection method ships (cross-validated R^2 0.855 against
+0.754 for the gene body), and it was the better covariate on held-out
+mutation counts. `build_covariate_matrix(chromatin_windows=[...])`
+(CLI `--chromatin-windows`) overrides the windows of every chromatin
+source at once, e.g. `cds_span promoter`.
 
 - **`windows`** (default `["body", "promoter"]`): any of `body`,
   `promoter`, `cds_span` (first to last coding base: the gene
@@ -250,7 +273,10 @@ for other summaries; ATAC keeps the defaults.
   with_cds_span=True)`; NaN for a gene with no CDS) and
   `cds_span2k` (the CDS span +-2 kb). All 0-based half-open
   (`gene_windows`), starts clipped at 0.
-- **`transform`** (default `null`): `"log1p"` replaces each mean by
+- **`transform`** (default `null`): `"log1p_mean"` replaces each mean
+  by log1p of the mean (clipped at 0), columns ending `_logmean`; the
+  skewness fix (`fix_all(skip_skewness=...)`) leaves those columns
+  alone, as they are already on their scale. `"log1p"` replaces each mean by
   the mean of log1p(signal) *per base* (not the log of the mean)
   over the bases the track covers, the bases
   `pyBigWig.stats(..., exact=True)` counts. `pyBigWig.stats` cannot
@@ -260,6 +286,10 @@ for other summaries; ATAC keeps the defaults.
   `[null, "log1p"]`, emits each track's columns once per transform
   (linear then log, in the order given); a scalar or a one-element
   list behaves as before.
+- **`min_completeness`** (default `null`): drop a summary column with
+  values for fewer than that fraction of the source's genes (a track
+  missing whole chromosomes; the hg19/hg38 gene-set gaps that per-mark
+  averaging used to hide).
 - **Peaks**: `roadmap.peaks` (a list of `narrowPeak`/`broadPeak`)
   or `encode_chromatin.peak_tracks` (`{label, accession,
   peak_type}`) add `summarize_peak_coverage` columns

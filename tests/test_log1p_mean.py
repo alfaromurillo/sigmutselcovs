@@ -109,11 +109,10 @@ def test_fix_all_leaves_skipped_columns_alone():
 def test_build_does_not_log_the_columns_again(tmp_path):
     import json
 
-    from conftest import write_bigwig, write_gtf
+    from conftest import legacy_registry_raw, write_bigwig, write_gtf
 
     from sigmutselcovs.builder import build_covariate_matrix
     from sigmutselcovs.paths import project_paths
-    from sigmutselcovs.registry import location_projects_registry
 
     paths = project_paths(tmp_path / "data")
     paths.roadmap_dir.mkdir(parents=True)
@@ -122,7 +121,7 @@ def test_build_does_not_log_the_columns_again(tmp_path):
             paths.roadmap_dir / f"{track}.fc.signal.bigwig", seed
         )
     gtf = write_gtf(tmp_path / "g.gtf")
-    raw = json.loads(location_projects_registry.read_text())
+    raw = legacy_registry_raw()
     raw["projects"]["COAD"]["roadmap"].update(
         windows=["cds_span"], transform="log1p_mean"
     )

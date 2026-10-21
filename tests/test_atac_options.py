@@ -5,18 +5,17 @@ import json
 
 import pandas as pd
 import pytest
-from conftest import write_bigwig, write_gtf
+from conftest import legacy_registry_raw, write_bigwig, write_gtf
 
 from sigmutselcovs.builder import build_covariate_matrix
 from sigmutselcovs.paths import project_paths
 from sigmutselcovs.registry import (
     load_registry,
-    location_projects_registry,
 )
 
 
 def _registry(tmp_path, **atac):
-    raw = json.loads(location_projects_registry.read_text())
+    raw = legacy_registry_raw()
     raw["projects"]["COAD"]["atac"].update(atac)
     path = tmp_path / "projects.json"
     path.write_text(json.dumps(raw))

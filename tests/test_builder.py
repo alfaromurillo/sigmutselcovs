@@ -5,6 +5,7 @@ import logging
 import numpy as np
 import pandas as pd
 import pytest
+from conftest import legacy_registry_raw
 
 from sigmutselcovs import builder
 from sigmutselcovs.builder import (
@@ -461,9 +462,7 @@ def _registry_with_encode_chromatin(tmp_path):
     pattern) -- no shipped cohort has this source yet."""
     import json
 
-    from sigmutselcovs.registry import location_projects_registry
-
-    raw = json.loads(location_projects_registry.read_text())
+    raw = legacy_registry_raw()
     raw["projects"]["COAD"]["encode_chromatin"] = {
         "tracks": [
             {"label": "H3K23ac", "accession": "ENCFF000DDD"},
@@ -589,9 +588,7 @@ def test_average_by_assay_pools_roadmap_and_encode_together(
     Roadmap DNase + ENCODE's 83 DNase tracks)."""
     import json
 
-    from sigmutselcovs.registry import location_projects_registry
-
-    raw = json.loads(location_projects_registry.read_text())
+    raw = legacy_registry_raw()
     raw["projects"]["COAD"]["average_by_assay"] = True
     raw["projects"]["COAD"]["encode_chromatin"] = {
         "tracks": [{"label": "DNase", "accession": "ENCFF000EEE"}]

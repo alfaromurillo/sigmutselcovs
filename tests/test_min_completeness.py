@@ -3,13 +3,17 @@
 import json
 
 import pytest
-from conftest import CHROM_SIZES, write_bigwig, write_gtf
+from conftest import (
+    CHROM_SIZES,
+    legacy_registry_raw,
+    write_bigwig,
+    write_gtf,
+)
 
 from sigmutselcovs.builder import build_covariate_matrix
 from sigmutselcovs.paths import project_paths
 from sigmutselcovs.registry import (
     load_registry,
-    location_projects_registry,
 )
 
 
@@ -29,7 +33,7 @@ def _chr1_only_bigwig(path):
 
 
 def _registry(tmp_path, **roadmap):
-    raw = json.loads(location_projects_registry.read_text())
+    raw = legacy_registry_raw()
     raw["projects"]["COAD"]["roadmap"].update(roadmap)
     path = tmp_path / "projects.json"
     path.write_text(json.dumps(raw))

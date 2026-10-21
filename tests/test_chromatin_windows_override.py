@@ -4,11 +4,10 @@ chromatin source's windows."""
 import json
 
 import pytest
-from conftest import write_bigwig, write_gtf
+from conftest import legacy_registry_raw, write_bigwig, write_gtf
 
 from sigmutselcovs.builder import build_covariate_matrix
 from sigmutselcovs.paths import project_paths
-from sigmutselcovs.registry import location_projects_registry
 
 
 def test_override_adds_the_promoter(tmp_path):
@@ -16,7 +15,7 @@ def test_override_adds_the_promoter(tmp_path):
     paths.roadmap_dir.mkdir(parents=True)
     write_bigwig(paths.roadmap_dir / "E075-H3K4me3.fc.signal.bigwig")
     gtf = write_gtf(tmp_path / "g.gtf")
-    raw = json.loads(location_projects_registry.read_text())
+    raw = legacy_registry_raw()
     raw["projects"]["COAD"]["roadmap"].update(
         windows=["cds_span"], transform="log1p_mean"
     )

@@ -61,6 +61,7 @@ testpaths = ["tests"]
 markers = [
     "network: tests that hit external services (deselected by default)",
     "slow: long-running tests",
+    "shipped_registry: reads the packaged registry, not the legacy copy",
 ]
 addopts = "-m 'not network'"
 

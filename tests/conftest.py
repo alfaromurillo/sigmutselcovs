@@ -7,9 +7,67 @@ overlapping peaks. `dense_signal` returns the same signal per base
 """
 
 import gzip
+import json
 
 import numpy as np
 import pytest
+
+from sigmutselcovs import registry as _registry
+
+# The chromatin summaries every registry row used before the CDS-span
+# defaults (2026-10-21): body and promoter means of the 7 core marks,
+# all columns kept. Most builder tests check mechanics on that shape,
+# so they run against this copy of the shipped registry; tests of the
+# shipped rows themselves are marked ``shipped_registry``.
+LEGACY_MARKS = [
+    "H3K4me1",
+    "H3K4me3",
+    "H3K9ac",
+    "H3K9me3",
+    "H3K27ac",
+    "H3K27me3",
+    "H3K36me3",
+]
+SHIPPED_REGISTRY = _registry.location_projects_registry
+
+
+def legacy_registry_raw():
+    """The shipped registry with the pre-2026-10-21 chromatin defaults."""
+    raw = json.loads(SHIPPED_REGISTRY.read_text())
+    defaults = raw["defaults"]
+    for key in ("roadmap", "encode_chromatin", "atac"):
+        for field in ("windows", "transform", "min_completeness"):
+            defaults.get(key, {}).pop(field, None)
+    defaults.pop("encode_chromatin", None)
+    defaults["roadmap"]["marks"] = list(LEGACY_MARKS)
+    defaults["simple_matrix"].update(
+        body_pattern="h3k4me3_fc_signal_body",
+        promoter_pattern="h3k9me3_fc_signal_promoter",
+    )
+    generic = raw["projects"]["GENERIC"]
+    generic["average_by_assay"] = True
+    generic["roadmap"]["marks"] = [*LEGACY_MARKS, "DNase"]
+    return raw
+
+
+@pytest.fixture(scope="session")
+def _legacy_registry_path(tmp_path_factory):
+    path = tmp_path_factory.mktemp("registry") / "projects.json"
+    path.write_text(json.dumps(legacy_registry_raw()))
+    return path
+
+
+@pytest.fixture(autouse=True)
+def _legacy_registry(request, monkeypatch, _legacy_registry_path):
+    """Point the default registry at the legacy copy, unless the test
+    checks the shipped rows (``@pytest.mark.shipped_registry``)."""
+    if request.node.get_closest_marker("shipped_registry") is None:
+        monkeypatch.setattr(
+            _registry,
+            "location_projects_registry",
+            _legacy_registry_path,
+        )
+
 
 CHROM_SIZES = {"chr1": 20_000, "chr2": 12_000}
 # [start, end) stretches the bigWig leaves without data.

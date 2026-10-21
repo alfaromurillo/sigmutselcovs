@@ -5,14 +5,19 @@ import json
 import numpy as np
 import pandas as pd
 import pytest
-from conftest import CHROM_SIZES, GENE_IDS, write_gtf, write_peaks
+from conftest import (
+    CHROM_SIZES,
+    GENE_IDS,
+    legacy_registry_raw,
+    write_gtf,
+    write_peaks,
+)
 
 from sigmutselcovs import builder
 from sigmutselcovs import covariates_chromatin as cc
 from sigmutselcovs.builder import build_covariate_matrix
 from sigmutselcovs.covariates_utilities import load_chrom_sizes
 from sigmutselcovs.paths import project_paths
-from sigmutselcovs.registry import location_projects_registry
 
 # a peak at chr2's very end (chr2 is 12,000 bases long)
 END_PEAKS = [("chr1", 2_300, 2_800), ("chr2", 11_800, 12_000)]
@@ -116,7 +121,7 @@ def test_builder_clips_with_the_assembly_table(tmp_path, monkeypatch):
 
     # the synthetic genome's chromosomes are far shorter than hg19's
     monkeypatch.setattr(builder, "load_chrom_sizes", sizes)
-    raw = json.loads(location_projects_registry.read_text())
+    raw = legacy_registry_raw()
     raw["projects"]["COAD"]["roadmap"]["peaks"] = ["narrowPeak"]
     registry = tmp_path / "projects.json"
     registry.write_text(json.dumps(raw))
