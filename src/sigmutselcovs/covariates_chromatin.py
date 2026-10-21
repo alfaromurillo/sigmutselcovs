@@ -1183,6 +1183,28 @@ _WINDOW_SUFFIXES = tuple(
 _PEAK_SUFFIXES = tuple(f"_{t.lower()}" for t in PEAK_TYPES)
 
 
+def chromatin_track_identity(column: str) -> str:
+    """The track a chromatin summary column was computed from.
+
+    Strips the transform, window and peak-type suffixes and the
+    ``_fc_signal`` of fold-change tracks, so every summary of one
+    track maps to one key: ``e075_h3k4me3`` for a Roadmap epigenome
+    and mark (signal or peaks), ``h3k27ac_encff123abc`` for an ENCODE
+    file. Two sources that summarise the same track share the key
+    whatever their windows and transforms.
+    """
+    base, _ = split_transform_suffix(column)
+    for window_suffix in _WINDOW_SUFFIXES:
+        if base.endswith(window_suffix):
+            base = base[: -len(window_suffix)]
+            break
+    for peak_suffix in _PEAK_SUFFIXES:
+        if base.endswith(peak_suffix):
+            base = base[: -len(peak_suffix)]
+            break
+    return base.lower().replace("_fc_signal", "")
+
+
 def _collapse_by_assay(cov_df: pd.DataFrame) -> pd.DataFrame:
     """Average columns across tracks that share the same assay (e.g.
     all tracks matching ``H3K27ac``), separately for each summary:

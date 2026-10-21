@@ -27,6 +27,7 @@ from .covariates_chromatin import (
     _WINDOW_SUFFIXES,
     _collapse_by_assay,
     chromatin_cache_path,
+    chromatin_track_identity,
     load_or_generate_chromatin_covariates,
     load_or_generate_peak_covariates,
     split_transform_suffix,
@@ -77,8 +78,22 @@ class CovariateMatrices(NamedTuple):
     tcga: pd.DataFrame
 
 
+# Sources whose columns summarise one chromatin track each, so that a
+# cohort's track and the same track in a pool can be matched.
+_TRACK_SOURCES = (
+    "atac",
+    "roadmap",
+    "encode_chromatin",
+    "roadmap_peaks",
+    "encode_chromatin_peaks",
+)
+
+
 def combine_with_generic(
-    cov_matrix_full: pd.DataFrame, generic_matrix: pd.DataFrame
+    cov_matrix_full: pd.DataFrame,
+    generic_matrix: pd.DataFrame,
+    *,
+    drop_own_tracks: bool = False,
 ) -> pd.DataFrame:
     """Concatenate a cohort's ``cov_matrix_full`` with a tissue-
     agnostic pool (e.g. the ``GENERIC`` pseudo-project's
@@ -94,10 +109,51 @@ def combine_with_generic(
     tissue of its own in GTEx can use the pool's own pan-tissue
     median as its expression column, and the combined matrix must
     not carry it twice.
+
+    With ``drop_own_tracks``, a pool column summarising a chromatin
+    track the cohort's matrix already summarises is left out too,
+    matched by track identity (`chromatin_track_identity`: Roadmap
+    epigenome and mark, ENCODE file accession) rather than by column
+    name, so it holds whatever windows and transforms each side
+    uses. Only columns of track sources are matched; with no recorded
+    ``column_sources`` every column is a candidate.
     """
     generic_sources = dict(
         generic_matrix.attrs.get("column_sources", {})
     )
+    if drop_own_tracks:
+        own_sources = cov_matrix_full.attrs.get("column_sources")
+
+        def track_columns(matrix, sources):
+            return [
+                c
+                for c in matrix.columns
+                if sources is None or sources.get(c) in _TRACK_SOURCES
+            ]
+
+        own_tracks = {
+            chromatin_track_identity(c)
+            for c in track_columns(cov_matrix_full, own_sources)
+        }
+        duplicates = [
+            c
+            for c in track_columns(
+                generic_matrix, generic_sources or None
+            )
+            if chromatin_track_identity(c) in own_tracks
+        ]
+        if duplicates:
+            logger.info(
+                "combine_with_generic: %d pool column(s) summarise "
+                "tracks the cohort's matrix has; left out",
+                len(duplicates),
+            )
+            generic_matrix = generic_matrix.drop(columns=duplicates)
+            generic_sources = {
+                k: v
+                for k, v in generic_sources.items()
+                if k not in duplicates
+            }
     shared = generic_matrix.columns.intersection(
         cov_matrix_full.columns
     )
