@@ -469,6 +469,27 @@ def _load_chromatin(
     )
 
 
+def _drop_incomplete(
+    source: str, frame: pd.DataFrame, min_completeness: float | None
+) -> pd.DataFrame:
+    """Drop the columns with values for fewer than ``min_completeness``
+    of the frame's genes (all kept when it is None)."""
+    if min_completeness is None or frame.empty:
+        return frame
+    complete = frame.notna().mean()
+    drop = complete.index[complete < min_completeness]
+    if len(drop):
+        logger.info(
+            "%s: dropping %d of %d columns with values for under "
+            "%.0f%% of genes",
+            source,
+            len(drop),
+            frame.shape[1],
+            100 * min_completeness,
+        )
+    return frame.drop(columns=drop)
+
+
 def _chrom_sizes(assembly: str | None) -> dict[str, int] | None:
     """The packaged chromosome sizes of an assembly, or None (with a
     warning) when there is no table for it."""
@@ -547,6 +568,9 @@ def _chromatin_source_frames(
         transform=chrom_spec.transform,
     )
     if signal is not None:
+        signal = _drop_incomplete(
+            source, signal, chrom_spec.min_completeness
+        )
         out.append((source, signal))
     if peak_types:
         peaks = _load_chromatin_peaks(
@@ -560,6 +584,9 @@ def _chromatin_source_frames(
             assembly=chrom_spec.assembly,
         )
         if peaks is not None:
+            peaks = _drop_incomplete(
+                f"{source}_peaks", peaks, chrom_spec.min_completeness
+            )
             out.append((f"{source}_peaks", peaks))
     return out
 
@@ -1077,6 +1104,9 @@ def build_covariate_matrix(
                 transform=spec.atac.transform,
             )
             if atac_covs is not None:
+                atac_covs = _drop_incomplete(
+                    "atac", atac_covs, spec.atac.min_completeness
+                )
                 if spec.average_by_assay:
                     chromatin_frames_to_collapse.append(atac_covs)
                 else:

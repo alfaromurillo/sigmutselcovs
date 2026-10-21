@@ -117,8 +117,8 @@ class GexpSpec:
 class AtacSpec:
     """TCGA ATAC-seq source (Corces et al. bigWig tarball on GDC).
 
-    ``windows`` and ``transform`` choose the per-gene summaries of
-    each sample's track, as for `RoadmapSpec`.
+    ``windows``, ``transform`` and ``min_completeness`` are as for
+    `RoadmapSpec`.
     """
 
     gdc_uuid: str
@@ -126,6 +126,7 @@ class AtacSpec:
     assembly: str = "hg38"
     windows: tuple[str, ...] = DEFAULT_CHROMATIN_WINDOWS
     transform: str | None | tuple[str | None, ...] = None
+    min_completeness: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -141,8 +142,11 @@ class RoadmapSpec:
     (``"narrowPeak"``, ``"broadPeak"``) to also summarise, as the
     fraction of each window covered by the (eid, mark)'s peaks, in
     columns ``<eid>_<mark>_<peaktype>_<window>``; peak files are
-    fetched from ``peaks_url_template``. The defaults (body and
-    promoter means, no transform, no peaks) are the original
+    fetched from ``peaks_url_template``. ``min_completeness`` drops
+    any summary column with values for fewer than that fraction of
+    the source's genes (a track missing whole chromosomes, or a gene
+    set of another assembly). The defaults (body and promoter means,
+    no transform, no peaks, every column kept) are the original
     summaries.
     """
 
@@ -162,6 +166,7 @@ class RoadmapSpec:
         "https://egg2.wustl.edu/roadmap/data/byFileType/peaks/"
         "consolidated/{peak_type}/{eid}-{mark}.{peak_type}.gz"
     )
+    min_completeness: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -213,7 +218,8 @@ class EncodeChromatinSpec:
     track (body, promoter), same convention as `RoadmapSpec`/
     `AtacSpec`. ``windows`` and ``transform`` change the signal
     summaries as for `RoadmapSpec`; ``peak_tracks`` adds peak
-    coverage columns ``<mark>_<accession>_<peaktype>_<window>``.
+    coverage columns ``<mark>_<accession>_<peaktype>_<window>``, and
+    ``min_completeness`` is as for `RoadmapSpec`.
     """
 
     tracks: tuple[TrackRef, ...]
@@ -221,6 +227,7 @@ class EncodeChromatinSpec:
     windows: tuple[str, ...] = DEFAULT_CHROMATIN_WINDOWS
     transform: str | None | tuple[str | None, ...] = None
     peak_tracks: tuple[PeakRef, ...] = ()
+    min_completeness: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -461,6 +468,16 @@ def _validate_chromatin_options(code: str, key: str, entry: dict):
     if "peaks" in entry:
         _validate_names(
             code, f"{key}.peaks", entry["peaks"], PEAK_TYPES, True
+        )
+    completeness = entry.get("min_completeness")
+    if completeness is not None and not (
+        isinstance(completeness, (int, float))
+        and not isinstance(completeness, bool)
+        and 0 < completeness <= 1
+    ):
+        raise ValueError(
+            f"{code}: {key}.min_completeness must be a fraction in "
+            f"(0, 1], not {completeness!r}"
         )
     for ref in entry.get("peak_tracks") or []:
         if not isinstance(ref, dict) or not {
