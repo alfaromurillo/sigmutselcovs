@@ -30,6 +30,7 @@ import pandas as pd
 from .covariates_utilities import sanitize_feature_label
 from .registry import (
     CHROMATIN_WINDOWS,
+    TRANSFORM_SUFFIXES,
     ProjectSpec,
     chromatin_transforms,
     get_project,
@@ -382,8 +383,10 @@ def _sanity_tier(
             if source is None:
                 continue
             for transform in chromatin_transforms(source.transform):
-                log = "_log" if transform == "log1p" else ""
-                summaries.update(f"_{w}{log}" for w in source.windows)
+                tail = TRANSFORM_SUFFIXES[transform]
+                summaries.update(
+                    f"_{w}{tail}" for w in source.windows
+                )
         if spec.roadmap is not None:
             summaries.update(
                 f"_{t.lower()}_{w}"

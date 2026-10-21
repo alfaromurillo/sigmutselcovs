@@ -20,6 +20,7 @@ from .registry import (
     CHROMATIN_WINDOWS,
     DEFAULT_CHROMATIN_WINDOWS,
     PEAK_TYPES,
+    TRANSFORM_SUFFIXES,
     chromatin_transforms,
 )
 
@@ -185,7 +186,7 @@ def summarize_promoter_signal(
 # `load_gene_bodies_from_gtf(..., with_cds_span=True)` adds.
 _CDS_WINDOWS = ("cds_span", "cds_span2k")
 _CDS_FLANK = 2000
-_LOG_SUFFIX = "_log"
+_LOG_SUFFIX = TRANSFORM_SUFFIXES["log1p"]
 # Bases of one bigWig read in `_log1p_interval_means`: bounds memory
 # (a float64 log and a cumulative sum per base) at ~200 MB however
 # long the chromosome, while a gene of several Mb still fits in one.
@@ -232,7 +233,12 @@ def check_windows(windows: Iterable[str]) -> tuple[str, ...]:
 
 
 def check_transform(transform: str | None) -> str | None:
-    """Validate a chromatin signal transform (None or ``"log1p"``)."""
+    """Validate a chromatin signal transform.
+
+    ``None`` (the linear mean), ``"log1p"`` (the mean of
+    ``log1p(signal)`` per base) or ``"log1p_mean"`` (``log1p`` of the
+    linear mean, the mean clipped at 0 first).
+    """
     if (
         transform is not None
         and transform not in CHROMATIN_TRANSFORMS
@@ -359,9 +365,23 @@ def gene_windows(
 def window_column(
     label: str, window: str, transform: str | None = None
 ) -> str:
-    """Column name of a bigWig summary: ``<label>_<window>[_log]``."""
+    """Column name of a bigWig summary: ``<label>_<window>`` plus the
+    transform's suffix (``_log`` for ``"log1p"``, ``_logmean`` for
+    ``"log1p_mean"``; see `TRANSFORM_SUFFIXES`)."""
     name = sanitize_feature_label(f"{label}_{window}")
-    return name + _LOG_SUFFIX if transform == "log1p" else name
+    return name + TRANSFORM_SUFFIXES[transform]
+
+
+def split_transform_suffix(column: str) -> tuple[str, str | None]:
+    """A summary column's name without its transform suffix, and the
+    transform (the inverse of `window_column`'s suffix)."""
+    for transform in ("log1p_mean", "log1p"):
+        suffix = TRANSFORM_SUFFIXES[transform]
+        if column.endswith(suffix) and column[
+            : -len(suffix)
+        ].endswith(_WINDOW_SUFFIXES):
+            return column[: -len(suffix)], transform
+    return column, None
 
 
 def _gene_series(
@@ -501,12 +521,14 @@ def summarize_bigwig_windows(
         Gene table as `gene_windows` takes it.
     windows : sequence of str, default ("body", "promoter")
         Windows to summarise over, each one of ``CHROMATIN_WINDOWS``.
-    transform : {None, "log1p"}, default None
+    transform : {None, "log1p", "log1p_mean"}, default None
         ``None`` gives ``statistic`` of the signal. ``"log1p"`` gives
         the mean over the window of ``log1p(signal)`` per base (not
         the log of the mean), over the bases the track covers; it
-        assumes a signal above -1 (fold change, p-values, coverage),
-        and needs ``statistic="mean"``.
+        assumes a signal above -1 (fold change, p-values, coverage).
+        ``"log1p_mean"`` gives ``log1p`` of the window's linear mean,
+        the mean clipped at 0 first (a fold change is not negative).
+        Both need ``statistic="mean"``.
     label : str, optional
         Column label stem; defaults to the file stem.
     statistic : str, default "mean"
@@ -519,15 +541,15 @@ def summarize_bigwig_windows(
     -------
     pandas.DataFrame
         Indexed like ``genes``, one column per window, named by
-        `window_column` (``<label>_<window>``, plus ``_log`` for the
-        log transform), in the order of ``windows``.
+        `window_column` (``<label>_<window>``, plus the transform's
+        suffix), in the order of ``windows``.
 
     Notes
     -----
     Without a transform, the ``body`` and ``promoter`` columns are
     exactly `summarize_bigwig_over_genes` and
     `summarize_promoter_signal`, which give NaN for a window running
-    past the chromosome end. The CDS windows and the log transform
+    past the chromosome end. The CDS windows and the log transforms
     clip such a window to the chromosome instead.
     """
     windows = check_windows(windows)
@@ -593,6 +615,8 @@ def summarize_bigwig_windows(
                 values = _linear_interval_means(
                     bw, all_chroms, starts, ends, statistic
                 )
+                if transform == "log1p_mean":
+                    values = np.log1p(np.clip(values, 0, None))
         for k, (_, name) in enumerate(computed):
             block = values[k * len(genes) : (k + 1) * len(genes)]
             columns[name] = _gene_series(genes, block, name)
@@ -898,8 +922,8 @@ def summarise_tracks_to_genes(
         Windows to summarise each track over (see
         `summarize_bigwig_windows`); when given, ``include_promoter``
         is ignored. ``None`` keeps the body (and promoter) summaries.
-    transform : {None, "log1p"} or sequence of them, default None
-        Per-base transform of the signal before averaging (see
+    transform : {None, "log1p", "log1p_mean"} or a sequence, optional
+        Transform of the signal summaries (see
         `summarize_bigwig_windows`). A sequence such as
         ``[None, "log1p"]`` gives each track's columns once per
         transform, in that order.
@@ -1113,7 +1137,7 @@ def chromatin_cache_path(
         ``chromatin/roadmap/chromatin_covs_roadmap.csv``.
     windows : sequence of str, default ("body", "promoter")
         Summary windows, in column order.
-    transform : {None, "log1p"} or sequence of them, default None
+    transform : {None, "log1p", "log1p_mean"} or a sequence, optional
         Signal transform(s). A one-element sequence names the same
         file as its scalar; a longer one is spelled out in order,
         ``None`` as ``linear`` (e.g. ``..._linear-log1p.csv``).
@@ -1172,11 +1196,8 @@ def _collapse_by_assay(cov_df: pd.DataFrame) -> pd.DataFrame:
     def assay_key(col: str) -> str:
         base = col
         tail = ""
-        if base.endswith(_LOG_SUFFIX) and base[
-            : -len(_LOG_SUFFIX)
-        ].endswith(_WINDOW_SUFFIXES):
-            tail = _LOG_SUFFIX
-            base = base[: -len(_LOG_SUFFIX)]
+        base, transform = split_transform_suffix(base)
+        tail = TRANSFORM_SUFFIXES[transform]
         suffix = ""
         for window_suffix in _WINDOW_SUFFIXES:
             if base.endswith(window_suffix):
@@ -1262,8 +1283,8 @@ def load_or_generate_chromatin_covariates(
         Windows to summarise each track over (see
         `summarize_bigwig_windows`); overrides ``include_promoter``.
         The CDS windows read the GTF's ``CDS`` features as well.
-    transform : {None, "log1p"} or sequence of them, default None
-        Per-base transform(s) of the signal before averaging, as in
+    transform : {None, "log1p", "log1p_mean"} or a sequence, optional
+        Transform(s) of the signal summaries, as in
         `summarise_tracks_to_genes`.
 
     Returns

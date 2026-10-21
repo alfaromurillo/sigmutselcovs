@@ -23,13 +23,13 @@ import pandas as pd
 
 from .covariates_checks import fix_all
 from .covariates_chromatin import (
-    _LOG_SUFFIX,
     _PEAK_SUFFIXES,
     _WINDOW_SUFFIXES,
     _collapse_by_assay,
     chromatin_cache_path,
     load_or_generate_chromatin_covariates,
     load_or_generate_peak_covariates,
+    split_transform_suffix,
 )
 from .covariates_gene_expression import (
     import_gtex,
@@ -733,10 +733,16 @@ def _windows_phrase(chrom_spec) -> str:
     ):
         return "gene body or promoter window"
     phrase = "gene windows (" + ", ".join(chrom_spec.windows) + ")"
-    if transforms == ("log1p",):
-        phrase += " of log1p(signal) per base"
-    elif "log1p" in transforms:
-        phrase += ", and the mean of log1p(signal) per base"
+    described = {
+        "log1p": "the mean of log1p(signal) per base",
+        "log1p_mean": "log1p of the mean signal",
+    }
+    if len(transforms) == 1 and transforms[0] is not None:
+        phrase += ", " + described[transforms[0]]
+    else:
+        for t in transforms:
+            if t is not None:
+                phrase += ", and " + described[t]
     return phrase
 
 
@@ -757,12 +763,7 @@ def _column_detail(source: str, column: str) -> str:
         "encode_chromatin_peaks",
         "chromatin_collapsed",
     ):
-        name = column
-        log = name.endswith(_LOG_SUFFIX) and name[
-            : -len(_LOG_SUFFIX)
-        ].endswith(_WINDOW_SUFFIXES)
-        if log:
-            name = name[: -len(_LOG_SUFFIX)]
+        name, transform = split_transform_suffix(column)
         window = next(
             (w for w in _WINDOW_SUFFIXES if name.endswith(w)), None
         )
@@ -774,8 +775,10 @@ def _column_detail(source: str, column: str) -> str:
                     detail += (
                         f", fraction covered by {peak_type} peaks"
                     )
-            if log:
+            if transform == "log1p":
                 detail += ", mean of log1p(signal) per base"
+            elif transform == "log1p_mean":
+                detail += ", log1p of the mean signal"
             return detail
     if source == "clr":
         return f"S-phase fraction {column.removeprefix('clr_rt_s')}"
@@ -1167,7 +1170,16 @@ def build_covariate_matrix(
 
     reports: dict = {}
     if apply_fixes:
-        cov_matrix_full, reports = fix_all(cov_matrix_full_raw)
+        # log1p of a mean signal is already on its scale; the
+        # skewness fix's log(c + x) would log it a second time.
+        already_log = [
+            c
+            for c in cov_matrix_full_raw.columns
+            if split_transform_suffix(c)[1] == "log1p_mean"
+        ]
+        cov_matrix_full, reports = fix_all(
+            cov_matrix_full_raw, skip_skewness=already_log
+        )
     else:
         cov_matrix_full = cov_matrix_full_raw
 
@@ -1212,13 +1224,14 @@ def build_covariate_matrix(
                 "cov_matrix_simple: no mrt column; omitting"
             )
 
-    # A pattern names linear-mean columns unless it ends in "_log":
-    # "h3k4me3_fc_signal_body" is also a substring of the log-mean
-    # column "..._fc_signal_body_log", which must not be averaged in.
+    # A pattern names linear-mean columns unless it carries a
+    # transform suffix: "h3k4me3_fc_signal_body" is also a substring of
+    # the log columns "..._fc_signal_body_log" and "..._body_logmean",
+    # which must not be averaged in.
     def matches(pattern: str, column: str) -> bool:
-        return pattern in column and column.endswith(
-            _LOG_SUFFIX
-        ) == pattern.endswith(_LOG_SUFFIX)
+        base, transform = split_transform_suffix(column)
+        p_base, p_transform = split_transform_suffix(pattern)
+        return p_base in base and transform == p_transform
 
     body_cols = [
         c

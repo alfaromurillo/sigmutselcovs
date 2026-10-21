@@ -14,6 +14,7 @@ right action (imputation, dropping, etc.) is context-dependent.
 """
 
 import logging
+from collections.abc import Sequence
 
 import numpy as np
 import pandas as pd
@@ -288,7 +289,15 @@ def check_skewness(
             }
         )
 
-    return pd.DataFrame(records).set_index("column")
+    fields = [
+        "column",
+        "skewness",
+        "max_median_ratio",
+        "all_nonneg",
+        "apply_log",
+        "pseudo_count",
+    ]
+    return pd.DataFrame(records, columns=fields).set_index("column")
 
 
 def fix_skewness(
@@ -563,6 +572,7 @@ def fix_all(
     dominant_pct_threshold: float = 0.95,
     skew_threshold: float = 1.0,
     max_median_ratio_threshold: float = 10.0,
+    skip_skewness: Sequence[str] = (),
 ) -> tuple[pd.DataFrame, dict[str, pd.DataFrame]]:
     """Drop low-variance columns then apply log transforms.
 
@@ -584,6 +594,10 @@ def fix_all(
         Forwarded to :func:`fix_variance`.
     skew_threshold, max_median_ratio_threshold
         Forwarded to :func:`fix_skewness`.
+    skip_skewness : sequence of str, default ()
+        Columns the skewness fix leaves alone: ones already on the
+        scale they are meant to have (e.g. ``log1p`` of a mean signal,
+        which the half-minimum ``log(c + x)`` would log again).
 
     Returns
     -------
@@ -599,8 +613,19 @@ def fix_all(
         dominant_pct_threshold=dominant_pct_threshold,
     )
 
+    skip = set(skip_skewness)
+    skew_columns = (
+        [
+            c
+            for c in fixed.select_dtypes(include="number").columns
+            if c not in skip
+        ]
+        if skip
+        else None
+    )
     fixed, skew_report = fix_skewness(
         fixed,
+        columns=skew_columns,
         skew_threshold=skew_threshold,
         max_median_ratio_threshold=max_median_ratio_threshold,
     )

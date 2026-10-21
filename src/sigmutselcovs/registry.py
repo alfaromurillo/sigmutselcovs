@@ -59,15 +59,24 @@ _GTEX_REDUCE_METHODS = ("median",)
 # imports pyBigWig.
 CHROMATIN_WINDOWS = ("body", "promoter", "cds_span", "cds_span2k")
 DEFAULT_CHROMATIN_WINDOWS = ("body", "promoter")
-CHROMATIN_TRANSFORMS = ("log1p",)
+CHROMATIN_TRANSFORMS = ("log1p", "log1p_mean")
+# Column suffix of each transform (`covariates_chromatin.window_column`):
+# the per-base log mean keeps the historical ``_log``; the log of the
+# linear mean is ``_logmean``.
+TRANSFORM_SUFFIXES = {
+    None: "",
+    "log1p": "_log",
+    "log1p_mean": "_logmean",
+}
 PEAK_TYPES = ("narrowPeak", "broadPeak")
 
 
 def chromatin_transforms(transform) -> tuple[str | None, ...]:
     """A chromatin source's ``transform`` field as a tuple.
 
-    A scalar (``None`` for the linear mean, or ``"log1p"``) is one
-    transform; a list or tuple (e.g. ``[None, "log1p"]``) asks for one
+    A scalar (``None`` for the linear mean, ``"log1p"`` for the mean
+    of ``log1p(signal)`` per base, ``"log1p_mean"`` for ``log1p`` of
+    the linear mean) is one transform; a list or tuple (e.g. ``[None, "log1p"]``) asks for one
     set of signal columns per transform, in that order.
     """
     if transform is None or isinstance(transform, str):
@@ -121,7 +130,7 @@ class RoadmapSpec:
     each signal track (see `covariates_chromatin.gene_windows` and
     `covariates_chromatin.summarize_bigwig_windows`): one column
     ``<label>_<window>`` per window, with ``_log`` appended under
-    ``transform="log1p"``; a list such as ``[None, "log1p"]`` emits
+    ``transform="log1p"`` and ``_logmean`` under ``"log1p_mean"``; a list such as ``[None, "log1p"]`` emits
     both the linear and the log columns (see `chromatin_transforms`). ``peaks`` names peak-call types
     (``"narrowPeak"``, ``"broadPeak"``) to also summarise, as the
     fraction of each window covered by the (eid, mark)'s peaks, in
