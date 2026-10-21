@@ -11,6 +11,7 @@ from an existing ``coad_data/`` tree is bit-for-bit identical to the
 old ``coad_analysis/code/covariates.py`` ``build()``.
 """
 
+import dataclasses
 import hashlib
 import json
 import logging
@@ -955,6 +956,21 @@ def _write_manifest(
     )
 
 
+def _with_chromatin_windows(
+    spec: ProjectSpec, windows: Sequence[str]
+) -> ProjectSpec:
+    """``spec`` with every chromatin source summarised over ``windows``."""
+    from .covariates_chromatin import check_windows
+
+    windows = check_windows(windows)
+    changes = {
+        key: dataclasses.replace(source, windows=windows)
+        for key in ("roadmap", "encode_chromatin", "atac")
+        if (source := getattr(spec, key)) is not None
+    }
+    return dataclasses.replace(spec, **changes)
+
+
 def build_covariate_matrix(
     project: str,
     data_dir: str | Path,
@@ -970,6 +986,7 @@ def build_covariate_matrix(
     return_reports: bool = False,
     validate_output: bool = True,
     strict_validation: bool = False,
+    chromatin_windows: Sequence[str] | None = None,
 ) -> CovariateMatrices | tuple[CovariateMatrices, dict]:
     """Build the covariate matrices for a registered project.
 
@@ -1009,6 +1026,11 @@ def build_covariate_matrix(
         matrix at the end of the build (results are logged).
     strict_validation : bool
         Raise when a validation check fails.
+    chromatin_windows : Sequence[str] | None
+        Windows for every chromatin source (roadmap, encode_chromatin,
+        atac), replacing the registry's, e.g. ``["cds_span",
+        "promoter"]`` to add the promoter to a CDS-span build. Each
+        option set has its own caches. None keeps the registry's.
 
     Returns
     -------
@@ -1017,6 +1039,8 @@ def build_covariate_matrix(
     ``(cov_matrix_full, cov_matrix_simple, cov_matrix_tcga)``.
     """
     spec = get_project(project, registry_path)
+    if chromatin_windows is not None:
+        spec = _with_chromatin_windows(spec, chromatin_windows)
     paths = project_paths(data_dir)
     selected = _selected(include, exclude)
     gtfs = dict(gencode_gtfs) if gencode_gtfs is not None else None
