@@ -298,6 +298,10 @@ def print_info_about_izs(variants_df):
 
 
 _AUTOSOMES = tuple(f"chr{i}" for i in range(1, 23))
+# Chromosomes binned by default, and the genes timed: autosomes and
+# chrX, as the chromatin summaries keep chrX genes. A track or table
+# without chrX leaves those genes NaN, as before.
+_RT_CHROMOSOMES = (*_AUTOSOMES, "chrX")
 
 
 def _bin_bigwigs(
@@ -316,7 +320,7 @@ def _bin_bigwigs(
 
     Chromosome naming ('chr1' vs '1') is reconciled per track via
     `normalize_chromosome_name`; output names are the requested ones
-    (default 'chr1'..'chr22').  When tracks disagree on a chromosome
+    (default 'chr1'..'chr22' and 'chrX').  When tracks disagree on a chromosome
     length, the minimum is used and a warning is logged.
     """
     import pyBigWig
@@ -326,7 +330,7 @@ def _bin_bigwigs(
         wanted = (
             list(chromosomes)
             if chromosomes is not None
-            else list(_AUTOSOMES)
+            else list(_RT_CHROMOSOMES)
         )
         chrom_col: list[str] = []
         start_col: list[int] = []
@@ -414,8 +418,8 @@ def load_repliseq_fractions_bins_from_bigwigs(
     bin_size : int
         Genomic window size (default 50 kb, matching the MAT tables).
     chromosomes : sequence of str | None
-        Chromosomes to bin; default autosomes chr1..chr22 (matching
-        `load_gene_bodies_from_gtf(autosomes_only=True)` downstream).
+        Chromosomes to bin; default chr1..chr22 and chrX (the genes
+        the per-gene summaries time).
     statistic : str
         Per-bin summary statistic (``pyBigWig.stats`` type).
     """
@@ -681,7 +685,9 @@ def generate_rt_fractions_per_gene(
     fracs = load_repliseq_fractions_bins(
         repliseq_source, source_type=source_type, bin_size=bin_size
     )
-    gene_bodies = load_gene_bodies_from_gtf(gencode_annotation)
+    gene_bodies = load_gene_bodies_from_gtf(
+        gencode_annotation, autosomes_only=False
+    )
     rt_cols = [c for c in fracs.columns if c.startswith("rt_s")]
     annotated = annotate_with_binned_features(
         gene_bodies, fracs, feature_cols=rt_cols
@@ -788,7 +794,9 @@ def generate_rt_wavelet_per_gene(
         statistic=statistic,
     )
     bins = bins.rename(columns={"track_1": "rt_wavelet"})
-    gene_bodies = load_gene_bodies_from_gtf(gencode_annotation)
+    gene_bodies = load_gene_bodies_from_gtf(
+        gencode_annotation, autosomes_only=False
+    )
     annotated = annotate_with_binned_features(
         gene_bodies, bins, feature_cols="rt_wavelet"
     )
@@ -880,7 +888,9 @@ def generate_mrt_per_gene(
         mrt_fraction_cols=mrt_fraction_cols,
     )
 
-    gene_bodies = load_gene_bodies_from_gtf(gencode_annotation)
+    gene_bodies = load_gene_bodies_from_gtf(
+        gencode_annotation, autosomes_only=False
+    )
 
     mrt_per_gene = annotate_with_binned_features(
         gene_bodies, cov_mrt
@@ -931,7 +941,8 @@ def load_or_generate_mrt(
     Notes
     -----
     - Coordinate system is 0-based half-open for both bins and gene bodies.
-    - `load_gene_bodies_from_gtf` defaults will add 'chr' and keep autosomes.
+    - Genes of every chromosome are read; those without bins (chrY,
+      or chrX in an autosome-only table) are NaN.
     - If you prefer “earliness”, transform later: `1 - returned_series`.
 
     """
@@ -960,7 +971,9 @@ def load_or_generate_mrt(
         bin_size=bin_size,
         mrt_fraction_cols=mrt_fraction_cols,
     )
-    gene_bodies = load_gene_bodies_from_gtf(gencode_annotation)
+    gene_bodies = load_gene_bodies_from_gtf(
+        gencode_annotation, autosomes_only=False
+    )
     annotated = annotate_with_binned_features(
         gene_bodies, cov_mrt, feature_cols="mrt"
     )
