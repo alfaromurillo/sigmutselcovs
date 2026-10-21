@@ -5,7 +5,10 @@ Subcommands:
 - ``projects`` — list registered cancer types
 - ``download <PROJECT> --data-dir DIR [--which ...]`` — fetch source
   data
-- ``build <PROJECT> --data-dir DIR`` — build and cache the matrices
+- ``build <PROJECT> --data-dir DIR [--chromatin-windows ...]`` —
+  build and cache the matrices
+- ``stream-chromatin <PROJECT> --data-dir DIR --source roadmap`` —
+  build a chromatin source's cache by streaming its tracks
 - ``validate <PROJECT> --data-dir DIR`` — run the sanity and
   plausibility checks
 - ``fetch <PROJECT> [--which pca] [--columns ...] [--blocks ...]
@@ -115,6 +118,28 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="fail on validation errors",
     )
+    p.add_argument(
+        "--chromatin-windows",
+        nargs="+",
+        default=None,
+        help="windows for every chromatin source, replacing the "
+        "registry's (e.g. cds_span promoter)",
+    )
+
+    p = sub.add_parser(
+        "stream-chromatin",
+        help="build a chromatin source's cache by streaming its "
+        "tracks (no bigWig kept)",
+    )
+    _add_project_arg(p)
+    _add_data_dir_arg(p)
+    p.add_argument(
+        "--source",
+        required=True,
+        choices=["roadmap", "encode_chromatin"],
+    )
+    p.add_argument("--workers", type=int, default=6)
+    p.add_argument("--chromatin-windows", nargs="+", default=None)
 
     p = sub.add_parser("validate", help="run covariate checks")
     _add_project_arg(p)
@@ -229,6 +254,7 @@ def main(argv: list[str] | None = None) -> int:
             exclude=tuple(args.exclude),
             cache_matrices=not args.no_cache,
             strict_validation=args.strict,
+            chromatin_windows=args.chromatin_windows,
         )
         for name in ("full", "simple", "tcga"):
             shape = getattr(matrices, name).shape
@@ -236,6 +262,19 @@ def main(argv: list[str] | None = None) -> int:
                 f"cov_matrix_{name}: {shape[0]} genes x "
                 f"{shape[1]} columns"
             )
+        return 0
+
+    if args.command == "stream-chromatin":
+        from .chromatin_stream import stream_chromatin_cache
+
+        cache = stream_chromatin_cache(
+            args.project,
+            args.data_dir,
+            args.source,
+            workers=args.workers,
+            chromatin_windows=args.chromatin_windows,
+        )
+        print(cache)
         return 0
 
     if args.command == "validate":
