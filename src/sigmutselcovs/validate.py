@@ -123,13 +123,31 @@ def _expression_series(
     return None
 
 
+# The gene-level window and summary the biology checks read, in order
+# of preference: the first a build has.
+_CHECK_ENDINGS = tuple(
+    f"{window}{tail}"
+    for window in ("body", "cds_span")
+    for tail in TRANSFORM_SUFFIXES.values()
+)
+
+
 def _mark_mean(
-    df: pd.DataFrame, mark: str, where: str
+    df: pd.DataFrame, mark: str, where: str | None = None
 ) -> pd.Series | None:
-    """Mean of a mark's signal columns over one window: the linear
-    means, or the log-means (``..._<where>_log``) when a build has
-    only those."""
-    for ending in (where, f"{where}_log"):
+    """Mean of a mark's signal columns over one window.
+
+    With ``where``, that window's linear means, else its log summaries
+    (``_log``, ``_logmean``) when a build has only those. Without it,
+    the first of `_CHECK_ENDINGS` the build has (the gene body, else
+    the CDS span).
+    """
+    endings = (
+        (where, f"{where}_log", f"{where}_logmean")
+        if where is not None
+        else _CHECK_ENDINGS
+    )
+    for ending in endings:
         cols = [
             c
             for c in df.columns
@@ -138,6 +156,19 @@ def _mark_mean(
         if cols:
             return df[cols].mean(axis=1)
     return None
+
+
+def _gene_level_columns(columns, prefix: str = "") -> list[str]:
+    """Columns of the first of `_CHECK_ENDINGS` any column has."""
+    for ending in _CHECK_ENDINGS:
+        cols = [
+            c
+            for c in columns
+            if c.startswith(prefix) and c.endswith(ending)
+        ]
+        if cols:
+            return cols
+    return []
 
 
 def _check_direction(
@@ -313,14 +344,22 @@ def _sanity_tier(
             for c in df.columns
             if c.startswith(spec.atac.column_prefix.lower() + "_")
         ]
+        per_sample = len(spec.atac.windows) * len(
+            chromatin_transforms(spec.atac.transform)
+        )
         if atac_cols:
             report.add(
                 "atac_body_promoter_pairs",
                 "atac",
-                "pass" if len(atac_cols) % 2 == 0 else "fail",
+                (
+                    "pass"
+                    if len(atac_cols) % per_sample == 0
+                    else "fail"
+                ),
                 value=len(atac_cols),
-                threshold="even",
-                note="each sample contributes body+promoter",
+                threshold=f"multiple of {per_sample}",
+                note="each sample contributes one column per window "
+                "and transform",
             )
     if spec.roadmap is not None:
         # Roadmap columns are "<eid>_<mark>_fc_signal_<region>"; an
@@ -400,7 +439,11 @@ def _sanity_tier(
                 for w in spec.encode_chromatin.windows
             )
         if spec.atac is not None:
-            summaries.update(("_body", "_promoter"))
+            summaries.update(
+                f"_{w}{TRANSFORM_SUFFIXES[t]}"
+                for t in chromatin_transforms(spec.atac.transform)
+                for w in spec.atac.windows
+            )
         if spec.roadmap is not None:
             marks.update(m.lower() for m in spec.roadmap.marks)
         if spec.encode_chromatin is not None:
@@ -410,9 +453,9 @@ def _sanity_tier(
         if spec.atac is not None:
             marks.add("atac")
         endings = tuple(
-            f"_{w}{log}"
+            f"_{w}{tail}"
             for w in CHROMATIN_WINDOWS
-            for log in ("", "_log")
+            for tail in TRANSFORM_SUFFIXES.values()
         )
         collapsed_cols = [
             c for c in df.columns if c.endswith(endings)
@@ -475,7 +518,7 @@ def _biology_tier(
             report,
             df,
             f"{mark}_vs_expression",
-            _mark_mean(df, mark, "body"),
+            _mark_mean(df, mark),
             expression,
             +1,
             "roadmap",
@@ -485,18 +528,14 @@ def _biology_tier(
             report,
             df,
             f"{mark}_vs_expression",
-            _mark_mean(df, mark, "body"),
+            _mark_mean(df, mark),
             expression,
             -1,
             "roadmap",
         )
     if spec.atac is not None:
         prefix = spec.atac.column_prefix.lower() + "_"
-        atac_body = [
-            c
-            for c in df.columns
-            if c.startswith(prefix) and c.endswith("body")
-        ]
+        atac_body = _gene_level_columns(df.columns, prefix)
         atac = df[atac_body].mean(axis=1) if atac_body else None
         _check_direction(
             report,
@@ -511,13 +550,13 @@ def _biology_tier(
     # replicate coherence: the same mark across Roadmap epigenomes
     if spec.roadmap is not None and len(spec.roadmap.eids) >= 2:
         for mark in set(_ACTIVE_MARKS) | set(_REPRESSIVE_MARKS):
-            cols = [
-                c
-                for c in df.columns
-                if mark in c
-                and "fc_signal" in c
-                and c.endswith("body")
-            ]
+            cols = _gene_level_columns(
+                [
+                    c
+                    for c in df.columns
+                    if mark in c and "fc_signal" in c
+                ]
+            )
             eids = {
                 re.match(r"(e\d+)_", c).group(1)
                 for c in cols

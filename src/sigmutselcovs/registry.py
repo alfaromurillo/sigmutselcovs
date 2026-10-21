@@ -115,11 +115,17 @@ class GexpSpec:
 
 @dataclass(frozen=True, slots=True)
 class AtacSpec:
-    """TCGA ATAC-seq source (Corces et al. bigWig tarball on GDC)."""
+    """TCGA ATAC-seq source (Corces et al. bigWig tarball on GDC).
+
+    ``windows`` and ``transform`` choose the per-gene summaries of
+    each sample's track, as for `RoadmapSpec`.
+    """
 
     gdc_uuid: str
     column_prefix: str
     assembly: str = "hg38"
+    windows: tuple[str, ...] = DEFAULT_CHROMATIN_WINDOWS
+    transform: str | None | tuple[str | None, ...] = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -387,7 +393,7 @@ def validate_registry(raw: dict) -> None:
             raise ValueError(
                 f"{code}: encode_chromatin needs at least one track"
             )
-        for key in ("roadmap", "encode_chromatin"):
+        for key in ("roadmap", "encode_chromatin", "atac"):
             merged = _merge_defaults(row.get(key), defaults.get(key))
             if merged is not None:
                 _validate_chromatin_options(code, key, merged)

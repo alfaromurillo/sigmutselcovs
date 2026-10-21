@@ -50,6 +50,7 @@ from .paths import ProjectPaths, project_paths
 from .registry import (
     DEFAULT_CHROMATIN_WINDOWS,
     PEAK_TYPES,
+    TRANSFORM_SUFFIXES,
     ProjectSpec,
     chromatin_transforms,
     get_project,
@@ -636,7 +637,7 @@ def _describe_block(
     if source == "atac":
         return {
             "description": "TCGA ATAC-seq insertions, mean over "
-            "gene body or promoter window",
+            + _windows_phrase(spec.atac),
             "cell_line_or_epigenome": "TCGA tumor samples",
             "assembly": spec.atac.assembly if spec.atac else "",
             "units": "normalized insertions",
@@ -1072,6 +1073,8 @@ def build_covariate_matrix(
                 paths.atac_bigwig_files(),
                 gtf_for(spec.atac.assembly),
                 force_generation,
+                windows=spec.atac.windows,
+                transform=spec.atac.transform,
             )
             if atac_covs is not None:
                 if spec.average_by_assay:
@@ -1274,10 +1277,12 @@ def build_covariate_matrix(
         )
     if atac_covs is not None and spec.atac is not None:
         prefix = _atac_prefix(spec.atac, atac_covs) + "_"
-        for suffix, name in (
-            ("body", "atac_body"),
-            ("promoter", "atac_promoter"),
-        ):
+        summaries = [
+            f"_{w}{TRANSFORM_SUFFIXES[t]}"
+            for t in chromatin_transforms(spec.atac.transform)
+            for w in spec.atac.windows
+        ]
+        for suffix, name in ((s, f"atac{s}") for s in summaries):
             cols = [
                 c
                 for c in cov_matrix_full.columns
