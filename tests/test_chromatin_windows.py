@@ -117,15 +117,52 @@ def test_cds_span_keeps_par_copies_apart(tmp_path):
     genes = load_gene_bodies_from_gtf(
         gtf, autosomes_only=False, with_cds_span=True
     )
-    by_chrom = genes.set_index("Chromosome")
-    assert tuple(by_chrom.loc["chrX", ["cds_start", "cds_end"]]) == (
-        1200,
-        1300,
+    # one row, the chrX copy, with its own span (not merged with chrY's)
+    assert genes.index.is_unique
+    row = genes.loc["ENSG00000000009"]
+    assert row["Chromosome"] == "chrX"
+    assert (row["cds_start"], row["cds_end"]) == (1200, 1300)
+
+
+def test_par_gene_keeps_its_chrx_copy_whatever_the_order(tmp_path):
+    rows = [
+        (
+            "ENSG00000000009.2_PAR_Y",
+            "chrY",
+            2001,
+            6000,
+            "+",
+            "protein_coding",
+            {"TY": [(4001, 4500)]},
+        ),
+        (
+            "ENSG00000000009.2",
+            "chrX",
+            1001,
+            5000,
+            "+",
+            "protein_coding",
+            {"TX": [(1201, 1300)]},
+        ),
+        (
+            "ENSG00000000010.1",
+            "chrY",
+            7001,
+            9000,
+            "-",
+            "protein_coding",
+            {"TZ": [(7101, 7200)]},
+        ),
+    ]
+    gtf = write_gtf(tmp_path / "par_y_first.gtf", rows)
+    genes = load_gene_bodies_from_gtf(
+        gtf, autosomes_only=False, with_cds_span=True
     )
-    assert tuple(by_chrom.loc["chrY", ["cds_start", "cds_end"]]) == (
-        4000,
-        4500,
-    )
+    assert genes.index.is_unique
+    assert genes.loc["ENSG00000000009", "Chromosome"] == "chrX"
+    assert genes.loc["ENSG00000000009", "start"] == 1000
+    # a chrY-only gene is kept
+    assert genes.loc["ENSG00000000010", "Chromosome"] == "chrY"
 
 
 # --- windows ---

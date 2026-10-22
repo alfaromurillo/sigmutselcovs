@@ -292,8 +292,11 @@ def load_gene_bodies_from_gtf(
     - If `drop_version_suffix` is True, versioned Ensembl IDs are
       de-versioned to facilitate joins with resources that omit versions.
     - A ``CDS`` feature is matched to its gene by the full ``gene_id``
-      attribute and the chromosome, so the copies of a
-      pseudoautosomal gene on chrX and chrY keep their own spans.
+      attribute and the chromosome, so a pseudoautosomal gene's span
+      is its chrX copy's own.
+    - The index is unique: a pseudoautosomal gene listed on chrX and
+      chrY keeps its chrX row only (the chrY copy is usually masked
+      in signal tracks); any other repeated id keeps its first row.
 
     Raises
     ------
@@ -407,8 +410,18 @@ def load_gene_bodies_from_gtf(
         autos = {f"chr{i}" for i in range(1, 23)}
         df = df[df["Chromosome"].isin(autos)]
 
+    # A pseudoautosomal gene is listed on chrX and again on chrY (GENCODE
+    # ids ending "_PAR_Y"), one id once the version is dropped. Keep the
+    # chrX copy, so the index is unique and every summary reads the same
+    # row (the chrY copy is usually masked in signal tracks).
+    on_y = df["Chromosome"].astype(str).isin(("chrY", "Y"))
+    duplicated_y = on_y & df["ensembl_gene_id"].duplicated(keep=False)
+    if duplicated_y.any():
+        df = df[~duplicated_y]
+    df = df.drop_duplicates("ensembl_gene_id", keep="first")
+
     # Set index to Ensembl gene ID
-    df = df.set_index("ensembl_gene_id").sort_index()
+    df = df.set_index("ensembl_gene_id").sort_index(kind="stable")
 
     return df
 
