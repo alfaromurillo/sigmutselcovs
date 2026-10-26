@@ -180,6 +180,60 @@ def combine_with_generic(
     return combined
 
 
+def build_combined_matrix(
+    project: str,
+    data_dir: str | Path,
+    generic_dir: str | Path,
+    **build_kwargs,
+) -> pd.DataFrame:
+    """A cohort's own covariates plus the ``GENERIC`` pool.
+
+    Builds the cohort's ``cov_matrix_full`` and ``GENERIC``'s with
+    :func:`build_covariate_matrix` and joins them with
+    :func:`combine_with_generic` (``drop_own_tracks=True``): every pool
+    column except those summarising a chromatin track the cohort
+    already has. This is the matrix sigmutsel's covariate model is
+    fitted on in production, and the one the published PCA artifact
+    reduces (:func:`sigmutselcovs.pca_artifact.build_combined_pca_artifact`).
+
+    Parameters
+    ----------
+    project : str
+        TCGA study code, e.g. ``"COAD"``.
+    data_dir : str | Path
+        The cohort's project data directory.
+    generic_dir : str | Path
+        ``GENERIC``'s project data directory.
+    **build_kwargs
+        Forwarded to both :func:`build_covariate_matrix` calls (e.g.
+        ``force_generation``, ``validate_output``).
+
+    Returns
+    -------
+    pandas.DataFrame
+        Gene-indexed; ``attrs["column_sources"]`` records every
+        column's source, and ``attrs["combined_from"]`` the column
+        counts of the two inputs and of the pool columns dropped.
+    """
+    own = build_covariate_matrix(
+        project, data_dir, **build_kwargs
+    ).full
+    generic = build_covariate_matrix(
+        "GENERIC", generic_dir, **build_kwargs
+    ).full
+    combined = combine_with_generic(
+        own, generic, drop_own_tracks=True
+    )
+    combined.attrs["combined_from"] = {
+        "own_columns": int(own.shape[1]),
+        "generic_columns": int(generic.shape[1]),
+        "generic_columns_dropped": int(
+            own.shape[1] + generic.shape[1] - combined.shape[1]
+        ),
+    }
+    return combined
+
+
 # Which covariate block each source belongs to, for callers that treat
 # a gene's missing covariates by block (a gene missing its chromatin
 # columns is a different case from one missing its expression). The

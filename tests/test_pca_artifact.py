@@ -125,3 +125,58 @@ def test_save_pca_artifact_writes_parquet_and_manifest(tmp_path):
     assert manifest["shape"] == list(scores.shape)
     assert manifest["raw_columns"] == cov.shape[1]
     assert manifest["variance_threshold"] == 0.90
+
+
+def test_combined_artifact_reduces_own_plus_generic(
+    tmp_path, monkeypatch
+):
+    """The published artifact is the PCA of own + GENERIC: its input
+    has both matrices' columns, and the manifest says so."""
+    from types import SimpleNamespace
+
+    from sigmutselcovs import builder
+    from sigmutselcovs.pca_artifact import build_combined_pca_artifact
+
+    own = _synthetic_cov_matrix(n_cols=6, seed=1)
+    generic = _synthetic_cov_matrix(n_cols=9, seed=2).add_prefix(
+        "gen_"
+    )
+    built = {"COAD": own, "GENERIC": generic}
+    monkeypatch.setattr(
+        builder,
+        "build_covariate_matrix",
+        lambda project, data_dir, **kw: SimpleNamespace(
+            full=built[project]
+        ),
+    )
+
+    scores = build_combined_pca_artifact(
+        "COAD",
+        tmp_path / "COAD",
+        tmp_path / "GENERIC",
+        random_state=0,
+    )
+    assert scores.attrs["matrix"] == "combined"
+    assert scores.attrs["raw_columns"] == 15
+    assert scores.attrs["combined_from"] == {
+        "own_columns": 6,
+        "generic_columns": 9,
+        "generic_columns_dropped": 0,
+    }
+
+    paths = project_paths(tmp_path / "COAD")
+    save_pca_artifact(scores, paths, project="COAD")
+    manifest = json.loads(paths.pca_manifest_json.read_text())
+    assert manifest["matrix"] == "combined"
+    assert manifest["combined_from"]["generic_columns"] == 9
+
+
+def test_own_artifact_manifest_says_own(tmp_path):
+    scores = build_pca_artifact(
+        _synthetic_cov_matrix(), random_state=0
+    )
+    paths = project_paths(tmp_path / "X")
+    save_pca_artifact(scores, paths, project="X")
+    manifest = json.loads(paths.pca_manifest_json.read_text())
+    assert manifest["matrix"] == "own"
+    assert "combined_from" not in manifest

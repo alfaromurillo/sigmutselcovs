@@ -123,6 +123,39 @@ def build_pca_artifact(
     return scores
 
 
+def build_combined_pca_artifact(
+    project: str,
+    data_dir,
+    generic_dir,
+    *,
+    variance_threshold: float = DEFAULT_VARIANCE_THRESHOLD,
+    build_kwargs: dict | None = None,
+    **pca_kwargs,
+) -> pd.DataFrame:
+    """The published PCA artifact: :func:`build_pca_artifact` of the
+    cohort's combined matrix (its own covariates plus the ``GENERIC``
+    pool, own tracks dropped; :func:`sigmutselcovs.builder.
+    build_combined_matrix`), the matrix sigmutsel's covariate model is
+    fitted on. Its leading components are that model's, up to the set
+    of genes the PCA sees.
+
+    ``build_kwargs`` go to both matrix builds; ``pca_kwargs`` to
+    :func:`build_pca_artifact`. The result's ``attrs`` add ``matrix``
+    (``"combined"``) and ``combined_from`` (column counts).
+    """
+    from .builder import build_combined_matrix
+
+    combined = build_combined_matrix(
+        project, data_dir, generic_dir, **(build_kwargs or {})
+    )
+    scores = build_pca_artifact(
+        combined, variance_threshold=variance_threshold, **pca_kwargs
+    )
+    scores.attrs["matrix"] = "combined"
+    scores.attrs["combined_from"] = combined.attrs["combined_from"]
+    return scores
+
+
 def _package_version(name: str) -> str:
     try:
         from importlib.metadata import version
@@ -163,6 +196,14 @@ def save_pca_artifact(
         "cumulative_variance_at_selection": scores.attrs[
             "cumulative_variance_at_selection"
         ],
+        # What was reduced: "own" (the cohort's matrix alone) or
+        # "combined" (own + GENERIC, build_combined_pca_artifact).
+        "matrix": scores.attrs.get("matrix", "own"),
+        **(
+            {"combined_from": scores.attrs["combined_from"]}
+            if "combined_from" in scores.attrs
+            else {}
+        ),
         "built": pd.Timestamp.now(tz="UTC").isoformat(),
     }
     paths.pca_manifest_json.write_text(

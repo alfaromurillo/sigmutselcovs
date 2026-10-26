@@ -43,6 +43,8 @@ _LAZY = {
     "check_updates": "updates",
     "print_update_report": "updates",
     "build_pca_artifact": "pca_artifact",
+    "build_combined_pca_artifact": "pca_artifact",
+    "build_combined_matrix": "builder",
     "save_pca_artifact": "pca_artifact",
     "DEFAULT_VARIANCE_THRESHOLD": "pca_artifact",
     "get_deposition": "publish",

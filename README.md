@@ -49,9 +49,34 @@ cohorts` below), and one call downloads them:
 ```python
 from sigmutselcovs import fetch_covariate_matrix
 
-pca = fetch_covariate_matrix("COAD")           # PCA-reduced, a few MB
+pca = fetch_covariate_matrix("COAD")           # PCA-reduced
 full = fetch_covariate_matrix("COAD", "full")  # every column, ~0.5-1 GB
 ```
+
+**What the PCA artifact reduces.** Since the 2026-10-26 release, a
+cohort's `cov_matrix_pca.parquet` is the PCA of its *combined* matrix:
+the cohort's own covariates plus the tissue-agnostic `GENERIC` pool,
+with the pool's columns for tracks the cohort already has left out
+(`build_combined_matrix`). That is the matrix sigmutsel's covariate
+model is fitted on, and it predicts held-out mutation counts better
+than the cohort's own matrix alone. The components are kept to 99%
+cumulative explained variance, so a model using the first *k* of them
+uses the leading part of the same reduction. `cov_matrix_full.parquet`
+is still the cohort's own matrix; `GENERIC`'s is in its own record.
+`pca_manifest.json` says which matrix was reduced (`matrix`:
+`combined` or `own`) and records the column counts. Records published
+before 2026-10-26 hold the PCA of the own matrix alone.
+
+To rebuild an artifact locally (after `download` and `build` for the
+cohort and for `GENERIC`):
+
+```bash
+sigmutselcovs pca-artifact COAD --data-dir data/COAD --generic-dir data/GENERIC
+sigmutselcovs pca-artifact COAD --data-dir data/COAD --own-only  # the old kind
+```
+
+or from Python, `build_combined_pca_artifact("COAD", "data/COAD",
+"data/GENERIC")` followed by `save_pca_artifact`.
 
 **Only some columns.** The full matrix holds thousands of columns,
 most of them per-sample expression. To read just the ones you need,

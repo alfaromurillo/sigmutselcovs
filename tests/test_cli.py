@@ -131,3 +131,26 @@ def test_fetch_columns_and_blocks_imply_full(tmp_path, monkeypatch):
     assert calls["blocks"] == ["atac", "chromatin"]
     assert calls["columns"] == ["mrt"]
     assert pd.read_csv(out, index_col=0).loc["ENSG1", "atac_1"] == 0.5
+
+
+def test_pca_artifact_needs_generic_dir_unless_own_only(tmp_path):
+    args = build_parser().parse_args(
+        ["pca-artifact", "COAD", "--data-dir", str(tmp_path)]
+    )
+    assert args.generic_dir is None and not args.own_only
+    with pytest.raises(SystemExit):
+        main(["pca-artifact", "COAD", "--data-dir", str(tmp_path)])
+    args = build_parser().parse_args(
+        [
+            "pca-artifact",
+            "COAD",
+            "--data-dir",
+            str(tmp_path),
+            "--generic-dir",
+            str(tmp_path / "GENERIC"),
+            "--variance-threshold",
+            "0.95",
+        ]
+    )
+    assert args.generic_dir.endswith("GENERIC")
+    assert args.variance_threshold == 0.95

@@ -181,6 +181,31 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     p = sub.add_parser(
+        "pca-artifact",
+        help="build the published PCA artifact (own + GENERIC)",
+    )
+    _add_project_arg(p)
+    _add_data_dir_arg(p)
+    p.add_argument(
+        "--generic-dir",
+        default=None,
+        help="GENERIC's project data directory (required unless "
+        "--own-only)",
+    )
+    p.add_argument(
+        "--own-only",
+        action="store_true",
+        help="reduce the cohort's own matrix alone, as artifacts "
+        "published before 2026-10-26 did",
+    )
+    p.add_argument(
+        "--variance-threshold",
+        type=float,
+        default=None,
+        help="cumulative explained variance to reach (default 0.99)",
+    )
+
+    p = sub.add_parser(
         "check-updates", help="compare sources to recorded state"
     )
     p.add_argument(
@@ -262,6 +287,54 @@ def main(argv: list[str] | None = None) -> int:
                 f"cov_matrix_{name}: {shape[0]} genes x "
                 f"{shape[1]} columns"
             )
+        return 0
+
+    if args.command == "pca-artifact":
+        from .builder import build_covariate_matrix
+        from .paths import project_paths
+        from .pca_artifact import (
+            DEFAULT_VARIANCE_THRESHOLD,
+            build_combined_pca_artifact,
+            build_pca_artifact,
+            save_pca_artifact,
+        )
+
+        threshold = (
+            args.variance_threshold or DEFAULT_VARIANCE_THRESHOLD
+        )
+        if args.own_only:
+            full = build_covariate_matrix(
+                args.project, args.data_dir, cache_matrices=True
+            ).full
+            scores = build_pca_artifact(
+                full, variance_threshold=threshold
+            )
+        else:
+            if args.generic_dir is None:
+                raise SystemExit(
+                    "--generic-dir is required (or --own-only)"
+                )
+            # The cohort's own full matrix is published beside the
+            # artifact, so write it from this same build.
+            build_covariate_matrix(
+                args.project, args.data_dir, cache_matrices=True
+            )
+            scores = build_combined_pca_artifact(
+                args.project,
+                args.data_dir,
+                args.generic_dir,
+                variance_threshold=threshold,
+            )
+        save_pca_artifact(
+            scores, project_paths(args.data_dir), project=args.project
+        )
+        print(
+            f"{args.project}: {scores.attrs['n_components_selected']} "
+            f"components ({scores.attrs.get('matrix', 'own')} matrix, "
+            f"{scores.attrs['raw_columns']} columns) at "
+            f"{scores.attrs['cumulative_variance_at_selection']:.2%} "
+            "variance"
+        )
         return 0
 
     if args.command == "stream-chromatin":
